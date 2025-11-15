@@ -1,0 +1,291 @@
+// SQLite версия схемы для разработки
+// Для продакшена используйте schema.prisma с PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Enums заменены на String для SQLite
+// В коде используйте константы вместо enum
+
+model User {
+  id           Int      @id @default(autoincrement())
+  telegramId   String   @unique // BigInt заменен на String для SQLite
+  firstName    String
+  lastName     String?
+  username     String?
+  languageCode String?
+  isPremium    Boolean  @default(false)
+  photoUrl     String?
+  role         String   @default("USER") // USER или ADMIN
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  carts          Cart[]
+  orders         Order[]
+  abandonedCarts AbandonedCart[]
+
+  @@index([telegramId])
+  @@map("users")
+}
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  name        String
+  description String?
+  image       String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("categories")
+}
+
+model Product {
+  id          Int     @id @default(autoincrement())
+  slug        String  @unique
+  name        String
+  description String?
+  categoryId  Int
+  productType String  @default("SIMPLE") // SIMPLE, SINGLE_VARIANT, MATRIX, RANGE, CONFIGURABLE
+  basePrice   Float?  // Decimal заменен на Float для SQLite
+  unit        String  @default("PIECE") // PIECE, SQUARE_METER, TON, SET
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category   Category           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  attributes ProductAttribute[]
+  variants   ProductVariant[]
+  media      ProductMedia[]
+  cartItems  CartItem[]
+
+  @@index([slug])
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([productType])
+  @@map("products")
+}
+
+model ProductAttribute {
+  id         Int     @id @default(autoincrement())
+  productId  Int
+  name       String
+  slug       String
+  type       String  @default("select")
+  order      Int     @default(0)
+  isRequired Boolean @default(true)
+  unit       String?
+
+  product Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
+  values  ProductAttributeValue[]
+
+  @@index([productId])
+  @@map("product_attributes")
+}
+
+model ProductAttributeValue {
+  id          Int     @id @default(autoincrement())
+  attributeId Int
+  value       String
+  displayName String
+  order       Int     @default(0)
+  metadata    String? // JSON хранится как String в SQLite
+
+  attribute ProductAttribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  @@index([attributeId])
+  @@map("product_attribute_values")
+}
+
+model ProductVariant {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  name      String?
+  sku       String?  @unique
+  price     Float    // Decimal заменен на Float
+  stock     Int      @default(0)
+  weight    Float?   // Decimal заменен на Float
+  unit      String   @default("PIECE")
+  isActive  Boolean  @default(true)
+  metadata  String?  // JSON хранится как String
+  attributes String  @default("{}") // JSON хранится как String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([productId])
+  @@index([sku])
+  @@map("product_variants")
+}
+
+model ProductMedia {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  url       String
+  type      String   @default("image")
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_media")
+}
+
+model Cart {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@unique([userId])
+  @@index([userId])
+  @@map("carts")
+}
+
+model CartItem {
+  id                 Int      @id @default(autoincrement())
+  cartId             Int
+  productId          Int
+  variantId          Int?
+  quantity           Int      @default(1)
+  selectedAttributes String?  @default("{}") // JSON как String
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  cart    Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([cartId])
+  @@index([productId])
+  @@map("cart_items")
+}
+
+model Order {
+  id              Int      @id @default(autoincrement())
+  userId          Int
+  orderNumber     String   @unique
+  status          String   @default("PENDING") // OrderStatus как String
+  paymentStatus   String   @default("PENDING") // PaymentStatus как String
+  total           Float    // Decimal заменен на Float
+  customerName    String
+  customerPhone   String
+  customerEmail   String?
+  customerAddress String
+  comment         String?
+  paymentId       String?
+  paymentData     String?  // JSON как String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user  User        @relation(fields: [userId], references: [id])
+  items OrderItem[]
+
+  @@index([userId])
+  @@index([orderNumber])
+  @@index([status])
+  @@index([paymentStatus])
+  @@map("orders")
+}
+
+model OrderItem {
+  id                 Int      @id @default(autoincrement())
+  orderId            Int
+  productId          Int
+  variantId          Int?
+  productName        String
+  variantName        String?
+  price              Float    // Decimal заменен на Float
+  quantity           Int
+  selectedAttributes String?  @default("{}") // JSON как String
+  createdAt          DateTime @default(now())
+
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model Banner {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String?
+  imageUrl    String
+  linkUrl     String?
+  position    String   @default("home")
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  startDate   DateTime?
+  endDate     DateTime?
+  clickCount  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([position])
+  @@map("banners")
+}
+
+model Newsletter {
+  id          Int       @id @default(autoincrement())
+  subject     String
+  content     String    // @db.Text убран для SQLite
+  htmlContent String?
+  status      String   @default("draft")
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  recipientCount Int   @default(0)
+  openedCount Int      @default(0)
+  clickedCount Int     @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+  @@index([scheduledAt])
+  @@map("newsletters")
+}
+
+model AbandonedCart {
+  id          Int       @id @default(autoincrement())
+  userId      Int
+  cartId      Int
+  itemsCount  Int
+  totalAmount Float     // Decimal заменен на Float
+  reminderSent Int      @default(0)
+  lastReminderAt DateTime?
+  recovered   Boolean   @default(false)
+  recoveredAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId])
+  @@index([userId])
+  @@index([recovered])
+  @@index([createdAt])
+  @@map("abandoned_carts")
+}
+
