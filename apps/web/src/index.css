@@ -1,0 +1,1016 @@
+/* Import fonts from Google Fonts (OFL licensed - Cinzel and Inter) */
+/* Using display=swap for better performance */
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Alternative: Local font loading (uncomment if you want to self-host) */
+/* 
+@font-face {
+  font-family: 'Cinzel';
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url('/fonts/cinzel-variable.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 300 700;
+  font-display: swap;
+  src: url('/fonts/inter-variable.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+*/
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   REALISTIC STONE TEXTURE SVG FILTERS
+   ============================================ */
+
+/* SVG фильтры для каменной текстуры - встроенные в HTML через data URL */
+.stone-texture-container {
+  position: relative;
+}
+
+/* Создаем SVG фильтр для каменной крошки */
+.stone-texture-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='stoneNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='discrete' tableValues='0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23stoneNoise)' opacity='0.15'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  background-repeat: repeat;
+  pointer-events: none;
+  z-index: 1;
+  mix-blend-mode: multiply;
+  opacity: 0.3;
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+  }
+
+  .dark {
+    /* Dark Granite theme */
+    --background: 220 15% 18%;
+    --foreground: 210 20% 95%;
+    --card: 220 15% 20%;
+    --card-foreground: 210 20% 95%;
+    --popover: 220 15% 20%;
+    --popover-foreground: 210 20% 95%;
+    --primary: 210 20% 95%;
+    --primary-foreground: 220 15% 18%;
+    --secondary: 220 12% 25%;
+    --secondary-foreground: 210 20% 95%;
+    --muted: 220 12% 25%;
+    --muted-foreground: 215 15% 60%;
+    --accent: 220 12% 25%;
+    --accent-foreground: 210 20% 95%;
+    --destructive: 0 65% 50%;
+    --destructive-foreground: 210 20% 95%;
+    --border: 220 12% 25%;
+    --input: 220 12% 25%;
+    --ring: 210 20% 70%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+}
+
+@layer base {
+  :root {
+    /* Background variables - светлая тема */
+    --bg-base: #ffffff;
+    /* Сланцевый радиальный градиент (5-8% вариация) */
+    --bg-gradient: radial-gradient(
+      circle at 50% 50%,
+      hsl(220 8% 98%) 0%,
+      hsl(220 5% 100%) 50%,
+      hsl(220 8% 98%) 100%
+    );
+    --bg-noise-opacity: 0.025;
+  }
+
+  .dark {
+    /* Background variables - тёмная тема */
+    --bg-base: hsl(220 15% 18%);
+    /* Сланцевый радиальный градиент для тёмной темы */
+    --bg-gradient: radial-gradient(
+      circle at 50% 50%,
+      hsl(220 15% 20%) 0%,
+      hsl(220 15% 18%) 50%,
+      hsl(220 15% 20%) 100%
+    );
+    --bg-noise-opacity: 0.04;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply text-foreground;
+    /* Базовый цвет */
+    background-color: var(--bg-base);
+    /* Радиальный градиент (5-8% вариация) - сланцевый оттенок */
+    background-image: var(--bg-gradient);
+    position: relative;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  /* Grainy noise overlay через псевдоэлемент для контроля opacity */
+  /* Эффект "камера телефона сняла белый стол" - без видимого паттерна */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    /* SVG noise фильтр - очень тонкий, без видимого паттерна */
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='grainFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grainFilter)'/%3E%3C/svg%3E");
+    background-size: 300px 300px;
+    background-repeat: repeat;
+    opacity: var(--bg-noise-opacity);
+    /* Анимация шума только если пользователь не предпочитает reduced motion */
+    /* По умолчанию - статичный noise */
+    animation: grain-move 12s steps(12) infinite;
+  }
+
+  /* Уважаем prefers-reduced-motion - отключаем анимацию */
+  @media (prefers-reduced-motion: reduce) {
+    body::before {
+      animation: none;
+    }
+  }
+
+  /* Анимация для subtle движения шума - очень медленная и незаметная */
+  /* Создаёт эффект "живого" фона, как будто камера слегка дрожит */
+  @keyframes grain-move {
+    0% {
+      transform: translate(0, 0);
+    }
+    8.33% {
+      transform: translate(-2%, -1%);
+    }
+    16.66% {
+      transform: translate(-1%, 2%);
+    }
+    25% {
+      transform: translate(1%, -2%);
+    }
+    33.33% {
+      transform: translate(-1%, 1%);
+    }
+    41.66% {
+      transform: translate(2%, 1%);
+    }
+    50% {
+      transform: translate(-1%, -1%);
+    }
+    58.33% {
+      transform: translate(1%, 2%);
+    }
+    66.66% {
+      transform: translate(-2%, 0%);
+    }
+    75% {
+      transform: translate(0%, -1%);
+    }
+    83.33% {
+      transform: translate(1%, 1%);
+    }
+    91.66% {
+      transform: translate(-1%, -1%);
+    }
+    100% {
+      transform: translate(0, 0);
+    }
+  }
+}
+
+/* Fullscreen mobile styles with safe-area support */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+#root {
+  width: 100%;
+  height: 100%;
+  height: 100dvh; /* Dynamic viewport height */
+  overflow: hidden;
+}
+
+/* Safe area insets */
+.safe-area-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.safe-area-left {
+  padding-left: env(safe-area-inset-left);
+}
+
+.safe-area-right {
+  padding-right: env(safe-area-inset-right);
+}
+
+.safe-area-insets {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* Markdown styles */
+.prose {
+  color: hsl(var(--text));
+}
+
+.prose h1,
+.prose h2,
+.prose h3 {
+  color: hsl(var(--text));
+  font-weight: 600;
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+}
+
+.prose h1 {
+  font-size: 1.5em;
+}
+
+.prose h2 {
+  font-size: 1.25em;
+}
+
+.prose h3 {
+  font-size: 1.1em;
+}
+
+.prose p {
+  margin-bottom: 1em;
+  line-height: 1.6;
+}
+
+.prose ul,
+.prose ol {
+  margin-bottom: 1em;
+  padding-left: 1.5em;
+}
+
+.prose li {
+  margin-bottom: 0.5em;
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1em;
+}
+
+.prose th,
+.prose td {
+  border: 1px solid hsl(var(--border));
+  padding: 0.5em;
+  text-align: left;
+}
+
+.prose th {
+  background-color: hsl(var(--panel));
+  font-weight: 600;
+}
+
+.prose strong {
+  font-weight: 600;
+  color: hsl(var(--text));
+}
+
+.prose code {
+  background-color: hsl(var(--panel));
+  padding: 0.2em 0.4em;
+  border-radius: 0.25em;
+  font-size: 0.9em;
+}
+
+.prose pre {
+  background-color: hsl(var(--panel));
+  padding: 1em;
+  border-radius: 0.5em;
+  overflow-x: auto;
+  margin-bottom: 1em;
+}
+
+.prose pre code {
+  background-color: transparent;
+  padding: 0;
+}
+
+/* Granite Header Styles */
+.granite-header {
+  width: 100%;
+  min-height: 72px;
+  height: 96px;
+  position: relative;
+  flex-shrink: 0;
+  /* Учитываем Telegram safe area - фон начинается строго под верхним баром Telegram */
+  padding-top: max(var(--tg-top-safe, env(safe-area-inset-top, 0px)), 0px);
+  /* Базовые стили будут переопределены модификаторами темы (.granite-header-light/.granite-header-dark) */
+}
+
+/* 3D Stone Header для страницы категорий */
+/* Создает эффект массивной каменной плиты с глубиной */
+.stone-header-3d {
+  position: relative;
+  /* Создаем эффект "вырезанной" плиты через псевдоэлементы */
+}
+
+.stone-header-3d::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 0;
+  /* Верхний блик для 3D эффекта - имитация освещения сверху */
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.2) 15%,
+    rgba(255, 255, 255, 0.1) 30%,
+    transparent 50%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.stone-header-3d::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  /* Нижняя тень для глубины - создает эффект "выступающей" плиты */
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 0, 0, 0.15) 10%,
+    rgba(0, 0, 0, 0.25) 30%,
+    rgba(0, 0, 0, 0.3) 50%,
+    rgba(0, 0, 0, 0.25) 70%,
+    rgba(0, 0, 0, 0.15) 90%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+  /* Дополнительная глубина через blur */
+  filter: blur(1px);
+}
+
+.stone-header-3d > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Светлая тема - 3D каменная плита, сочетается с белым фоном */
+.granite-header-light {
+  /* Гранитный градиент для светлого фона */
+  background: linear-gradient(
+    135deg,
+    var(--stone-header-light-1, #D4D6D8) 0%,
+    var(--stone-header-light-2, #C0C2C5) 25%,
+    var(--stone-header-light-3, #A8ABAF) 50%,
+    var(--stone-header-light-2, #C0C2C5) 75%,
+    var(--stone-header-light-1, #D4D6D8) 100%
+  );
+  background-image: 
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='stoneNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23stoneNoise)' opacity='0.15'/%3E%3C/svg%3E"),
+    linear-gradient(
+      135deg,
+      #D4D6D8 0%,
+      #C0C2C5 25%,
+      #A8ABAF 50%,
+      #C0C2C5 75%,
+      #D4D6D8 100%
+    );
+  background-size: 200px 200px, 100% 100%;
+  background-blend-mode: overlay;
+  /* 3D эффект массивной плиты - множественные тени для глубины */
+  box-shadow: 
+    inset 0 3px 6px rgba(255, 255, 255, 0.5),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.2),
+    inset 3px 0 3px rgba(255, 255, 255, 0.4),
+    inset -3px 0 3px rgba(0, 0, 0, 0.15),
+    0 6px 16px rgba(0, 0, 0, 0.2),
+    0 12px 32px rgba(0, 0, 0, 0.15);
+  /* Бронзовая рамка снизу */
+  border-bottom: 3px solid rgba(139, 107, 63, 0.25);
+  position: relative;
+}
+
+/* Верхний блик для 3D эффекта */
+.granite-header-light::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    rgba(255, 255, 255, 0.2) 15%,
+    rgba(255, 255, 255, 0.1) 30%,
+    transparent 50%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Нижняя тень для глубины */
+.granite-header-light::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 0, 0, 0.15) 10%,
+    rgba(0, 0, 0, 0.25) 30%,
+    rgba(0, 0, 0, 0.3) 50%,
+    rgba(0, 0, 0, 0.25) 70%,
+    rgba(0, 0, 0, 0.15) 90%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+  filter: blur(1px);
+}
+
+/* Тёмная тема - 3D влажный гранит */
+.granite-header-dark {
+  /* Гранитный градиент для темного фона */
+  background: linear-gradient(
+    135deg,
+    hsl(220 15% 18%) 0%,
+    hsl(220 15% 16%) 25%,
+    hsl(220 15% 14%) 50%,
+    hsl(220 15% 16%) 75%,
+    hsl(220 15% 18%) 100%
+  );
+  background-image: 
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='stoneNoiseDark'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23stoneNoiseDark)' opacity='0.2'/%3E%3C/svg%3E"),
+    linear-gradient(
+      135deg,
+      hsl(220 15% 18%) 0%,
+      hsl(220 15% 16%) 25%,
+      hsl(220 15% 14%) 50%,
+      hsl(220 15% 16%) 75%,
+      hsl(220 15% 18%) 100%
+    );
+  background-size: 200px 200px, 100% 100%;
+  background-blend-mode: overlay;
+  /* 3D эффект массивной плиты - множественные тени для глубины */
+  box-shadow: 
+    inset 0 3px 6px rgba(255, 255, 255, 0.1),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.5),
+    inset 3px 0 3px rgba(255, 255, 255, 0.08),
+    inset -3px 0 3px rgba(0, 0, 0, 0.4),
+    0 6px 16px rgba(0, 0, 0, 0.4),
+    0 12px 32px rgba(0, 0, 0, 0.3);
+  /* Бронзовая рамка снизу */
+  border-bottom: 3px solid rgba(139, 107, 63, 0.3);
+  position: relative;
+}
+
+/* Верхний блик для 3D эффекта (темная тема) + каменная крошка + мраморные прожилки */
+.granite-header-dark::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  /* Многослойный шум для гранитной крошки (увеличено количество) */
+  background-image: 
+    /* Крупные светлые вкрапления гранита - больше точек */
+    radial-gradient(circle at 15% 25%, rgba(255, 255, 255, 0.15) 1.5px, transparent 1.5px),
+    radial-gradient(circle at 85% 75%, rgba(255, 255, 255, 0.12) 1.5px, transparent 1.5px),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.1) 1px, transparent 1px),
+    radial-gradient(circle at 25% 15%, rgba(255, 255, 255, 0.13) 1.5px, transparent 1.5px),
+    radial-gradient(circle at 75% 85%, rgba(255, 255, 255, 0.12) 1.5px, transparent 1.5px),
+    radial-gradient(circle at 55% 45%, rgba(255, 255, 255, 0.11) 1px, transparent 1px),
+    /* Средние вкрапления - больше точек */
+    radial-gradient(circle at 30% 40%, rgba(255, 255, 255, 0.08) 0.8px, transparent 0.8px),
+    radial-gradient(circle at 70% 60%, rgba(255, 255, 255, 0.08) 0.8px, transparent 0.8px),
+    radial-gradient(circle at 40% 65%, rgba(255, 255, 255, 0.06) 0.6px, transparent 0.6px),
+    radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.07) 0.7px, transparent 0.7px),
+    radial-gradient(circle at 80% 50%, rgba(255, 255, 255, 0.07) 0.7px, transparent 0.7px),
+    radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.07) 0.7px, transparent 0.7px),
+    radial-gradient(circle at 50% 70%, rgba(255, 255, 255, 0.07) 0.7px, transparent 0.7px),
+    /* Мелкие вкрапления - гранитная крошка (увеличено количество) */
+    radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.05) 0.4px, transparent 0.4px),
+    radial-gradient(circle at 90% 90%, rgba(255, 255, 255, 0.05) 0.4px, transparent 0.4px),
+    radial-gradient(circle at 25% 70%, rgba(255, 255, 255, 0.05) 0.4px, transparent 0.4px),
+    radial-gradient(circle at 75% 30%, rgba(255, 255, 255, 0.05) 0.4px, transparent 0.4px),
+    radial-gradient(circle at 35% 20%, rgba(255, 255, 255, 0.05) 0.4px, transparent 0.4px),
+    radial-gradient(circle at 65% 80%, rgba(255, 255, 255, 0.05) 0.4px, transparent 0.4px),
+    radial-gradient(circle at 15% 50%, rgba(255, 255, 255, 0.05) 0.4px, transparent 0.4px),
+    radial-gradient(circle at 85% 50%, rgba(255, 255, 255, 0.05) 0.4px, transparent 0.4px),
+    /* Темные вкрапления для контраста - больше точек */
+    radial-gradient(circle at 55% 20%, rgba(0, 0, 0, 0.4) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 45% 80%, rgba(0, 0, 0, 0.35) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 35% 15%, rgba(0, 0, 0, 0.38) 0.5px, transparent 0.5px),
+    radial-gradient(circle at 65% 85%, rgba(0, 0, 0, 0.35) 0.5px, transparent 0.5px),
+    /* Органичные мраморные прожилки - извилистые светлые линии с вариациями */
+    /* Основная прожилка - извилистая */
+    repeating-linear-gradient(
+      135deg,
+      transparent 0%,
+      transparent 48.5%,
+      rgba(255, 255, 255, 0.1) 49%,
+      rgba(255, 255, 255, 0.15) 49.5%,
+      rgba(255, 255, 255, 0.18) 50%,
+      rgba(255, 255, 255, 0.15) 50.5%,
+      rgba(255, 255, 255, 0.1) 51%,
+      transparent 51.5%,
+      transparent 100%
+    ),
+    /* Ветвящаяся прожилка */
+    repeating-linear-gradient(
+      45deg,
+      transparent 0%,
+      transparent 47.5%,
+      rgba(255, 255, 255, 0.08) 48%,
+      rgba(255, 255, 255, 0.13) 48.8%,
+      rgba(255, 255, 255, 0.16) 49.5%,
+      rgba(255, 255, 255, 0.13) 50.2%,
+      rgba(255, 255, 255, 0.08) 51%,
+      transparent 51.5%,
+      transparent 100%
+    ),
+    /* Тонкая извилистая прожилка */
+    repeating-linear-gradient(
+      120deg,
+      transparent 0%,
+      transparent 48.8%,
+      rgba(255, 255, 255, 0.07) 49%,
+      rgba(255, 255, 255, 0.12) 49.5%,
+      rgba(255, 255, 255, 0.14) 50%,
+      rgba(255, 255, 255, 0.12) 50.5%,
+      rgba(255, 255, 255, 0.07) 51%,
+      transparent 51.2%,
+      transparent 100%
+    ),
+    /* Еще одна тонкая прожилка */
+    repeating-linear-gradient(
+      60deg,
+      transparent 0%,
+      transparent 49.2%,
+      rgba(255, 255, 255, 0.06) 49.4%,
+      rgba(255, 255, 255, 0.11) 49.8%,
+      rgba(255, 255, 255, 0.13) 50%,
+      rgba(255, 255, 255, 0.11) 50.2%,
+      rgba(255, 255, 255, 0.06) 50.6%,
+      transparent 50.8%,
+      transparent 100%
+    ),
+    /* Дополнительные тонкие прожилки для органичности */
+    repeating-linear-gradient(
+      105deg,
+      transparent 0%,
+      transparent 49%,
+      rgba(255, 255, 255, 0.07) 49.3%,
+      rgba(255, 255, 255, 0.12) 50%,
+      rgba(255, 255, 255, 0.07) 50.7%,
+      transparent 51%,
+      transparent 100%
+    ),
+    repeating-linear-gradient(
+      75deg,
+      transparent 0%,
+      transparent 49.1%,
+      rgba(255, 255, 255, 0.065) 49.4%,
+      rgba(255, 255, 255, 0.115) 50%,
+      rgba(255, 255, 255, 0.065) 50.6%,
+      transparent 50.9%,
+      transparent 100%
+    ),
+    /* Верхний блик для 3D эффекта */
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.12) 0%,
+      rgba(255, 255, 255, 0.06) 15%,
+      rgba(255, 255, 255, 0.03) 30%,
+      transparent 50%
+    );
+  background-size: 
+    150px 150px,
+    130px 130px,
+    110px 110px,
+    90px 90px,
+    100px 100px,
+    80px 80px,
+    70px 70px,
+    75px 75px,
+    65px 65px,
+    85px 85px,
+    95px 95px,
+    60px 60px,
+    55px 55px,
+    50px 50px,
+    45px 45px,
+    40px 40px,
+    35px 35px,
+    30px 30px,
+    25px 25px,
+    20px 20px,
+    /* Размеры для органичных мраморных прожилок - большие для извилистости */
+    400% 400%,
+    380% 380%,
+    360% 360%,
+    340% 340%,
+    320% 320%,
+    300% 300%,
+    100% 100%;
+  background-position: 
+    0 0,
+    25px 25px,
+    50px 50px,
+    15px 15px,
+    35px 35px,
+    20px 20px,
+    5px 5px,
+    10px 10px,
+    30px 30px,
+    40px 40px,
+    60px 60px,
+    70px 70px,
+    12px 12px,
+    18px 18px,
+    22px 22px,
+    28px 28px,
+    32px 32px,
+    38px 38px,
+    42px 42px,
+    48px 48px,
+    52px 52px,
+    58px 58px,
+    /* Позиции для органичных мраморных прожилок - разбросанные для естественности */
+    12% 18%,
+    58% 32%,
+    28% 52%,
+    72% 68%,
+    45% 25%,
+    35% 75%,
+    0 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.85;
+  mix-blend-mode: screen;
+  /* Добавляем SVG фильтр для органичности */
+  filter: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='marbleVeinsHeader'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.02 0.03' numOctaves='2' seed='4'/%3E%3CfeDisplacementMap in='SourceGraphic' scale='3' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3C/svg%3E#marbleVeinsHeader");
+}
+
+/* Темные гранитные кнопки с мраморной текстурой */
+.granite-button {
+  /* position не задаем здесь, чтобы не конфликтовать с absolute/fixed из Tailwind */
+  background: linear-gradient(
+    135deg,
+    hsl(220 15% 18%) 0%,
+    hsl(220 15% 16%) 25%,
+    hsl(220 15% 14%) 50%,
+    hsl(220 15% 16%) 75%,
+    hsl(220 15% 18%) 100%
+  );
+  box-shadow: 
+    inset 0 2px 4px rgba(255, 255, 255, 0.1),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.5),
+    inset 2px 0 2px rgba(255, 255, 255, 0.08),
+    inset -2px 0 2px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(139, 107, 63, 0.3);
+  color: #E5E7EB;
+  overflow: hidden;
+  transition: all 0.2s ease;
+  /* Для псевдоэлемента ::after нужен position, но не переопределяем если уже задан */
+}
+
+/* Если нет absolute/fixed классов, используем relative для псевдоэлемента */
+.granite-button:not(.absolute):not(.fixed):not([style*="position"]) {
+  position: relative;
+}
+
+.granite-button:hover {
+  transform: scale(1.05) translateY(-1px);
+  box-shadow: 
+    inset 0 2px 4px rgba(255, 255, 255, 0.12),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.6),
+    inset 2px 0 2px rgba(255, 255, 255, 0.1),
+    inset -2px 0 2px rgba(0, 0, 0, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* Для ссылок с классом granite-button */
+a.granite-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    inset 0 3px 6px rgba(255, 255, 255, 0.12),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.6),
+    inset 3px 0 3px rgba(255, 255, 255, 0.1),
+    inset -3px 0 3px rgba(0, 0, 0, 0.5),
+    0 8px 20px rgba(0, 0, 0, 0.5),
+    0 16px 40px rgba(0, 0, 0, 0.4);
+}
+
+.granite-button:active {
+  transform: scale(0.98);
+}
+
+/* Мраморная текстура для гранитных кнопок */
+.granite-button::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+  /* Для absolute элементов тоже работает */
+  /* Органичные мраморные прожилки - извилистые светлые линии */
+  background-image: 
+    /* Каменная крошка */
+    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.08) 0.3px, transparent 0.3px),
+    radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.06) 0.3px, transparent 0.3px),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.05) 0.25px, transparent 0.25px),
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.06) 0.3px, transparent 0.3px),
+    radial-gradient(circle at 70% 80%, rgba(255, 255, 255, 0.06) 0.3px, transparent 0.3px),
+    /* Темные вкрапления */
+    radial-gradient(circle at 55% 25%, rgba(0, 0, 0, 0.2) 0.25px, transparent 0.25px),
+    radial-gradient(circle at 45% 75%, rgba(0, 0, 0, 0.18) 0.25px, transparent 0.25px),
+    /* Органичные мраморные прожилки */
+    repeating-linear-gradient(
+      135deg,
+      transparent 0%,
+      transparent 48.5%,
+      rgba(255, 255, 255, 0.06) 49%,
+      rgba(255, 255, 255, 0.09) 49.5%,
+      rgba(255, 255, 255, 0.11) 50%,
+      rgba(255, 255, 255, 0.09) 50.5%,
+      rgba(255, 255, 255, 0.06) 51%,
+      transparent 51.5%,
+      transparent 100%
+    ),
+    repeating-linear-gradient(
+      45deg,
+      transparent 0%,
+      transparent 47.5%,
+      rgba(255, 255, 255, 0.05) 48%,
+      rgba(255, 255, 255, 0.08) 48.8%,
+      rgba(255, 255, 255, 0.1) 49.5%,
+      rgba(255, 255, 255, 0.08) 50.2%,
+      rgba(255, 255, 255, 0.05) 51%,
+      transparent 51.5%,
+      transparent 100%
+    ),
+    repeating-linear-gradient(
+      120deg,
+      transparent 0%,
+      transparent 48.8%,
+      rgba(255, 255, 255, 0.04) 49%,
+      rgba(255, 255, 255, 0.07) 49.5%,
+      rgba(255, 255, 255, 0.09) 50%,
+      rgba(255, 255, 255, 0.07) 50.5%,
+      rgba(255, 255, 255, 0.04) 51%,
+      transparent 51.2%,
+      transparent 100%
+    );
+  background-size: 
+    60px 60px,
+    50px 50px,
+    40px 40px,
+    45px 45px,
+    55px 55px,
+    35px 35px,
+    30px 30px,
+    /* Размеры для органичных мраморных прожилок */
+    350% 350%,
+    330% 330%,
+    310% 310%;
+  background-position: 
+    0 0,
+    10px 10px,
+    20px 20px,
+    15px 15px,
+    25px 25px,
+    5px 5px,
+    12px 12px,
+    /* Позиции для органичных мраморных прожилок */
+    10% 15%,
+    55% 30%,
+    30% 50%;
+  opacity: 0.6;
+  mix-blend-mode: screen;
+  filter: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='marbleVeinsGraniteButton'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.025 0.035' numOctaves='2' seed='11'/%3E%3CfeDisplacementMap in='SourceGraphic' scale='2.5' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3C/svg%3E#marbleVeinsGraniteButton");
+}
+
+/* Контент кнопки поверх текстуры */
+.granite-button > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Гранитный баннер/блок с мраморной текстурой */
+.granite-banner {
+  position: relative;
+  background: linear-gradient(
+    135deg,
+    hsl(220 15% 18%) 0%,
+    hsl(220 15% 16%) 25%,
+    hsl(220 15% 14%) 50%,
+    hsl(220 15% 16%) 75%,
+    hsl(220 15% 18%) 100%
+  );
+  background-image: 
+    url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='stoneNoiseDark'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23stoneNoiseDark)' opacity='0.2'/%3E%3C/svg%3E"),
+    linear-gradient(135deg, hsl(220 15% 18%) 0%, hsl(220 15% 16%) 25%, hsl(220 15% 14%) 50%, hsl(220 15% 16%) 75%, hsl(220 15% 18%) 100%);
+  background-size: 200px 200px, 100% 100%;
+  background-blend-mode: overlay;
+  box-shadow: 
+    inset 0 3px 6px rgba(255, 255, 255, 0.1),
+    inset 0 -3px 6px rgba(0, 0, 0, 0.5),
+    inset 3px 0 3px rgba(255, 255, 255, 0.08),
+    inset -3px 0 3px rgba(0, 0, 0, 0.4),
+    0 6px 16px rgba(0, 0, 0, 0.4),
+    0 12px 32px rgba(0, 0, 0, 0.3);
+  border: 2px solid rgba(139, 107, 63, 0.3);
+  overflow: hidden;
+}
+
+/* Мраморная текстура для гранитного баннера */
+.granite-banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+  /* Органичные мраморные прожилки - извилистые светлые линии */
+  background-image: 
+    /* Каменная крошка */
+    radial-gradient(circle at 20% 30%, rgba(255, 255, 255, 0.08) 0.3px, transparent 0.3px),
+    radial-gradient(circle at 80% 70%, rgba(255, 255, 255, 0.06) 0.3px, transparent 0.3px),
+    radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.05) 0.25px, transparent 0.25px),
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.06) 0.3px, transparent 0.3px),
+    radial-gradient(circle at 70% 80%, rgba(255, 255, 255, 0.06) 0.3px, transparent 0.3px),
+    radial-gradient(circle at 40% 60%, rgba(255, 255, 255, 0.05) 0.25px, transparent 0.25px),
+    /* Темные вкрапления */
+    radial-gradient(circle at 55% 25%, rgba(0, 0, 0, 0.2) 0.25px, transparent 0.25px),
+    radial-gradient(circle at 45% 75%, rgba(0, 0, 0, 0.18) 0.25px, transparent 0.25px),
+    /* Органичные мраморные прожилки */
+    repeating-linear-gradient(
+      135deg,
+      transparent 0%,
+      transparent 48.5%,
+      rgba(255, 255, 255, 0.06) 49%,
+      rgba(255, 255, 255, 0.09) 49.5%,
+      rgba(255, 255, 255, 0.11) 50%,
+      rgba(255, 255, 255, 0.09) 50.5%,
+      rgba(255, 255, 255, 0.06) 51%,
+      transparent 51.5%,
+      transparent 100%
+    ),
+    repeating-linear-gradient(
+      45deg,
+      transparent 0%,
+      transparent 47.5%,
+      rgba(255, 255, 255, 0.05) 48%,
+      rgba(255, 255, 255, 0.08) 48.8%,
+      rgba(255, 255, 255, 0.1) 49.5%,
+      rgba(255, 255, 255, 0.08) 50.2%,
+      rgba(255, 255, 255, 0.05) 51%,
+      transparent 51.5%,
+      transparent 100%
+    ),
+    repeating-linear-gradient(
+      120deg,
+      transparent 0%,
+      transparent 48.8%,
+      rgba(255, 255, 255, 0.04) 49%,
+      rgba(255, 255, 255, 0.07) 49.5%,
+      rgba(255, 255, 255, 0.09) 50%,
+      rgba(255, 255, 255, 0.07) 50.5%,
+      rgba(255, 255, 255, 0.04) 51%,
+      transparent 51.2%,
+      transparent 100%
+    );
+  background-size: 
+    60px 60px,
+    50px 50px,
+    40px 40px,
+    45px 45px,
+    55px 55px,
+    35px 35px,
+    30px 30px,
+    25px 25px,
+    /* Размеры для органичных мраморных прожилок */
+    350% 350%,
+    330% 330%,
+    310% 310%;
+  background-position: 
+    0 0,
+    10px 10px,
+    20px 20px,
+    15px 15px,
+    25px 25px,
+    5px 5px,
+    12px 12px,
+    8px 8px,
+    /* Позиции для органичных мраморных прожилок */
+    10% 15%,
+    55% 30%,
+    30% 50%;
+  opacity: 0.6;
+  mix-blend-mode: screen;
+  filter: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='marbleVeinsBanner'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.025 0.035' numOctaves='2' seed='12'/%3E%3CfeDisplacementMap in='SourceGraphic' scale='2.5' xChannelSelector='R' yChannelSelector='G'/%3E%3C/filter%3E%3C/svg%3E#marbleVeinsBanner");
+}
+
+/* Контент баннера поверх текстуры */
+.granite-banner > * {
+  position: relative;
+  z-index: 2;
+}
+
+/* Нижняя тень для глубины (темная тема) */
+.granite-header-dark::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 0, 0, 0.3) 10%,
+    rgba(0, 0, 0, 0.5) 30%,
+    rgba(0, 0, 0, 0.6) 50%,
+    rgba(0, 0, 0, 0.5) 70%,
+    rgba(0, 0, 0, 0.3) 90%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+  filter: blur(1px);
+}
+
+/* Адаптивность для мобильных */
+@media (max-width: 768px) {
+  .granite-header {
+    min-height: 72px;
+    height: 96px;
+  }
+}
+
+/* Десктоп */
+@media (min-width: 1024px) {
+  .granite-header {
+    min-height: 80px;
+    height: 96px;
+  }
+}
+
