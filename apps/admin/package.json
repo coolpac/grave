@@ -10,23 +10,25 @@
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@hookform/resolvers": "^3.3.4",
     "@monorepo/ui": "workspace:*",
     "@tanstack/react-query": "^5.17.0",
+    "array-move": "^4.0.0",
     "axios": "^1.6.5",
     "clsx": "^2.1.0",
+    "date-fns": "^4.1.0",
     "framer-motion": "^10.16.16",
     "lucide-react": "^0.309.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-hook-form": "^7.49.3",
-    "@hookform/resolvers": "^3.3.4",
-    "react-router-dom": "^6.21.1",
-    "zustand": "^4.4.7",
-    "zod": "^3.22.4",
     "react-dropzone": "^14.2.3",
+    "react-hook-form": "^7.49.3",
+    "react-router-dom": "^6.21.1",
     "react-sortable-hoc": "^2.0.0",
     "react-zoom-pan-pinch": "^3.0.0",
-    "array-move": "^4.0.0"
+    "recharts": "^3.4.1",
+    "zod": "^3.22.4",
+    "zustand": "^4.4.7"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
@@ -45,4 +47,3 @@
     "vite-plugin-pwa": "^0.17.4"
   }
 }
-

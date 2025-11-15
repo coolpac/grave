@@ -1,7 +1,24 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { OrderStatus, PaymentStatus } from '@prisma/client';
 import { DashboardAnalyticsDto, PeriodType } from './dto/dashboard-analytics.dto';
+
+// Константы для статусов (так как SQLite не поддерживает enum)
+const OrderStatus = {
+  PENDING: 'PENDING',
+  CONFIRMED: 'CONFIRMED',
+  PROCESSING: 'PROCESSING',
+  SHIPPED: 'SHIPPED',
+  DELIVERED: 'DELIVERED',
+  CANCELLED: 'CANCELLED',
+  REFUNDED: 'REFUNDED',
+} as const;
+
+const PaymentStatus = {
+  PENDING: 'PENDING',
+  PAID: 'PAID',
+  FAILED: 'FAILED',
+  REFUNDED: 'REFUNDED',
+} as const;
 
 @Injectable()
 export class AdminService {
@@ -41,7 +58,7 @@ export class AdminService {
           paymentStatus: PaymentStatus.PAID,
         },
         _sum: { total: true },
-      }),
+      }).then(result => ({ _sum: { total: result._sum.total || 0 } })),
       this.prisma.product.count({
         where: { isActive: true },
       }),

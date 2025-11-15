@@ -1,28 +1,62 @@
-// SQLite версия схемы для разработки
-// Для продакшена используйте schema.prisma с PostgreSQL
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "sqlite" // Используем SQLite для разработки, можно переключить на postgresql для продакшена
   url      = env("DATABASE_URL")
 }
 
-// Enums заменены на String для SQLite
-// В коде используйте константы вместо enum
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum ProductType {
+  SIMPLE // Простой товар с фиксированной ценой
+  SINGLE_VARIANT // Один атрибут (размер)
+  MATRIX // Матрица атрибутов (размер × сорт)
+  RANGE // Диапазоны размеров
+  CONFIGURABLE // Сложная конфигурация
+}
+
+enum UnitType {
+  PIECE // шт
+  SQUARE_METER // м²
+  TON // Т
+  SET // компл
+}
 
 model User {
   id           Int      @id @default(autoincrement())
-  telegramId   String   @unique // BigInt заменен на String для SQLite
+  telegramId   BigInt   @unique
   firstName    String
   lastName     String?
   username     String?
   languageCode String?
   isPremium    Boolean  @default(false)
   photoUrl     String?
-  role         String   @default("USER") // USER или ADMIN
+  role         UserRole @default(USER)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -53,17 +87,17 @@ model Category {
 }
 
 model Product {
-  id          Int     @id @default(autoincrement())
-  slug        String  @unique
+  id          Int         @id @default(autoincrement())
+  slug        String      @unique
   name        String
   description String?
   categoryId  Int
-  productType String  @default("SIMPLE") // SIMPLE, SINGLE_VARIANT, MATRIX, RANGE, CONFIGURABLE
-  basePrice   Float?  // Decimal заменен на Float для SQLite
-  unit        String  @default("PIECE") // PIECE, SQUARE_METER, TON, SET
-  isActive    Boolean @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  productType ProductType @default(SIMPLE)
+  basePrice   Decimal?    @db.Decimal(10, 2) // Для SIMPLE товаров
+  unit        UnitType    @default(PIECE)
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 
   category   Category           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   attributes ProductAttribute[]
@@ -81,12 +115,12 @@ model Product {
 model ProductAttribute {
   id         Int     @id @default(autoincrement())
   productId  Int
-  name       String
-  slug       String
-  type       String  @default("select")
+  name       String // "Размер", "Сорт", "Высота", "Диаметр"
+  slug       String // "size", "grade", "height", "diameter"
+  type       String  @default("select") // "size", "select", "number", "range"
   order      Int     @default(0)
   isRequired Boolean @default(true)
-  unit       String?
+  unit       String? // "мм", "м²", "кг"
 
   product Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
   values  ProductAttributeValue[]
@@ -96,12 +130,12 @@ model ProductAttribute {
 }
 
 model ProductAttributeValue {
-  id          Int     @id @default(autoincrement())
+  id          Int    @id @default(autoincrement())
   attributeId Int
-  value       String
-  displayName String
-  order       Int     @default(0)
-  metadata    String? // JSON хранится как String в SQLite
+  value       String // "300*300*15", "сорт 1", "70"
+  displayName String // "300×300×15 мм", "Сорт 1", "70 мм"
+  order       Int    @default(0)
+  metadata    Json? // Дополнительные данные (вес, диапазоны)
 
   attribute ProductAttribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
 
@@ -112,15 +146,18 @@ model ProductAttributeValue {
 model ProductVariant {
   id        Int      @id @default(autoincrement())
   productId Int
-  name      String?
+  name      String? // Для обратной совместимости
   sku       String?  @unique
-  price     Float    // Decimal заменен на Float
+  price     Decimal  @db.Decimal(10, 2)
   stock     Int      @default(0)
-  weight    Float?   // Decimal заменен на Float
-  unit      String   @default("PIECE")
+  weight    Decimal? @db.Decimal(10, 2) // Для стел с весом
+  unit      UnitType @default(PIECE)
   isActive  Boolean  @default(true)
-  metadata  String?  // JSON хранится как String
-  attributes String  @default("{}") // JSON хранится как String
+  metadata  Json? // Дополнительные данные (размеры, характеристики)
+
+  // JSON структура для хранения комбинации атрибутов
+  // Пример: { "size": "300*300*15", "grade": "1" }
+  attributes Json @default("{}")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -138,7 +175,7 @@ model ProductMedia {
   id        Int      @id @default(autoincrement())
   productId Int
   url       String
-  type      String   @default("image")
+  type      String   @default("image") // image, video
   order     Int      @default(0)
   createdAt DateTime @default(now())
 
@@ -168,7 +205,8 @@ model CartItem {
   productId          Int
   variantId          Int?
   quantity           Int      @default(1)
-  selectedAttributes String?  @default("{}") // JSON как String
+  // JSON структура для хранения выбранных атрибутов (для отображения в корзине)
+  selectedAttributes Json?    @default("{}")
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
@@ -182,21 +220,21 @@ model CartItem {
 }
 
 model Order {
-  id              Int      @id @default(autoincrement())
+  id              Int           @id @default(autoincrement())
   userId          Int
-  orderNumber     String   @unique
-  status          String   @default("PENDING") // OrderStatus как String
-  paymentStatus   String   @default("PENDING") // PaymentStatus как String
-  total           Float    // Decimal заменен на Float
+  orderNumber     String        @unique
+  status          OrderStatus   @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING)
+  total           Decimal       @db.Decimal(10, 2)
   customerName    String
   customerPhone   String
   customerEmail   String?
   customerAddress String
   comment         String?
   paymentId       String?
-  paymentData     String?  // JSON как String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  paymentData     Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   user  User        @relation(fields: [userId], references: [id])
   items OrderItem[]
@@ -215,9 +253,10 @@ model OrderItem {
   variantId          Int?
   productName        String
   variantName        String?
-  price              Float    // Decimal заменен на Float
+  price              Decimal  @db.Decimal(10, 2)
   quantity           Int
-  selectedAttributes String?  @default("{}") // JSON как String
+  // JSON структура для хранения выбранных атрибутов (для истории заказов)
+  selectedAttributes Json?    @default("{}")
   createdAt          DateTime @default(now())
 
   order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -234,7 +273,7 @@ model Banner {
   description String?
   imageUrl    String
   linkUrl     String?
-  position    String   @default("home")
+  position    String   @default("home") // home, category, product
   order       Int      @default(0)
   isActive    Boolean  @default(true)
   startDate   DateTime?
@@ -251,9 +290,9 @@ model Banner {
 model Newsletter {
   id          Int       @id @default(autoincrement())
   subject     String
-  content     String    // @db.Text убран для SQLite
-  htmlContent String?
-  status      String   @default("draft")
+  content     String   @db.Text
+  htmlContent String?  @db.Text
+  status      String   @default("draft") // draft, scheduled, sending, sent, cancelled
   scheduledAt DateTime?
   sentAt      DateTime?
   recipientCount Int   @default(0)
@@ -272,10 +311,10 @@ model AbandonedCart {
   userId      Int
   cartId      Int
   itemsCount  Int
-  totalAmount Float     // Decimal заменен на Float
-  reminderSent Int      @default(0)
+  totalAmount Decimal   @db.Decimal(10, 2)
+  reminderSent Int      @default(0) // Количество отправленных напоминаний
   lastReminderAt DateTime?
-  recovered   Boolean   @default(false)
+  recovered   Boolean   @default(false) // Восстановлена ли корзина
   recoveredAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime @updatedAt
@@ -288,4 +327,3 @@ model AbandonedCart {
   @@index([createdAt])
   @@map("abandoned_carts")
 }
-

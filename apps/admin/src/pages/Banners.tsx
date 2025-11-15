@@ -1,0 +1,132 @@
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Plus, Edit, Trash2, Eye, EyeOff } from 'lucide-react';
+import api from '../lib/api';
+import { Button } from '@ui/components/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/components/card';
+
+export default function Banners() {
+  const queryClient = useQueryClient();
+
+  const { data: banners, isLoading } = useQuery({
+    queryKey: ['banners'],
+    queryFn: async () => {
+      const { data } = await api.get('/banners');
+      return data;
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await api.delete(`/banners/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['banners'] });
+    },
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
+      await api.put(`/banners/${id}`, { isActive });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['banners'] });
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-muted-foreground">Загрузка...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Баннеры</h1>
+          <p className="text-muted-foreground">Управление баннерами</p>
+        </div>
+        <Button>
+          <Plus className="mr-2 h-4 w-4" />
+          Добавить баннер
+        </Button>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {banners?.map((banner: any) => (
+          <Card key={banner.id}>
+            <CardHeader>
+              <div className="aspect-video bg-muted rounded-md overflow-hidden mb-2">
+                <img
+                  src={banner.imageUrl}
+                  alt={banner.title}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <CardTitle className="text-lg">{banner.title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                {banner.description}
+              </p>
+              <div className="flex items-center justify-between text-sm">
+                <div>
+                  <div className="text-muted-foreground">
+                    Позиция: {banner.position}
+                  </div>
+                  <div className="text-muted-foreground">
+                    Кликов: {banner.clickCount}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      toggleActiveMutation.mutate({
+                        id: banner.id,
+                        isActive: !banner.isActive,
+                      })
+                    }
+                  >
+                    {banner.isActive ? (
+                      <Eye className="h-4 w-4" />
+                    ) : (
+                      <EyeOff className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button variant="ghost" size="sm">
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm('Удалить баннер?')) {
+                        deleteMutation.mutate(banner.id);
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {(!banners || banners.length === 0) && (
+        <Card>
+          <CardContent className="p-8 text-center">
+            <p className="text-muted-foreground">Баннеры не найдены</p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
