@@ -50,10 +50,10 @@ export default function Products() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6 relative">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Товары</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2 gradient-text">Товары</h1>
           <p className="text-sm sm:text-base text-muted-foreground">Управление товарами</p>
         </div>
         <Link to="/products/new" className="w-full sm:w-auto">
@@ -64,9 +64,9 @@ export default function Products() {
         </Link>
       </div>
 
-      <Card>
+      <Card className="glass-strong border-white/10">
         <CardHeader>
-          <CardTitle>Поиск</CardTitle>
+          <CardTitle className="text-white">Поиск</CardTitle>
         </CardHeader>
         <CardContent>
           <input
@@ -74,14 +74,14 @@ export default function Products() {
             placeholder="Поиск по названию или slug..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full px-3 py-2 border rounded-md"
+            className="w-full px-3 py-2 border border-white/10 rounded-lg bg-white/5 text-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-white/20"
           />
         </CardContent>
       </Card>
 
       <div className="grid gap-4">
         {filteredProducts.map((product: any) => (
-          <Card key={product.id}>
+          <Card key={product.id} className="glass-strong card-hover border-white/10">
             <CardContent className="p-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex-1 min-w-0">

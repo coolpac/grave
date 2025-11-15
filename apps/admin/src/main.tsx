@@ -5,6 +5,9 @@ import App from './App.tsx'
 import '@ui/styles/theme.css'
 import './index.css'
 
+// Apply dark theme
+document.documentElement.classList.add('dark')
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <App />
