@@ -37,15 +37,15 @@ export default function AbandonedCarts() {
   const stats = abandonedCarts?.stats || {};
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2">Брошенные корзины</h1>
-        <p className="text-sm sm:text-base text-muted-foreground">Управление неоформленными заказами</p>
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6 relative">
+      <div className="mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2 gradient-text">Брошенные корзины</h1>
+        <p className="text-sm sm:text-base text-white/70">Управление неоформленными заказами</p>
       </div>
 
       {/* Статистика */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        <Card>
+        <Card className="glass-strong card-hover border-white/20 shadow-xl">
           <CardHeader>
             <CardTitle className="text-sm font-medium">Всего брошенных</CardTitle>
           </CardHeader>
@@ -80,7 +80,7 @@ export default function AbandonedCarts() {
       {/* Список корзин */}
       <div className="grid gap-4">
         {carts.map((cart: any) => (
-          <Card key={cart.id}>
+          <Card key={cart.id} className="glass-strong card-hover border-white/20 shadow-xl">
             <CardHeader>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                 <CardTitle className="text-base sm:text-lg">Корзина #{cart.id}</CardTitle>

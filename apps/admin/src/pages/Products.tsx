@@ -64,9 +64,9 @@ export default function Products() {
         </Link>
       </div>
 
-      <Card className="glass-strong border-white/10">
+      <Card className="glass-strong border-white/20 shadow-xl">
         <CardHeader>
-          <CardTitle className="text-white">Поиск</CardTitle>
+          <CardTitle className="text-white font-semibold">Поиск</CardTitle>
         </CardHeader>
         <CardContent>
           <input
@@ -74,27 +74,27 @@ export default function Products() {
             placeholder="Поиск по названию или slug..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full px-3 py-2 border border-white/10 rounded-lg bg-white/5 text-white placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-white/20"
+            className="w-full px-4 py-3 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 focus:border-white/30 transition-all"
           />
         </CardContent>
       </Card>
 
       <div className="grid gap-4">
         {filteredProducts.map((product: any) => (
-          <Card key={product.id} className="glass-strong card-hover border-white/10">
+          <Card key={product.id} className="glass-strong card-hover border-white/20 shadow-xl">
             <CardContent className="p-4">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="font-semibold text-base sm:text-lg break-words">{product.name}</h3>
+                    <h3 className="font-semibold text-base sm:text-lg break-words text-white">{product.name}</h3>
                     {!product.isActive && (
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">(Неактивен)</span>
+                      <span className="text-xs text-white/60 whitespace-nowrap bg-white/10 px-2 py-1 rounded">(Неактивен)</span>
                     )}
                   </div>
-                  <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words">
+                  <p className="text-xs sm:text-sm text-white/80 mt-1 break-words">
                     Slug: {product.slug}
                   </p>
-                  <p className="text-xs sm:text-sm text-muted-foreground">
+                  <p className="text-xs sm:text-sm text-white/70">
                     Категория: {product.category?.name || 'Нет'} · Тип: {product.productType} · Вариантов: {product.variants?.length || 0}
                   </p>
                 </div>

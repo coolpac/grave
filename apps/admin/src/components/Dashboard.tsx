@@ -60,33 +60,33 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="glass-strong card-hover border-white/20 shadow-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Всего заказов</CardTitle>
-            <ShoppingCart className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-white">Всего заказов</CardTitle>
+            <ShoppingCart className="h-5 w-5 text-green-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics?.totalOrders || 0}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-3xl font-bold text-white mb-1">{metrics?.totalOrders || 0}</div>
+            <p className="text-xs text-white/70">
               {metrics?.pendingOrders || 0} ожидают обработки
             </p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="glass-strong card-hover border-white/20 shadow-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Выручка</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-white">Выручка</CardTitle>
+            <DollarSign className="h-5 w-5 text-yellow-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-bold text-white mb-1">
               {new Intl.NumberFormat('ru-RU', {
                 style: 'currency',
                 currency: 'RUB',
                 minimumFractionDigits: 0,
               }).format(metrics?.totalRevenue || 0)}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-white/70">
               {new Intl.NumberFormat('ru-RU', {
                 style: 'currency',
                 currency: 'RUB',
@@ -96,14 +96,14 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="glass-strong card-hover border-white/20 shadow-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Товаров</CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-white">Товаров</CardTitle>
+            <Package className="h-5 w-5 text-purple-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics?.activeProducts || 0}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-3xl font-bold text-white mb-1">{metrics?.activeProducts || 0}</div>
+            <p className="text-xs text-white/70">
               {metrics?.abandonedCartsCount || 0} брошенных корзин
             </p>
           </CardContent>
