@@ -37,14 +37,14 @@ export default function AbandonedCarts() {
   const stats = abandonedCarts?.stats || {};
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
       <div>
-        <h1 className="text-3xl font-bold mb-2">Брошенные корзины</h1>
-        <p className="text-muted-foreground">Управление неоформленными заказами</p>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">Брошенные корзины</h1>
+        <p className="text-sm sm:text-base text-muted-foreground">Управление неоформленными заказами</p>
       </div>
 
       {/* Статистика */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium">Всего брошенных</CardTitle>
@@ -82,10 +82,10 @@ export default function AbandonedCarts() {
         {carts.map((cart: any) => (
           <Card key={cart.id}>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Корзина #{cart.id}</CardTitle>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <CardTitle className="text-base sm:text-lg">Корзина #{cart.id}</CardTitle>
                 {cart.recovered && (
-                  <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800">
+                  <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800 self-start sm:self-auto">
                     Восстановлена
                   </span>
                 )}
@@ -93,10 +93,10 @@ export default function AbandonedCarts() {
             </CardHeader>
             <CardContent>
               <div className="space-y-2 mb-4">
-                <div className="text-sm">
+                <div className="text-xs sm:text-sm">
                   <span className="text-muted-foreground">Товаров:</span> {cart.itemsCount}
                 </div>
-                <div className="text-sm">
+                <div className="text-xs sm:text-sm">
                   <span className="text-muted-foreground">Сумма:</span>{' '}
                   {new Intl.NumberFormat('ru-RU', {
                     style: 'currency',
@@ -104,12 +104,12 @@ export default function AbandonedCarts() {
                     minimumFractionDigits: 0,
                   }).format(cart.totalAmount)}
                 </div>
-                <div className="text-sm">
+                <div className="text-xs sm:text-sm">
                   <span className="text-muted-foreground">Создана:</span>{' '}
                   {format(new Date(cart.createdAt), 'dd.MM.yyyy HH:mm')}
                 </div>
                 {cart.lastReminderAt && (
-                  <div className="text-sm">
+                  <div className="text-xs sm:text-sm">
                     <span className="text-muted-foreground">Последнее напоминание:</span>{' '}
                     {format(new Date(cart.lastReminderAt), 'dd.MM.yyyy HH:mm')}
                   </div>
@@ -119,6 +119,7 @@ export default function AbandonedCarts() {
                 <Button
                   onClick={() => sendReminderMutation.mutate(cart.id)}
                   disabled={sendReminderMutation.isPending}
+                  className="w-full sm:w-auto"
                 >
                   <Mail className="mr-2 h-4 w-4" />
                   Отправить напоминание

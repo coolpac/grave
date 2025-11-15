@@ -43,19 +43,19 @@ export default function Banners() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Баннеры</h1>
-          <p className="text-muted-foreground">Управление баннерами</p>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Баннеры</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Управление баннерами</p>
         </div>
-        <Button>
+        <Button className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Добавить баннер
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {banners?.map((banner: any) => (
           <Card key={banner.id}>
             <CardHeader>

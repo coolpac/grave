@@ -34,13 +34,13 @@ export default function Newsletters() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Рассылки</h1>
-          <p className="text-muted-foreground">Управление email рассылками</p>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Рассылки</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Управление email рассылками</p>
         </div>
-        <Button>
+        <Button className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Создать рассылку
         </Button>
@@ -65,7 +65,7 @@ export default function Newsletters() {
               <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
                 {newsletter.content}
               </p>
-              <div className="flex items-center justify-between text-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-sm">
                 <div className="space-y-1">
                   {newsletter.scheduledAt && (
                     <div className="text-muted-foreground">
@@ -77,13 +77,13 @@ export default function Newsletters() {
                       Отправлено: {format(new Date(newsletter.sentAt), 'dd.MM.yyyy HH:mm')}
                     </div>
                   )}
-                  <div className="text-muted-foreground">
+                  <div className="text-muted-foreground text-xs sm:text-sm">
                     Получателей: {newsletter.recipientCount} · 
                     Открытий: {newsletter.openedCount} · 
                     Кликов: {newsletter.clickedCount}
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   {newsletter.status === 'draft' && (
                     <Button variant="ghost" size="sm">
                       <Send className="h-4 w-4" />

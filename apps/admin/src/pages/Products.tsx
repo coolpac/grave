@@ -50,14 +50,14 @@ export default function Products() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Товары</h1>
-          <p className="text-muted-foreground">Управление товарами</p>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Товары</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">Управление товарами</p>
         </div>
-        <Link to="/products/new">
-          <Button>
+        <Link to="/products/new" className="w-full sm:w-auto">
+          <Button className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Добавить товар
           </Button>
@@ -83,22 +83,22 @@ export default function Products() {
         {filteredProducts.map((product: any) => (
           <Card key={product.id}>
             <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold">{product.name}</h3>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="font-semibold text-base sm:text-lg break-words">{product.name}</h3>
                     {!product.isActive && (
-                      <span className="text-xs text-muted-foreground">(Неактивен)</span>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">(Неактивен)</span>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Slug: {product.slug} · Категория: {product.category?.name || 'Нет'}
+                  <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words">
+                    Slug: {product.slug}
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    Тип: {product.productType} · Вариантов: {product.variants?.length || 0}
+                  <p className="text-xs sm:text-sm text-muted-foreground">
+                    Категория: {product.category?.name || 'Нет'} · Тип: {product.productType} · Вариантов: {product.variants?.length || 0}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <Button
                     variant="ghost"
                     size="sm"
@@ -108,6 +108,7 @@ export default function Products() {
                         isActive: !product.isActive,
                       })
                     }
+                    className="flex-shrink-0"
                   >
                     {product.isActive ? (
                       <Eye className="h-4 w-4" />
@@ -116,7 +117,7 @@ export default function Products() {
                     )}
                   </Button>
                   <Link to={`/products/${product.id}/edit`}>
-                    <Button variant="ghost" size="sm">
+                    <Button variant="ghost" size="sm" className="flex-shrink-0">
                       <Edit className="h-4 w-4" />
                     </Button>
                   </Link>
@@ -128,6 +129,7 @@ export default function Products() {
                         deleteMutation.mutate(product.id);
                       }
                     }}
+                    className="flex-shrink-0"
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
                   </Button>
