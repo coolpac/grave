@@ -66,8 +66,8 @@ export default function Layout({ children }: LayoutProps) {
                     className={clsx(
                       'group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200',
                       isActive
-                        ? 'bg-white/10 text-white shadow-lg shadow-black/20'
-                        : 'text-muted-foreground hover:bg-white/5 hover:text-white'
+                        ? 'bg-white/15 text-white shadow-lg shadow-black/30 border border-white/20'
+                        : 'text-white/80 hover:bg-white/10 hover:text-white border border-transparent'
                     )}
                   >
                     <item.icon

@@ -47,14 +47,14 @@ export default function Dashboard() {
 
       {/* Метрики */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="glass-strong card-hover border-white/10">
+        <Card className="glass-strong card-hover border-white/20 shadow-xl">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Всего пользователей</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-white">Всего пользователей</CardTitle>
+            <Users className="h-5 w-5 text-blue-400" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{metrics?.totalUsers || 0}</div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-3xl font-bold text-white mb-1">{metrics?.totalUsers || 0}</div>
+            <p className="text-xs text-white/70">
               +{metrics?.dailyUsers || 0} за сегодня
             </p>
           </CardContent>
@@ -112,9 +112,9 @@ export default function Dashboard() {
 
       {/* Графики */}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-        <Card className="glass-strong card-hover border-white/10">
+        <Card className="glass-strong card-hover border-white/20 shadow-xl">
           <CardHeader>
-            <CardTitle className="text-white">Динамика продаж</CardTitle>
+            <CardTitle className="text-white text-lg font-semibold">Динамика продаж</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
@@ -155,9 +155,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="glass-strong card-hover border-white/10">
+        <Card className="glass-strong card-hover border-white/20 shadow-xl">
           <CardHeader>
-            <CardTitle className="text-white">Заказы по статусам</CardTitle>
+            <CardTitle className="text-white text-lg font-semibold">Заказы по статусам</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
@@ -175,9 +175,9 @@ export default function Dashboard() {
 
       {/* Выручка по категориям */}
       {revenueByCategory.length > 0 && (
-        <Card className="glass-strong card-hover border-white/10">
+        <Card className="glass-strong card-hover border-white/20 shadow-xl">
           <CardHeader>
-            <CardTitle className="text-white">Выручка по категориям</CardTitle>
+            <CardTitle className="text-white text-lg font-semibold">Выручка по категориям</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
@@ -214,22 +214,22 @@ export default function Dashboard() {
 
       {/* Топ товары */}
       {metrics?.topProducts && metrics.topProducts.length > 0 && (
-        <Card className="glass-strong card-hover border-white/10">
+        <Card className="glass-strong card-hover border-white/20 shadow-xl">
           <CardHeader>
-            <CardTitle className="text-white">Топ товары</CardTitle>
+            <CardTitle className="text-white text-lg font-semibold">Топ товары</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               {metrics.topProducts.slice(0, 5).map((product: any, index: number) => (
                 <div
                   key={product.id}
-                  className="flex items-center justify-between p-3 border border-white/10 rounded-lg glass hover:bg-white/5 transition-colors"
+                  className="flex items-center justify-between p-3 border border-white/20 rounded-lg glass hover:bg-white/10 transition-colors"
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-muted-foreground">#{index + 1}</span>
-                    <span className="font-medium">{product.name}</span>
+                    <span className="text-white/70 font-semibold">#{index + 1}</span>
+                    <span className="font-medium text-white">{product.name}</span>
                   </div>
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm text-white/80">
                     {product.quantity} шт. ·{' '}
                     {new Intl.NumberFormat('ru-RU', {
                       style: 'currency',
