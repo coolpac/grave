@@ -6,10 +6,12 @@
     "dev": "pnpm --filter @monorepo/web dev",
     "dev:api": "pnpm --filter @monorepo/api start:dev",
     "dev:web": "pnpm --filter @monorepo/web dev",
-    "dev:all": "pnpm --parallel --filter @monorepo/api --filter @monorepo/web dev",
+    "dev:admin": "pnpm --filter @monorepo/admin dev",
+    "dev:all": "pnpm --parallel --filter @monorepo/api --filter @monorepo/web --filter @monorepo/admin dev",
     "build": "pnpm --filter @monorepo/web build",
     "build:api": "pnpm --filter @monorepo/api build",
     "build:web": "pnpm --filter @monorepo/web build",
+    "build:admin": "pnpm --filter @monorepo/admin build",
     "tunnel:api": "cloudflared tunnel --url http://localhost:3000"
   },
   "devDependencies": {},
