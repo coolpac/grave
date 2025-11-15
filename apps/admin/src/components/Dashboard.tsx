@@ -39,15 +39,15 @@ export default function Dashboard() {
   const revenueByCategory = analytics?.revenueByCategory || [];
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6">
-      <div>
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2">Дашборд</h1>
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6 relative">
+      <div className="mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2 gradient-text">Дашборд</h1>
         <p className="text-sm sm:text-base text-muted-foreground">Обзор продаж и аналитика</p>
       </div>
 
       {/* Метрики */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
+        <Card className="glass-strong card-hover border-white/10">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Всего пользователей</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -112,9 +112,9 @@ export default function Dashboard() {
 
       {/* Графики */}
       <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
-        <Card>
+        <Card className="glass-strong card-hover border-white/10">
           <CardHeader>
-            <CardTitle>Динамика продаж</CardTitle>
+            <CardTitle className="text-white">Динамика продаж</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
@@ -155,9 +155,9 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="glass-strong card-hover border-white/10">
           <CardHeader>
-            <CardTitle>Заказы по статусам</CardTitle>
+            <CardTitle className="text-white">Заказы по статусам</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
@@ -175,9 +175,9 @@ export default function Dashboard() {
 
       {/* Выручка по категориям */}
       {revenueByCategory.length > 0 && (
-        <Card>
+        <Card className="glass-strong card-hover border-white/10">
           <CardHeader>
-            <CardTitle>Выручка по категориям</CardTitle>
+            <CardTitle className="text-white">Выручка по категориям</CardTitle>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
@@ -214,16 +214,16 @@ export default function Dashboard() {
 
       {/* Топ товары */}
       {metrics?.topProducts && metrics.topProducts.length > 0 && (
-        <Card>
+        <Card className="glass-strong card-hover border-white/10">
           <CardHeader>
-            <CardTitle>Топ товары</CardTitle>
+            <CardTitle className="text-white">Топ товары</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               {metrics.topProducts.slice(0, 5).map((product: any, index: number) => (
                 <div
                   key={product.id}
-                  className="flex items-center justify-between p-2 border rounded"
+                  className="flex items-center justify-between p-3 border border-white/10 rounded-lg glass hover:bg-white/5 transition-colors"
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-muted-foreground">#{index + 1}</span>
