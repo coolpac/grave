@@ -44,7 +44,7 @@ export default function Products() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Загрузка...</div>
+        <div className="text-white/80 text-lg">Загрузка...</div>
       </div>
     );
   }
@@ -141,9 +141,9 @@ export default function Products() {
       </div>
 
       {filteredProducts.length === 0 && (
-        <Card>
+        <Card className="glass-strong border-white/20">
           <CardContent className="p-8 text-center">
-            <p className="text-muted-foreground">Товары не найдены</p>
+            <p className="text-white/70">Товары не найдены</p>
           </CardContent>
         </Card>
       )}

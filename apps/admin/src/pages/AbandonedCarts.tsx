@@ -28,7 +28,7 @@ export default function AbandonedCarts() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Загрузка...</div>
+        <div className="text-white/80 text-lg">Загрузка...</div>
       </div>
     );
   }
@@ -133,10 +133,10 @@ export default function AbandonedCarts() {
       </div>
 
       {carts.length === 0 && (
-        <Card>
+        <Card className="glass-strong border-white/20">
           <CardContent className="p-8 text-center">
-            <ShoppingCart className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-muted-foreground">Брошенных корзин нет</p>
+            <ShoppingCart className="mx-auto h-12 w-12 text-white/50 mb-4" />
+            <p className="text-white/70">Брошенных корзин нет</p>
           </CardContent>
         </Card>
       )}

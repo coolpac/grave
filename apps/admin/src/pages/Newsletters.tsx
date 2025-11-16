@@ -28,7 +28,7 @@ export default function Newsletters() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Загрузка...</div>
+        <div className="text-white/80 text-lg">Загрузка...</div>
       </div>
     );
   }
@@ -108,9 +108,9 @@ export default function Newsletters() {
       </div>
 
       {(!newsletters || newsletters.length === 0) && (
-        <Card>
+        <Card className="glass-strong border-white/20">
           <CardContent className="p-8 text-center">
-            <p className="text-muted-foreground">Рассылки не найдены</p>
+            <p className="text-white/70">Рассылки не найдены</p>
           </CardContent>
         </Card>
       )}

@@ -29,7 +29,7 @@ export default function Dashboard() {
   if (metricsLoading || analyticsLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">Загрузка...</div>
+        <div className="text-white/80 text-lg">Загрузка...</div>
       </div>
     );
   }
@@ -119,13 +119,24 @@ export default function Dashboard() {
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
               <LineChart data={salesData}>
-                <CartesianGrid strokeDasharray="3 3" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
                 <XAxis
                   dataKey="date"
                   tickFormatter={(value) => format(new Date(value), 'dd.MM')}
+                  stroke="rgba(255,255,255,0.5)"
+                  tick={{ fill: 'rgba(255,255,255,0.7)' }}
                 />
-                <YAxis />
+                <YAxis
+                  stroke="rgba(255,255,255,0.5)"
+                  tick={{ fill: 'rgba(255,255,255,0.7)' }}
+                />
                 <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '8px',
+                    color: '#fff'
+                  }}
                   labelFormatter={(value) => format(new Date(value), 'dd.MM.yyyy')}
                   formatter={(value: number) => [
                     new Intl.NumberFormat('ru-RU', {
@@ -139,16 +150,18 @@ export default function Dashboard() {
                 <Line
                   type="monotone"
                   dataKey="revenue"
-                  stroke="#0088FE"
-                  strokeWidth={2}
+                  stroke="#3b82f6"
+                  strokeWidth={3}
                   name="Выручка"
+                  dot={{ fill: '#3b82f6', r: 4 }}
                 />
                 <Line
                   type="monotone"
                   dataKey="orders"
-                  stroke="#00C49F"
-                  strokeWidth={2}
+                  stroke="#10b981"
+                  strokeWidth={3}
                   name="Заказы"
+                  dot={{ fill: '#10b981', r: 4 }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -162,11 +175,25 @@ export default function Dashboard() {
           <CardContent>
             <ResponsiveContainer width="100%" height={250}>
               <BarChart data={ordersByStatus}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="status" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="count" fill="#0088FE" />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                <XAxis
+                  dataKey="status"
+                  stroke="rgba(255,255,255,0.5)"
+                  tick={{ fill: 'rgba(255,255,255,0.7)' }}
+                />
+                <YAxis
+                  stroke="rgba(255,255,255,0.5)"
+                  tick={{ fill: 'rgba(255,255,255,0.7)' }}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '8px',
+                    color: '#fff'
+                  }}
+                />
+                <Bar dataKey="count" fill="#3b82f6" radius={[8, 8, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -197,6 +224,12 @@ export default function Dashboard() {
                   ))}
                 </Pie>
                 <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: '8px',
+                    color: '#fff'
+                  }}
                   formatter={(value: number) => [
                     new Intl.NumberFormat('ru-RU', {
                       style: 'currency',
