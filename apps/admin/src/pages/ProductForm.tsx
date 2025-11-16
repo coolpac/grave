@@ -1078,7 +1078,7 @@ export default function ProductForm() {
                                   <label className="block text-sm font-medium text-white mb-2">Единица</label>
                                   <select
                                     {...register(`variants.${variantIndex}.unit` as const)}
-                                    className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white text-sm"
+                                    className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50"
                                   >
                                     <option value={UnitType.PIECE} className="bg-[#0a0a0a]">Штука</option>
                                     <option value={UnitType.SQUARE_METER} className="bg-[#0a0a0a]">м²</option>
