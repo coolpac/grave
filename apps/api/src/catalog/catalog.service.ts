@@ -155,7 +155,8 @@ export class CatalogService {
   }
 
   async updateProduct(id: number, updateDto: UpdateProductDto) {
-    const { variants, media, ...productData } = updateDto;
+    // PartialType делает все поля опциональными, но TypeScript не видит вложенные поля
+    const { variants, media, ...productData } = updateDto as any;
 
     // Обновление вариантов и медиа требует отдельной логики
     // Для простоты обновляем только основные поля

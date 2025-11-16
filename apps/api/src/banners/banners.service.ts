@@ -41,12 +41,14 @@ export class BannersService {
   async update(id: number, updateDto: UpdateBannerDto) {
     await this.findOne(id);
 
+    // PartialType делает все поля опциональными
+    const dto = updateDto as any;
     return this.prisma.banner.update({
       where: { id },
       data: {
-        ...updateDto,
-        startDate: updateDto.startDate ? new Date(updateDto.startDate) : undefined,
-        endDate: updateDto.endDate ? new Date(updateDto.endDate) : undefined,
+        ...dto,
+        startDate: dto.startDate ? new Date(dto.startDate) : undefined,
+        endDate: dto.endDate ? new Date(dto.endDate) : undefined,
       },
     });
   }

@@ -39,11 +39,13 @@ export class NewslettersService {
   async update(id: number, updateDto: UpdateNewsletterDto) {
     await this.findOne(id);
 
+    // PartialType делает все поля опциональными
+    const dto = updateDto as any;
     return this.prisma.newsletter.update({
       where: { id },
       data: {
-        ...updateDto,
-        scheduledAt: updateDto.scheduledAt ? new Date(updateDto.scheduledAt) : undefined,
+        ...dto,
+        scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
       },
     });
   }

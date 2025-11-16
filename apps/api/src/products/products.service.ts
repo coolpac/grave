@@ -225,7 +225,8 @@ export class ProductsService {
 
   async update(id: number, updateDto: UpdateProductDto) {
     const product = await this.findOneById(id)
-    const { attributes, variants, media, ...productData } = updateDto
+    // PartialType делает все поля опциональными, но TypeScript не видит вложенные поля
+    const { attributes, variants, media, ...productData } = updateDto as any
 
     // Обновляем товар
     const updatedProduct = await this.prisma.product.update({
