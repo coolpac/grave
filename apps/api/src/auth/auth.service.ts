@@ -69,7 +69,7 @@ export class AuthService {
 
     // Поиск или создание пользователя
     let user = await this.prisma.user.findUnique({
-      where: { telegramId: BigInt(userData.id) },
+      where: { telegramId: String(userData.id) },
     });
 
     if (!user) {
@@ -79,7 +79,7 @@ export class AuthService {
 
       user = await this.prisma.user.create({
         data: {
-          telegramId: BigInt(userData.id),
+          telegramId: String(userData.id),
           firstName: userData.first_name || '',
           lastName: userData.last_name,
           username: userData.username,

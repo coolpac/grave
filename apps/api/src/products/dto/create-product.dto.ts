@@ -1,6 +1,21 @@
 import { IsString, IsNotEmpty, IsOptional, IsEnum, IsNumber, IsArray, ValidateNested, IsBoolean } from 'class-validator'
 import { Type } from 'class-transformer'
-import { ProductType, UnitType } from '@prisma/client'
+
+// Enums для SQLite (так как Prisma не генерирует enum'ы для SQLite)
+export enum ProductType {
+  SIMPLE = 'SIMPLE',
+  SINGLE_VARIANT = 'SINGLE_VARIANT',
+  MATRIX = 'MATRIX',
+  RANGE = 'RANGE',
+  CONFIGURABLE = 'CONFIGURABLE',
+}
+
+export enum UnitType {
+  PIECE = 'PIECE',
+  SQUARE_METER = 'SQUARE_METER',
+  TON = 'TON',
+  SET = 'SET',
+}
 
 export class CreateProductAttributeValueDto {
   @IsString()

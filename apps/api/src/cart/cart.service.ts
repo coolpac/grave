@@ -88,16 +88,18 @@ export class CartService {
 
     // Проверка существующего товара в корзине
     // Для товаров с вариантами сравниваем также selectedAttributes
+    const selectedAttributesStr = addDto.selectedAttributes 
+      ? JSON.stringify(addDto.selectedAttributes)
+      : null;
+    
     const existingItem = await this.prisma.cartItem.findFirst({
       where: {
         cartId: cart.id,
         productId: addDto.productId,
         variantId: addDto.variantId || null,
         // Для точного сравнения вариантов с атрибутами
-        ...(addDto.selectedAttributes && {
-          selectedAttributes: {
-            equals: addDto.selectedAttributes,
-          },
+        ...(selectedAttributesStr && {
+          selectedAttributes: selectedAttributesStr,
         }),
       },
     });
@@ -108,7 +110,9 @@ export class CartService {
         where: { id: existingItem.id },
         data: {
           quantity: existingItem.quantity + addDto.quantity,
-          selectedAttributes: addDto.selectedAttributes || {},
+          selectedAttributes: addDto.selectedAttributes 
+            ? JSON.stringify(addDto.selectedAttributes)
+            : null,
         },
         include: {
           product: {
@@ -128,7 +132,9 @@ export class CartService {
           productId: addDto.productId,
           variantId: addDto.variantId,
           quantity: addDto.quantity,
-          selectedAttributes: addDto.selectedAttributes || {},
+          selectedAttributes: addDto.selectedAttributes 
+            ? JSON.stringify(addDto.selectedAttributes)
+            : null,
         },
         include: {
           product: {

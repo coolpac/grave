@@ -1,8 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
-import { UpdateOrderStatusDto } from './dto/update-order-status.dto';
-import { OrderStatus, PaymentStatus } from '@prisma/client';
+import { UpdateOrderStatusDto, OrderStatus, PaymentStatus } from './dto/update-order-status.dto';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
@@ -41,7 +40,7 @@ export class OrdersService {
     // Расчет общей суммы
     let total = 0;
     const orderItems = cart.items.map((item) => {
-      const price = item.variant?.price || item.product.price;
+      const price = item.variant?.price || item.product.basePrice;
       const itemTotal = Number(price) * item.quantity;
       total += itemTotal;
 

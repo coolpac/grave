@@ -8,9 +8,8 @@ import {
   Delete,
   Query,
   UseGuards,
-  CacheKey,
-  CacheTTL,
 } from '@nestjs/common';
+import { CacheKey, CacheTTL } from '@nestjs/cache-manager';
 import { CatalogService } from './catalog.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';

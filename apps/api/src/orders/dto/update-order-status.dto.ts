@@ -1,5 +1,20 @@
 import { IsEnum, IsOptional, IsString } from 'class-validator';
-import { OrderStatus, PaymentStatus } from '@prisma/client';
+
+// Enums для SQLite
+export enum OrderStatus {
+  PENDING = 'PENDING',
+  PROCESSING = 'PROCESSING',
+  SHIPPED = 'SHIPPED',
+  DELIVERED = 'DELIVERED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum PaymentStatus {
+  PENDING = 'PENDING',
+  PAID = 'PAID',
+  FAILED = 'FAILED',
+  REFUNDED = 'REFUNDED',
+}
 
 export class UpdateOrderStatusDto {
   @IsEnum(OrderStatus)

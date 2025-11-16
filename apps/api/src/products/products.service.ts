@@ -30,7 +30,9 @@ export class ProductsService {
           ? {
               create: variants.map((variant) => ({
                 ...variant,
-                attributes: variant.attributes || {},
+                attributes: variant.attributes 
+                  ? JSON.stringify(variant.attributes)
+                  : null,
               })),
             }
           : undefined,
