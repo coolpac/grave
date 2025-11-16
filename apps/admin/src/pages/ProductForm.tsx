@@ -666,7 +666,7 @@ export default function ProductForm() {
                 </div>
               )}
 
-              <div className="flex items-center gap-2 p-4 bg-white/5 rounded-lg border border-white/10">
+              <div className="flex items-center gap-2 p-4 bg-white/10 rounded-lg border-2 border-white/25 shadow-md">
                 <input
                   type="checkbox"
                   {...register('isActive')}
@@ -708,7 +708,7 @@ export default function ProductForm() {
                       type="button"
                       variant="ghost"
                       onClick={() => setShowTemplates(false)}
-                      className="w-full"
+                      className="w-full text-white/90 hover:text-white hover:bg-white/10 font-semibold border border-white/20"
                     >
                       Скрыть шаблоны
                     </Button>
@@ -1045,7 +1045,7 @@ export default function ProductForm() {
                                 <div>
                                   <label className="block text-sm font-medium text-white mb-2">
                                     Цена *
-                                    <span className="text-xs text-white/50 ml-1">(₽)</span>
+                                    <span className="text-xs text-white/75 ml-1 font-medium">(₽)</span>
                                   </label>
                                   <input
                                     type="number"
