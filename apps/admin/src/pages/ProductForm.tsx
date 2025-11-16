@@ -604,7 +604,7 @@ export default function ProductForm() {
                 </label>
                 <select
                   {...register('categoryId', { required: 'Категория обязательна', valueAsNumber: true })}
-                  className="w-full px-3 sm:px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white focus:outline-none focus:ring-2 focus:ring-white/30 text-sm sm:text-base"
+                  className="w-full px-3 sm:px-4 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 text-sm sm:text-base font-medium"
                 >
                   <option value="">Выберите категорию</option>
                   {categories?.map((cat: any) => (
@@ -623,7 +623,7 @@ export default function ProductForm() {
                 </label>
                 <select
                   {...register('productType', { required: true })}
-                  className="w-full px-3 sm:px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white focus:outline-none focus:ring-2 focus:ring-white/30 text-sm sm:text-base"
+                  className="w-full px-3 sm:px-4 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 text-sm sm:text-base font-medium"
                 >
                   <option value={ProductType.SIMPLE} className="bg-[#0a0a0a]">Простой</option>
                   <option value={ProductType.SINGLE_VARIANT} className="bg-[#0a0a0a]">С одним вариантом</option>
@@ -640,7 +640,7 @@ export default function ProductForm() {
                 </label>
                 <select
                   {...register('unit')}
-                  className="w-full px-3 sm:px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white focus:outline-none focus:ring-2 focus:ring-white/30 text-sm sm:text-base"
+                  className="w-full px-3 sm:px-4 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 text-sm sm:text-base font-medium"
                 >
                   <option value={UnitType.PIECE} className="bg-[#0a0a0a]">Штука (шт)</option>
                   <option value={UnitType.SQUARE_METER} className="bg-[#0a0a0a]">Квадратный метр (м²)</option>
