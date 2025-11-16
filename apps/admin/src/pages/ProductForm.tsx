@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Save, ArrowLeft, X } from 'lucide-react';
+import { Plus, Trash2, Save, ArrowLeft, X, Upload, GripVertical } from 'lucide-react';
 import api from '../lib/api';
 import { Button } from '@ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/components/card';
@@ -51,6 +51,13 @@ interface ProductVariant {
   metadata?: any;
 }
 
+interface MediaItem {
+  id?: number;
+  url: string;
+  order: number;
+  file?: File;
+}
+
 interface ProductFormData {
   slug: string;
   name: string;
@@ -69,6 +76,8 @@ export default function ProductForm() {
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
   const isEditMode = !!id;
+  const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   // Получение категорий
   const { data: categories } = useQuery({
@@ -146,8 +155,117 @@ export default function ProductForm() {
         }));
         setValue('variants', variants);
       }
+
+      // Загрузка медиа
+      if (product.media && product.media.length > 0) {
+        const media = product.media.map((m: any, index: number) => ({
+          id: m.id,
+          url: m.url,
+          order: m.order ?? index,
+        }));
+        setMediaItems(media);
+      }
     }
   }, [product, setValue]);
+
+  // Загрузка изображений
+  const handleFileUpload = useCallback(async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    setUploading(true);
+    try {
+      const uploadPromises = Array.from(files).map(async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const { data } = await api.post('/upload/image', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
+
+        return {
+          url: data.url,
+          order: mediaItems.length,
+          file,
+        };
+      });
+
+      const newMedia = await Promise.all(uploadPromises);
+      setMediaItems((prev) => [...prev, ...newMedia]);
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Ошибка загрузки изображений');
+    } finally {
+      setUploading(false);
+    }
+  }, [mediaItems.length]);
+
+  const removeMedia = async (index: number) => {
+    const item = mediaItems[index];
+    if (item.id) {
+      try {
+        await api.delete(`/upload/media/${item.id}`);
+      } catch (error) {
+        console.error('Delete error:', error);
+      }
+    }
+    setMediaItems((prev) => prev.filter((_, i) => i !== index).map((item, i) => ({ ...item, order: i })));
+  };
+
+  const moveMedia = (oldIndex: number, newIndex: number) => {
+    setMediaItems((prev) => {
+      const newItems = [...prev];
+      const [removed] = newItems.splice(oldIndex, 1);
+      newItems.splice(newIndex, 0, removed);
+      return newItems.map((item, index) => ({ ...item, order: index }));
+    });
+  };
+
+  // Автоматическое создание вариантов для MATRIX типа
+  const generateMatrixVariants = () => {
+    const attributes = watch('attributes') || [];
+    if (attributes.length === 0) {
+      alert('Добавьте атрибуты для создания вариантов');
+      return;
+    }
+
+    // Генерируем все комбинации значений атрибутов
+    const combinations: Record<string, string>[] = [];
+    
+    const generateCombinations = (current: Record<string, string>, attrIndex: number) => {
+      if (attrIndex >= attributes.length) {
+        combinations.push({ ...current });
+        return;
+      }
+
+      const attr = attributes[attrIndex];
+      const values = attr.values || [];
+      
+      if (values.length === 0) {
+        generateCombinations(current, attrIndex + 1);
+      } else {
+        values.forEach((value: ProductAttributeValue) => {
+          generateCombinations(
+            { ...current, [attr.slug]: value.value },
+            attrIndex + 1
+          );
+        });
+      }
+    };
+
+    generateCombinations({}, 0);
+
+    // Создаем варианты для каждой комбинации
+    const newVariants = combinations.map((attrs, index) => ({
+      name: Object.values(attrs).join(' / '),
+      price: 0,
+      stock: 0,
+      attributes: attrs,
+    }));
+
+    setValue('variants', newVariants);
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: ProductFormData) => {
@@ -172,11 +290,54 @@ export default function ProductForm() {
     },
   });
 
-  const onSubmit = (data: ProductFormData) => {
-    if (isEditMode) {
-      updateMutation.mutate(data);
-    } else {
-      createMutation.mutate(data);
+  const onSubmit = async (data: ProductFormData) => {
+    try {
+      let productId: number;
+
+      // Создание или обновление товара
+      if (isEditMode) {
+        await updateMutation.mutateAsync(data);
+        productId = parseInt(id!);
+      } else {
+        const result = await createMutation.mutateAsync(data);
+        productId = result.id;
+      }
+
+      // Загрузка новых изображений для товара
+      const newMediaFiles = mediaItems.filter((item) => !item.id && item.file);
+      if (newMediaFiles.length > 0) {
+        for (let i = 0; i < newMediaFiles.length; i++) {
+          const item = newMediaFiles[i];
+          if (item.file) {
+            const formData = new FormData();
+            formData.append('file', item.file);
+            formData.append('order', (mediaItems.length - newMediaFiles.length + i).toString());
+
+            await api.post(`/upload/product/${productId}/media`, formData, {
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+            });
+          }
+        }
+      }
+
+      // Обновление порядка медиа
+      if (mediaItems.length > 0) {
+        const mediaIds = mediaItems
+          .map((item) => item.id)
+          .filter((id): id is number => id !== undefined);
+
+        if (mediaIds.length > 0) {
+          await api.post('/upload/media/reorder', { mediaIds });
+        }
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['products-admin'] });
+      navigate('/products');
+    } catch (error) {
+      console.error('Save error:', error);
+      alert('Ошибка сохранения товара');
     }
   };
 
@@ -335,14 +496,27 @@ export default function ProductForm() {
           <Card className="glass-strong border-white/20 shadow-xl">
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="text-white font-semibold">Атрибуты товара</CardTitle>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => appendAttribute({ name: '', slug: '', type: 'select', order: attributeFields.length, values: [] })}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Добавить атрибут
-              </Button>
+              <div className="flex gap-2">
+                {productType === ProductType.MATRIX && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={generateMatrixVariants}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Сгенерировать варианты
+                  </Button>
+                )}
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => appendAttribute({ name: '', slug: '', type: 'select', order: attributeFields.length, values: [] })}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Добавить атрибут
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {attributeFields.map((field, attrIndex) => (
@@ -441,6 +615,96 @@ export default function ProductForm() {
             </CardContent>
           </Card>
         )}
+
+        {/* Изображения товара */}
+        <Card className="glass-strong border-white/20 shadow-xl">
+          <CardHeader>
+            <CardTitle className="text-white font-semibold">Изображения товара</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div
+              className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center cursor-pointer transition-all hover:border-white/30 hover:bg-white/5"
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.currentTarget.classList.add('border-white/40', 'bg-white/10');
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                e.currentTarget.classList.remove('border-white/40', 'bg-white/10');
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.currentTarget.classList.remove('border-white/40', 'bg-white/10');
+                handleFileUpload(e.dataTransfer.files);
+              }}
+              onClick={() => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.multiple = true;
+                input.accept = 'image/*';
+                input.onchange = (e) => {
+                  const files = (e.target as HTMLInputElement).files;
+                  handleFileUpload(files);
+                };
+                input.click();
+              }}
+            >
+              <Upload className="w-12 h-12 mx-auto mb-4 text-white/50" />
+              <p className="text-white/80 mb-2">Перетащите изображения сюда или нажмите для выбора</p>
+              <p className="text-sm text-white/50">PNG, JPG, WEBP до 10MB</p>
+            </div>
+
+            {uploading && (
+              <p className="text-sm text-white/70 text-center">Загрузка...</p>
+            )}
+
+            {mediaItems.length > 0 && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {mediaItems.map((item, index) => (
+                  <div
+                    key={item.id || `new-${index}`}
+                    className="relative group aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10 cursor-move"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', index.toString());
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                      if (draggedIndex !== index) {
+                        moveMedia(draggedIndex, index);
+                      }
+                    }}
+                  >
+                    <img
+                      src={item.url}
+                      alt={`Media ${index + 1}`}
+                      className="w-full h-full object-cover pointer-events-none"
+                    />
+                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeMedia(index)}
+                        className="text-white hover:text-red-400"
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                      <GripVertical className="w-3 h-3" />
+                      {index + 1}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Варианты товара */}
         {(productType === ProductType.SINGLE_VARIANT || productType === ProductType.MATRIX) && (
