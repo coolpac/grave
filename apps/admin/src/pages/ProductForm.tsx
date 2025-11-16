@@ -457,7 +457,7 @@ export default function ProductForm() {
   const TypeIcon = typeInfo.icon;
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6 relative max-w-7xl mx-auto">
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6 relative max-w-7xl mx-auto overflow-x-hidden">
       {/* Заголовок */}
       <div className="flex items-center gap-4 mb-6">
         <Button
@@ -481,20 +481,31 @@ export default function ProductForm() {
       {productType && (
         <Card className="glass-strong border-blue-500/30 shadow-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10">
           <CardContent className="p-4">
-            <div className="flex items-start gap-4">
-              <div className="p-3 rounded-lg bg-blue-500/20 border border-blue-500/30">
+            <div className="flex flex-col sm:flex-row items-start gap-4">
+              <div className="p-3 rounded-lg bg-blue-500/20 border border-blue-500/30 flex-shrink-0">
                 <TypeIcon className="h-6 w-6 text-blue-400" />
               </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-white mb-1 flex items-center gap-2">
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base sm:text-lg font-semibold text-white mb-1 flex items-center gap-2 flex-wrap">
                   {typeInfo.title}
-                  <HelpCircle className="h-4 w-4 text-white/50" />
+                  <HelpCircle className="h-4 w-4 text-white/50 flex-shrink-0" />
                 </h3>
-                <p className="text-sm text-white/80 mb-2">{typeInfo.description}</p>
-                <div className="flex items-center gap-2 text-xs text-blue-300/80 bg-blue-500/10 px-3 py-1.5 rounded-lg border border-blue-500/20">
-                  <Info className="h-3 w-3" />
-                  <span>Пример: {typeInfo.example}</span>
+                <p className="text-xs sm:text-sm text-white/80 mb-2 break-words">{typeInfo.description}</p>
+                <div className="flex items-start gap-2 text-xs text-blue-300/80 bg-blue-500/10 px-3 py-1.5 rounded-lg border border-blue-500/20">
+                  <Info className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                  <span className="break-words">Пример: {typeInfo.example}</span>
                 </div>
+                {productType === ProductType.MATRIX && (
+                  <div className="mt-3 pt-3 border-t border-blue-500/20">
+                    <p className="text-xs text-blue-200/90 mb-2 font-medium">💡 Как работать с матрицей:</p>
+                    <ol className="text-xs text-blue-200/70 space-y-1 list-decimal list-inside">
+                      <li>Выберите шаблон или создайте атрибуты вручную</li>
+                      <li>Нажмите "Сгенерировать варианты"</li>
+                      <li>Используйте табличный редактор для заполнения цен</li>
+                      <li>Кликните на ячейку для редактирования</li>
+                    </ol>
+                  </div>
+                )}
               </div>
             </div>
           </CardContent>
