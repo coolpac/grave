@@ -9,11 +9,12 @@ export class ProductsService {
   constructor(private prisma: PrismaService) {}
 
   async create(createDto: CreateProductDto) {
-    const { attributes, variants, ...productData } = createDto
+    const { attributes, variants, specifications, ...productData } = createDto
 
     return this.prisma.product.create({
       data: {
         ...productData,
+        specifications: specifications ? JSON.stringify(specifications) : null,
         attributes: attributes
           ? {
               create: attributes.map((attr) => ({
@@ -94,7 +95,13 @@ export class ProductsService {
       throw new NotFoundException(`Product with slug "${slug}" not found`)
     }
 
-    return product
+    // Парсим JSON поля для удобства использования
+    const parsedProduct = {
+      ...product,
+      specifications: product.specifications ? JSON.parse(product.specifications) : {},
+    }
+
+    return parsedProduct
   }
 
   async calculatePrice(slug: string, calculateDto: CalculatePriceDto) {
@@ -154,7 +161,7 @@ export class ProductsService {
   }
 
   async findAllForAdmin() {
-    return this.prisma.product.findMany({
+    const products = await this.prisma.product.findMany({
       include: {
         category: true,
         media: {
@@ -184,6 +191,12 @@ export class ProductsService {
         createdAt: 'desc',
       },
     })
+
+    // Парсим JSON поля для удобства использования
+    return products.map((product) => ({
+      ...product,
+      specifications: product.specifications ? JSON.parse(product.specifications) : {},
+    }))
   }
 
   async findOneById(id: number) {

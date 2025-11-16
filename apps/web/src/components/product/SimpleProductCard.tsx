@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { ShoppingCart } from 'lucide-react'
 import { StoneCard } from '@monorepo/ui'
+import ProductSpecifications from '../ProductSpecifications'
 
 interface SimpleProductCardProps {
   product: {
@@ -9,6 +10,7 @@ interface SimpleProductCardProps {
     price: number
     image?: string
     unit?: string
+    specifications?: Record<string, string>
   }
   onAddToCart: () => void
 }
@@ -32,6 +34,11 @@ export default function SimpleProductCard({ product, onAddToCart }: SimpleProduc
           <h3 className="font-inscription text-lg text-gray-900 mb-2">
             {product.name}
           </h3>
+          {product.specifications && Object.keys(product.specifications).length > 0 && (
+            <div className="mb-3">
+              <ProductSpecifications specifications={product.specifications} className="text-xs" />
+            </div>
+          )}
           <div className="flex items-center justify-between">
             <div className="flex items-baseline gap-1">
               <span className="text-xl font-inscription text-gray-900">

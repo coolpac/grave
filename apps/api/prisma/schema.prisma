@@ -53,17 +53,18 @@ model Category {
 }
 
 model Product {
-  id          Int     @id @default(autoincrement())
-  slug        String  @unique
-  name        String
-  description String?
-  categoryId  Int
-  productType String  @default("SIMPLE") // SIMPLE, SINGLE_VARIANT, MATRIX, RANGE, CONFIGURABLE
-  basePrice   Float?  // Decimal заменен на Float для SQLite
-  unit        String  @default("PIECE") // PIECE, SQUARE_METER, TON, SET
-  isActive    Boolean @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id             Int      @id @default(autoincrement())
+  slug           String   @unique
+  name           String
+  description    String?
+  categoryId     Int
+  productType    String   @default("SIMPLE") // SIMPLE, SINGLE_VARIANT, MATRIX, RANGE, CONFIGURABLE
+  basePrice      Float?   // Decimal заменен на Float для SQLite
+  unit           String   @default("PIECE") // PIECE, SQUARE_METER, TON, SET
+  isActive       Boolean  @default(true)
+  specifications String?  @default("{}") // JSON хранится как String: { "Производитель": "Россия", "Вес (кг)": "25", ... }
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   category   Category           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   attributes ProductAttribute[]

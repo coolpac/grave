@@ -138,5 +138,8 @@ export class CreateProductDto {
   @Type(() => CreateProductVariantDto)
   @IsOptional()
   variants?: CreateProductVariantDto[]
+
+  @IsOptional()
+  specifications?: Record<string, string> // { "Производитель": "Россия", "Вес (кг)": "25", ... }
 }
 

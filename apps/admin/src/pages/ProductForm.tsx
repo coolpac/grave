@@ -8,6 +8,7 @@ import { Button } from '@ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/components/card';
 import AttributeTemplates, { AttributeTemplate } from '../components/AttributeTemplates';
 import PriceMatrixEditor from '../components/PriceMatrixEditor';
+import SpecificationsEditor from '../components/SpecificationsEditor';
 
 // Типы товаров
 enum ProductType {
@@ -71,6 +72,7 @@ interface ProductFormData {
   isActive: boolean;
   attributes?: ProductAttribute[];
   variants?: ProductVariant[];
+  specifications?: Record<string, string>;
 }
 
 // Описания типов товаров
@@ -114,7 +116,7 @@ export default function ProductForm() {
   const isEditMode = !!id;
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'basic' | 'attributes' | 'variants' | 'media'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'attributes' | 'variants' | 'specifications' | 'media'>('basic');
   const [showTemplates, setShowTemplates] = useState(false);
 
   // Получение категорий
@@ -149,6 +151,7 @@ export default function ProductForm() {
       isActive: true,
       attributes: [],
       variants: [],
+      specifications: {},
     },
   });
 
@@ -518,6 +521,7 @@ export default function ProductForm() {
           { id: 'basic', label: 'Основное', icon: Package },
           { id: 'attributes', label: 'Атрибуты', icon: Tag, count: attributes.length, required: [ProductType.SINGLE_VARIANT, ProductType.MATRIX, ProductType.CONFIGURABLE].includes(productType) },
           { id: 'variants', label: 'Варианты', icon: Sparkles, count: variants.length, required: [ProductType.SINGLE_VARIANT, ProductType.MATRIX].includes(productType) },
+          { id: 'specifications', label: 'Характеристики', icon: Settings, count: Object.keys(watch('specifications') || {}).length },
           { id: 'media', label: 'Изображения', icon: ImageIcon, count: mediaItems.length },
         ].map((tab) => {
           const TabIcon = tab.icon;
