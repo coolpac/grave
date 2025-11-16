@@ -1,208 +1,323 @@
-import { useState, useCallback } from 'react'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { useDropzone } from 'react-dropzone'
-import { arrayMoveImmutable } from 'array-move'
-import { Button } from '@monorepo/ui'
-import { GlassCard } from '@monorepo/ui'
-import { X, Upload, GripVertical } from 'lucide-react'
-import axios from 'axios'
+import { useState, useEffect } from 'react';
+import { useForm, useFieldArray } from 'react-hook-form';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Plus, Trash2, Save, ArrowLeft, X } from 'lucide-react';
+import api from '../lib/api';
+import { Button } from '@ui/components/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/components/card';
 
-const productSchema = z.object({
-  slug: z.string().min(1, 'Slug обязателен'),
-  name: z.string().min(1, 'Название обязательно'),
-  description: z.string().optional(),
-  categoryId: z.number().min(1, 'Категория обязательна'),
-  price: z.number().min(0, 'Цена должна быть положительной'),
-  isActive: z.boolean().default(true),
-})
+// Типы товаров
+enum ProductType {
+  SIMPLE = 'SIMPLE',
+  SINGLE_VARIANT = 'SINGLE_VARIANT',
+  MATRIX = 'MATRIX',
+  RANGE = 'RANGE',
+  CONFIGURABLE = 'CONFIGURABLE',
+}
 
-type ProductFormData = z.infer<typeof productSchema>
+enum UnitType {
+  PIECE = 'PIECE',
+  SQUARE_METER = 'SQUARE_METER',
+  TON = 'TON',
+  SET = 'SET',
+}
 
-interface MediaItem {
-  id?: number
-  url: string
-  order: number
-  file?: File
+interface ProductAttributeValue {
+  value: string;
+  displayName: string;
+  order?: number;
+  metadata?: any;
+}
+
+interface ProductAttribute {
+  name: string;
+  slug: string;
+  type?: string;
+  order?: number;
+  isRequired?: boolean;
+  unit?: string;
+  values?: ProductAttributeValue[];
+}
+
+interface ProductVariant {
+  name?: string;
+  sku?: string;
+  price: number;
+  stock?: number;
+  weight?: number;
+  unit?: UnitType;
+  attributes?: Record<string, string>;
+  metadata?: any;
+}
+
+interface ProductFormData {
+  slug: string;
+  name: string;
+  description?: string;
+  categoryId: number;
+  productType: ProductType;
+  basePrice?: number;
+  unit?: UnitType;
+  isActive: boolean;
+  attributes?: ProductAttribute[];
+  variants?: ProductVariant[];
 }
 
 export default function ProductForm() {
-  const [mediaItems, setMediaItems] = useState<MediaItem[]>([])
-  const [uploading, setUploading] = useState(false)
-  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+  const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const queryClient = useQueryClient();
+  const isEditMode = !!id;
+
+  // Получение категорий
+  const { data: categories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: async () => {
+      const { data } = await api.get('/catalog/categories');
+      return data;
+    },
+  });
+
+  // Получение товара для редактирования
+  const { data: product, isLoading: productLoading } = useQuery({
+    queryKey: ['product', id],
+    queryFn: async () => {
+      const { data } = await api.get(`/products/${id}`);
+      return data;
+    },
+    enabled: isEditMode,
+  });
 
   const {
     register,
     handleSubmit,
-    formState: { errors },
-    setValue,
+    control,
     watch,
+    setValue,
+    formState: { errors },
   } = useForm<ProductFormData>({
-    resolver: zodResolver(productSchema),
     defaultValues: {
+      productType: ProductType.SIMPLE,
       isActive: true,
+      attributes: [],
+      variants: [],
     },
-  })
+  });
 
-  const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    setUploading(true)
-    try {
-      const uploadPromises = acceptedFiles.map(async (file, index) => {
-        const formData = new FormData()
-        formData.append('file', file)
+  const productType = watch('productType');
 
-        const response = await axios.post(`${API_URL}/upload/image`, formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        })
+  const { fields: attributeFields, append: appendAttribute, remove: removeAttribute } = useFieldArray({
+    control,
+    name: 'attributes',
+  });
 
-        return {
-          url: response.data.url,
-          order: mediaItems.length + index,
-          file,
-        }
-      })
+  const { fields: variantFields, append: appendVariant, remove: removeVariant } = useFieldArray({
+    control,
+    name: 'variants',
+  });
 
-      const newMedia = await Promise.all(uploadPromises)
-      setMediaItems((prev) => [...prev, ...newMedia])
-    } catch (error) {
-      console.error('Upload error:', error)
-      alert('Ошибка загрузки изображений')
-    } finally {
-      setUploading(false)
-    }
-  }, [mediaItems.length, API_URL])
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'image/*': ['.jpeg', '.jpg', '.png', '.webp', '.gif'],
-    },
-    maxSize: 10 * 1024 * 1024, // 10MB
-  })
-
-  const removeMedia = async (index: number) => {
-    const item = mediaItems[index]
-    if (item.id) {
-      try {
-        await axios.delete(`${API_URL}/upload/media/${item.id}`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        })
-      } catch (error) {
-        console.error('Delete error:', error)
-      }
-    }
-    setMediaItems((prev) => prev.filter((_, i) => i !== index).map((item, i) => ({ ...item, order: i })))
-  }
-
-  const moveMedia = (oldIndex: number, newIndex: number) => {
-    setMediaItems((prev) => {
-      const newItems = arrayMoveImmutable(prev, oldIndex, newIndex)
-      return newItems.map((item, index) => ({ ...item, order: index }))
-    })
-  }
-
-  const onSubmit = async (data: ProductFormData) => {
-    try {
-      // Здесь будет логика сохранения товара
-      console.log('Product data:', data)
-      console.log('Media items:', mediaItems)
+  // Загрузка данных товара при редактировании
+  useEffect(() => {
+    if (product) {
+      setValue('slug', product.slug);
+      setValue('name', product.name);
+      setValue('description', product.description || '');
+      setValue('categoryId', product.categoryId);
+      setValue('productType', product.productType || ProductType.SIMPLE);
+      setValue('basePrice', product.basePrice || 0);
+      setValue('unit', product.unit || UnitType.PIECE);
+      setValue('isActive', product.isActive ?? true);
       
-      // После сохранения товара, обновить порядок медиа
-      if (mediaItems.length > 0) {
-        const mediaIds = mediaItems.map((item) => item.id).filter(Boolean) as number[]
-        if (mediaIds.length > 0) {
-          await axios.post(
-            `${API_URL}/upload/media/reorder`,
-            { mediaIds },
-            {
-              headers: {
-                Authorization: `Bearer ${localStorage.getItem('token')}`,
-              },
-            }
-          )
-        }
+      if (product.attributes) {
+        const attrs = product.attributes.map((attr: any) => ({
+          ...attr,
+          values: attr.values || [],
+        }));
+        setValue('attributes', attrs);
       }
-
-      alert('Товар успешно сохранен!')
-    } catch (error) {
-      console.error('Save error:', error)
-      alert('Ошибка сохранения товара')
+      
+      if (product.variants) {
+        const variants = product.variants.map((variant: any) => ({
+          ...variant,
+          attributes: typeof variant.attributes === 'string' 
+            ? JSON.parse(variant.attributes) 
+            : variant.attributes || {},
+        }));
+        setValue('variants', variants);
+      }
     }
+  }, [product, setValue]);
+
+  const createMutation = useMutation({
+    mutationFn: async (data: ProductFormData) => {
+      const { data: result } = await api.post('/products', data);
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products-admin'] });
+      navigate('/products');
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: ProductFormData) => {
+      const { data: result } = await api.put(`/products/${id}`, data);
+      return result;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['products-admin'] });
+      queryClient.invalidateQueries({ queryKey: ['product', id] });
+      navigate('/products');
+    },
+  });
+
+  const onSubmit = (data: ProductFormData) => {
+    if (isEditMode) {
+      updateMutation.mutate(data);
+    } else {
+      createMutation.mutate(data);
+    }
+  };
+
+  const addAttributeValue = (attrIndex: number) => {
+    const currentAttrs = watch('attributes') || [];
+    const attr = currentAttrs[attrIndex];
+    const newValues = [...(attr.values || []), { value: '', displayName: '', order: attr.values?.length || 0 }];
+    setValue(`attributes.${attrIndex}.values`, newValues);
+  };
+
+  const removeAttributeValue = (attrIndex: number, valueIndex: number) => {
+    const currentAttrs = watch('attributes') || [];
+    const attr = currentAttrs[attrIndex];
+    const newValues = attr.values?.filter((_, i) => i !== valueIndex) || [];
+    setValue(`attributes.${attrIndex}.values`, newValues);
+  };
+
+  if (productLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-white/80 text-lg">Загрузка...</div>
+      </div>
+    );
   }
 
   return (
-    <div className="p-4 space-y-6 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold">Создание товара</h1>
+    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6 relative">
+      <div className="flex items-center gap-4 mb-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => navigate('/products')}
+          className="flex-shrink-0"
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Назад
+        </Button>
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2 gradient-text">
+            {isEditMode ? 'Редактирование товара' : 'Создание товара'}
+          </h1>
+          <p className="text-sm sm:text-base text-white/70">Управление товарами</p>
+        </div>
+      </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-        <GlassCard>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Slug</label>
-              <input
-                {...register('slug')}
-                className="w-full px-4 py-2 rounded-lg bg-panel border border-border focus:outline-none focus:ring-2 focus:ring-accent"
-                placeholder="product-slug"
-              />
-              {errors.slug && (
-                <p className="text-sm text-destructive mt-1">{errors.slug.message}</p>
-              )}
+        {/* Основная информация */}
+        <Card className="glass-strong border-white/20 shadow-xl">
+          <CardHeader>
+            <CardTitle className="text-white font-semibold">Основная информация</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">Slug *</label>
+                <input
+                  {...register('slug', { required: 'Slug обязателен' })}
+                  className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/30"
+                  placeholder="product-slug"
+                />
+                {errors.slug && <p className="text-red-400 text-xs mt-1">{errors.slug.message}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">Название *</label>
+                <input
+                  {...register('name', { required: 'Название обязательно' })}
+                  className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/30"
+                  placeholder="Название товара"
+                />
+                {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name.message}</p>}
+              </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Название</label>
-              <input
-                {...register('name')}
-                className="w-full px-4 py-2 rounded-lg bg-panel border border-border focus:outline-none focus:ring-2 focus:ring-accent"
-                placeholder="Название товара"
-              />
-              {errors.name && (
-                <p className="text-sm text-destructive mt-1">{errors.name.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Описание</label>
+              <label className="block text-sm font-medium text-white mb-2">Описание</label>
               <textarea
                 {...register('description')}
                 rows={4}
-                className="w-full px-4 py-2 rounded-lg bg-panel border border-border focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 resize-none"
                 placeholder="Описание товара"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Категория ID</label>
-                <input
-                  type="number"
-                  {...register('categoryId', { valueAsNumber: true })}
-                  className="w-full px-4 py-2 rounded-lg bg-panel border border-border focus:outline-none focus:ring-2 focus:ring-accent"
-                />
-                {errors.categoryId && (
-                  <p className="text-sm text-destructive mt-1">{errors.categoryId.message}</p>
-                )}
+                <label className="block text-sm font-medium text-white mb-2">Категория *</label>
+                <select
+                  {...register('categoryId', { required: 'Категория обязательна', valueAsNumber: true })}
+                  className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white focus:outline-none focus:ring-2 focus:ring-white/30"
+                >
+                  <option value="">Выберите категорию</option>
+                  {categories?.map((cat: any) => (
+                    <option key={cat.id} value={cat.id} className="bg-[#0a0a0a]">
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.categoryId && <p className="text-red-400 text-xs mt-1">{errors.categoryId.message}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Цена</label>
+                <label className="block text-sm font-medium text-white mb-2">Тип товара *</label>
+                <select
+                  {...register('productType', { required: true })}
+                  className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white focus:outline-none focus:ring-2 focus:ring-white/30"
+                >
+                  <option value={ProductType.SIMPLE} className="bg-[#0a0a0a]">Простой</option>
+                  <option value={ProductType.SINGLE_VARIANT} className="bg-[#0a0a0a]">С одним вариантом</option>
+                  <option value={ProductType.MATRIX} className="bg-[#0a0a0a]">Матрица</option>
+                  <option value={ProductType.RANGE} className="bg-[#0a0a0a]">Диапазон</option>
+                  <option value={ProductType.CONFIGURABLE} className="bg-[#0a0a0a]">Настраиваемый</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">Единица измерения</label>
+                <select
+                  {...register('unit')}
+                  className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white focus:outline-none focus:ring-2 focus:ring-white/30"
+                >
+                  <option value={UnitType.PIECE} className="bg-[#0a0a0a]">Штука</option>
+                  <option value={UnitType.SQUARE_METER} className="bg-[#0a0a0a]">м²</option>
+                  <option value={UnitType.TON} className="bg-[#0a0a0a]">Тонна</option>
+                  <option value={UnitType.SET} className="bg-[#0a0a0a]">Комплект</option>
+                </select>
+              </div>
+            </div>
+
+            {productType === ProductType.SIMPLE && (
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">Базовая цена</label>
                 <input
                   type="number"
                   step="0.01"
-                  {...register('price', { valueAsNumber: true })}
-                  className="w-full px-4 py-2 rounded-lg bg-panel border border-border focus:outline-none focus:ring-2 focus:ring-accent"
+                  {...register('basePrice', { valueAsNumber: true })}
+                  className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/30"
+                  placeholder="0.00"
                 />
-                {errors.price && (
-                  <p className="text-sm text-destructive mt-1">{errors.price.message}</p>
-                )}
               </div>
-            </div>
+            )}
 
             <div className="flex items-center gap-2">
               <input
@@ -210,99 +325,237 @@ export default function ProductForm() {
                 {...register('isActive')}
                 className="w-4 h-4 rounded"
               />
-              <label className="text-sm">Активен</label>
+              <label className="text-sm text-white">Активен</label>
             </div>
-          </div>
-        </GlassCard>
+          </CardContent>
+        </Card>
 
-        {/* Drag & Drop Zone */}
-        <GlassCard>
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">Изображения товара</h2>
-
-            <div
-              {...getRootProps()}
-              className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-                isDragActive
-                  ? 'border-accent bg-accent/10'
-                  : 'border-border hover:border-accent/50'
-              }`}
-            >
-              <input {...getInputProps()} />
-              <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
-              {isDragActive ? (
-                <p className="text-accent">Отпустите для загрузки...</p>
-              ) : (
-                <div>
-                  <p className="mb-2">Перетащите изображения сюда или нажмите для выбора</p>
-                  <p className="text-sm text-muted-foreground">
-                    PNG, JPG, WEBP до 10MB
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {uploading && (
-              <p className="text-sm text-muted-foreground text-center">Загрузка...</p>
-            )}
-
-            {/* Media Preview Grid with Drag & Drop */}
-            {mediaItems.length > 0 && (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {mediaItems.map((item, index) => (
-                  <div
-                    key={item.id || `new-${index}`}
-                    className="relative group aspect-square rounded-lg overflow-hidden bg-panel border border-border cursor-move"
-                    draggable
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData('text/plain', index.toString())
-                    }}
-                    onDragOver={(e) => {
-                      e.preventDefault()
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault()
-                      const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'))
-                      if (draggedIndex !== index) {
-                        moveMedia(draggedIndex, index)
-                      }
-                    }}
-                  >
-                    <img
-                      src={item.url}
-                      alt={`Media ${index + 1}`}
-                      className="w-full h-full object-cover pointer-events-none"
-                    />
-                    <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <button
+        {/* Атрибуты товара */}
+        {(productType === ProductType.SINGLE_VARIANT || productType === ProductType.MATRIX || productType === ProductType.CONFIGURABLE) && (
+          <Card className="glass-strong border-white/20 shadow-xl">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-white font-semibold">Атрибуты товара</CardTitle>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => appendAttribute({ name: '', slug: '', type: 'select', order: attributeFields.length, values: [] })}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Добавить атрибут
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {attributeFields.map((field, attrIndex) => (
+                <Card key={field.id} className="bg-white/5 border-white/10">
+                  <CardContent className="p-4 space-y-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-white mb-2">Название атрибута</label>
+                          <input
+                            {...register(`attributes.${attrIndex}.name` as const)}
+                            className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                            placeholder="Например: Размер"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-white mb-2">Slug</label>
+                          <input
+                            {...register(`attributes.${attrIndex}.slug` as const)}
+                            className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                            placeholder="size"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-white mb-2">Тип</label>
+                          <select
+                            {...register(`attributes.${attrIndex}.type` as const)}
+                            className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white text-sm"
+                          >
+                            <option value="select" className="bg-[#0a0a0a]">Выбор</option>
+                            <option value="text" className="bg-[#0a0a0a]">Текст</option>
+                            <option value="number" className="bg-[#0a0a0a]">Число</option>
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            {...register(`attributes.${attrIndex}.isRequired` as const)}
+                            className="w-4 h-4 rounded"
+                          />
+                          <label className="text-sm text-white">Обязательный</label>
+                        </div>
+                      </div>
+                      <Button
                         type="button"
-                        onClick={() => removeMedia(index)}
-                        className="p-2 rounded-full bg-destructive hover:bg-destructive/80 transition-colors"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeAttribute(attrIndex)}
+                        className="text-red-400 hover:text-red-300"
                       >
-                        <X className="w-4 h-4 text-white" />
-                      </button>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                    <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                      <GripVertical className="w-3 h-3" />
-                      {index + 1}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </GlassCard>
 
+                    {/* Значения атрибута */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-sm font-medium text-white">Значения</label>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => addAttributeValue(attrIndex)}
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Добавить значение
+                        </Button>
+                      </div>
+                      {watch(`attributes.${attrIndex}.values`)?.map((value: ProductAttributeValue, valueIndex: number) => (
+                        <div key={valueIndex} className="flex gap-2">
+                          <input
+                            {...register(`attributes.${attrIndex}.values.${valueIndex}.value` as const)}
+                            placeholder="Значение"
+                            className="flex-1 px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                          />
+                          <input
+                            {...register(`attributes.${attrIndex}.values.${valueIndex}.displayName` as const)}
+                            placeholder="Отображаемое название"
+                            className="flex-1 px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeAttributeValue(attrIndex, valueIndex)}
+                            className="text-red-400"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Варианты товара */}
+        {(productType === ProductType.SINGLE_VARIANT || productType === ProductType.MATRIX) && (
+          <Card className="glass-strong border-white/20 shadow-xl">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-white font-semibold">Варианты товара</CardTitle>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => appendVariant({ price: 0, stock: 0 })}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Добавить вариант
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {variantFields.map((field, variantIndex) => (
+                <Card key={field.id} className="bg-white/5 border-white/10">
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between gap-4 mb-4">
+                      <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-white mb-2">Название</label>
+                          <input
+                            {...register(`variants.${variantIndex}.name` as const)}
+                            className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                            placeholder="Название варианта"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-white mb-2">SKU</label>
+                          <input
+                            {...register(`variants.${variantIndex}.sku` as const)}
+                            className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                            placeholder="SKU"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-white mb-2">Цена *</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            {...register(`variants.${variantIndex}.price` as const, { valueAsNumber: true, required: true })}
+                            className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-white mb-2">Остаток</label>
+                          <input
+                            type="number"
+                            {...register(`variants.${variantIndex}.stock` as const, { valueAsNumber: true })}
+                            className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                            placeholder="0"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-white mb-2">Вес</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            {...register(`variants.${variantIndex}.weight` as const, { valueAsNumber: true })}
+                            className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-white mb-2">Единица</label>
+                          <select
+                            {...register(`variants.${variantIndex}.unit` as const)}
+                            className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white text-sm"
+                          >
+                            <option value={UnitType.PIECE} className="bg-[#0a0a0a]">Штука</option>
+                            <option value={UnitType.SQUARE_METER} className="bg-[#0a0a0a]">м²</option>
+                            <option value={UnitType.TON} className="bg-[#0a0a0a]">Тонна</option>
+                            <option value={UnitType.SET} className="bg-[#0a0a0a]">Комплект</option>
+                          </select>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeVariant(variantIndex)}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Кнопки действий */}
         <div className="flex gap-4">
-          <Button type="submit" className="flex-1">
-            Сохранить товар
+          <Button
+            type="submit"
+            disabled={createMutation.isPending || updateMutation.isPending}
+            className="flex-1"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {createMutation.isPending || updateMutation.isPending ? 'Сохранение...' : 'Сохранить'}
           </Button>
-          <Button type="button" variant="outline" onClick={() => window.history.back()}>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => navigate('/products')}
+          >
             Отмена
           </Button>
         </div>
       </form>
     </div>
-  )
+  );
 }
-
