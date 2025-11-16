@@ -591,7 +591,7 @@ export default function ProductForm() {
                 <textarea
                   {...register('description')}
                   rows={4}
-                  className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 resize-none"
+                  className="w-full px-4 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 resize-none font-medium"
                   placeholder="Подробное описание товара..."
                 />
               </div>
@@ -660,7 +660,7 @@ export default function ProductForm() {
                     type="number"
                     step="0.01"
                     {...register('basePrice', { valueAsNumber: true })}
-                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/30"
+                    className="w-full px-4 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 font-medium"
                     placeholder="0.00"
                   />
                 </div>
@@ -692,7 +692,7 @@ export default function ProductForm() {
                     type="button"
                     variant="outline"
                     onClick={() => setShowTemplates(true)}
-                    className="w-full border-blue-400/50 text-blue-300 hover:bg-blue-500/20"
+                    className="w-full border-2 border-blue-400/70 bg-blue-500/20 text-blue-200 hover:bg-blue-500/30 hover:border-blue-400 font-semibold shadow-lg hover:shadow-xl transition-all"
                   >
                     <Sparkles className="h-4 w-4 mr-2" />
                     Выбрать шаблон атрибутов из прайс-листов
@@ -773,7 +773,7 @@ export default function ProductForm() {
                 </div>
               ) : (
                 attributeFields.map((field, attrIndex) => (
-                  <Card key={field.id} className="bg-white/5 border-white/10">
+                  <Card key={field.id} className="bg-white/10 border-2 border-white/25 shadow-lg">
                     <CardContent className="p-4 space-y-4">
                       <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                         <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
