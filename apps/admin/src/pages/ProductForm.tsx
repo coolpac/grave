@@ -6,6 +6,8 @@ import { Plus, Trash2, Save, ArrowLeft, X, Upload, GripVertical, Info, HelpCircl
 import api from '../lib/api';
 import { Button } from '@ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/components/card';
+import AttributeTemplates, { AttributeTemplate } from '../components/AttributeTemplates';
+import PriceMatrixEditor from '../components/PriceMatrixEditor';
 
 // Типы товаров
 enum ProductType {
@@ -113,6 +115,7 @@ export default function ProductForm() {
   const [mediaItems, setMediaItems] = useState<MediaItem[]>([]);
   const [uploading, setUploading] = useState(false);
   const [activeTab, setActiveTab] = useState<'basic' | 'attributes' | 'variants' | 'media'>('basic');
+  const [showTemplates, setShowTemplates] = useState(false);
 
   // Получение категорий
   const { data: categories } = useQuery({
@@ -403,6 +406,45 @@ export default function ProductForm() {
     setValue(`attributes.${attrIndex}.values`, newValues);
   };
 
+  // Применение шаблона атрибутов
+  const applyTemplate = (template: AttributeTemplate) => {
+    const templateAttrs = template.attributes.map((attr, index) => ({
+      name: attr.name,
+      slug: attr.slug,
+      type: attr.type,
+      order: index,
+      isRequired: true,
+      values: attr.values.map((val, valIndex) => ({
+        value: val.value,
+        displayName: val.displayName,
+        order: valIndex,
+      })),
+    }));
+    
+    setValue('attributes', templateAttrs);
+    setShowTemplates(false);
+    
+    // Автоматически генерируем варианты для MATRIX типа
+    if (productType === ProductType.MATRIX && templateAttrs.length >= 2) {
+      setTimeout(() => {
+        generateMatrixVariants();
+      }, 100);
+    }
+  };
+
+  // Обработчики для табличного редактора
+  const handlePriceChange = (variantIndex: number, price: number) => {
+    setValue(`variants.${variantIndex}.price`, price);
+  };
+
+  const handleStockChange = (variantIndex: number, stock: number) => {
+    setValue(`variants.${variantIndex}.stock`, stock);
+  };
+
+  const handleWeightChange = (variantIndex: number, weight: number) => {
+    setValue(`variants.${variantIndex}.weight`, weight);
+  };
+
   if (productLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -460,7 +502,7 @@ export default function ProductForm() {
       )}
 
       {/* Вкладки */}
-      <div className="flex gap-2 border-b border-white/10 pb-2">
+      <div className="flex gap-1 sm:gap-2 border-b border-white/10 pb-2 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
         {[
           { id: 'basic', label: 'Основное', icon: Package },
           { id: 'attributes', label: 'Атрибуты', icon: Tag, count: attributes.length, required: [ProductType.SINGLE_VARIANT, ProductType.MATRIX, ProductType.CONFIGURABLE].includes(productType) },
@@ -474,22 +516,23 @@ export default function ProductForm() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={`
-                flex items-center gap-2 px-4 py-2 rounded-t-lg transition-all
+                flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-t-lg transition-all whitespace-nowrap flex-shrink-0
                 ${isActive 
                   ? 'bg-white/10 text-white border-b-2 border-blue-400' 
                   : 'text-white/60 hover:text-white hover:bg-white/5'
                 }
               `}
             >
-              <TabIcon className="h-4 w-4" />
-              <span className="text-sm font-medium">{tab.label}</span>
+              <TabIcon className="h-4 w-4 flex-shrink-0" />
+              <span className="text-xs sm:text-sm font-medium hidden sm:inline">{tab.label}</span>
+              <span className="text-xs sm:text-sm font-medium sm:hidden">{tab.label.split(' ')[0]}</span>
               {tab.count !== undefined && (
-                <span className={`text-xs px-2 py-0.5 rounded-full ${isActive ? 'bg-blue-500/30 text-blue-300' : 'bg-white/10 text-white/60'}`}>
+                <span className={`text-xs px-1.5 sm:px-2 py-0.5 rounded-full flex-shrink-0 ${isActive ? 'bg-blue-500/30 text-blue-300' : 'bg-white/10 text-white/60'}`}>
                   {tab.count}
                 </span>
               )}
               {tab.required && (
-                <span className="text-xs text-red-400">*</span>
+                <span className="text-xs text-red-400 flex-shrink-0">*</span>
               )}
             </button>
           );
@@ -507,30 +550,30 @@ export default function ProductForm() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Slug *
-                    <span className="text-xs text-white/50 ml-2">(URL-адрес товара)</span>
-                  </label>
-                  <input
-                    {...register('slug', { required: 'Slug обязателен' })}
-                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/30"
-                    placeholder="product-slug"
-                  />
-                  {errors.slug && <p className="text-red-400 text-xs mt-1">{errors.slug.message}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">Название *</label>
-                  <input
-                    {...register('name', { required: 'Название обязательно' })}
-                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/30"
-                    placeholder="Название товара"
-                  />
-                  {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name.message}</p>}
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Slug *
+                  <span className="text-xs text-white/50 ml-2 hidden sm:inline">(URL-адрес товара)</span>
+                </label>
+                <input
+                  {...register('slug', { required: 'Slug обязателен' })}
+                  className="w-full px-3 sm:px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 text-sm sm:text-base"
+                  placeholder="product-slug"
+                />
+                {errors.slug && <p className="text-red-400 text-xs mt-1">{errors.slug.message}</p>}
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">Название *</label>
+                <input
+                  {...register('name', { required: 'Название обязательно' })}
+                  className="w-full px-3 sm:px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 text-sm sm:text-base"
+                  placeholder="Название товара"
+                />
+                {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name.message}</p>}
+              </div>
+            </div>
 
               <div>
                 <label className="block text-sm font-medium text-white mb-2">Описание</label>
@@ -542,59 +585,59 @@ export default function ProductForm() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Категория *
-                    <HelpCircle className="h-3 w-3 inline-block ml-1 text-white/50" title="Выберите категорию товара" />
-                  </label>
-                  <select
-                    {...register('categoryId', { required: 'Категория обязательна', valueAsNumber: true })}
-                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white focus:outline-none focus:ring-2 focus:ring-white/30"
-                  >
-                    <option value="">Выберите категорию</option>
-                    {categories?.map((cat: any) => (
-                      <option key={cat.id} value={cat.id} className="bg-[#0a0a0a]">
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.categoryId && <p className="text-red-400 text-xs mt-1">{errors.categoryId.message}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Тип товара *
-                    <HelpCircle className="h-3 w-3 inline-block ml-1 text-white/50" title="Выберите тип товара в зависимости от сложности ценообразования" />
-                  </label>
-                  <select
-                    {...register('productType', { required: true })}
-                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white focus:outline-none focus:ring-2 focus:ring-white/30"
-                  >
-                    <option value={ProductType.SIMPLE} className="bg-[#0a0a0a]">Простой</option>
-                    <option value={ProductType.SINGLE_VARIANT} className="bg-[#0a0a0a]">С одним вариантом</option>
-                    <option value={ProductType.MATRIX} className="bg-[#0a0a0a]">Матрица</option>
-                    <option value={ProductType.RANGE} className="bg-[#0a0a0a]">Диапазон</option>
-                    <option value={ProductType.CONFIGURABLE} className="bg-[#0a0a0a]">Настраиваемый</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-white mb-2">
-                    Единица измерения
-                    <HelpCircle className="h-3 w-3 inline-block ml-1 text-white/50" title="Единица измерения для цены и остатков" />
-                  </label>
-                  <select
-                    {...register('unit')}
-                    className="w-full px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white focus:outline-none focus:ring-2 focus:ring-white/30"
-                  >
-                    <option value={UnitType.PIECE} className="bg-[#0a0a0a]">Штука (шт)</option>
-                    <option value={UnitType.SQUARE_METER} className="bg-[#0a0a0a]">Квадратный метр (м²)</option>
-                    <option value={UnitType.TON} className="bg-[#0a0a0a]">Тонна (Т)</option>
-                    <option value={UnitType.SET} className="bg-[#0a0a0a]">Комплект (компл)</option>
-                  </select>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Категория *
+                  <HelpCircle className="h-3 w-3 inline-block ml-1 text-white/50" title="Выберите категорию товара" />
+                </label>
+                <select
+                  {...register('categoryId', { required: 'Категория обязательна', valueAsNumber: true })}
+                  className="w-full px-3 sm:px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white focus:outline-none focus:ring-2 focus:ring-white/30 text-sm sm:text-base"
+                >
+                  <option value="">Выберите категорию</option>
+                  {categories?.map((cat: any) => (
+                    <option key={cat.id} value={cat.id} className="bg-[#0a0a0a]">
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.categoryId && <p className="text-red-400 text-xs mt-1">{errors.categoryId.message}</p>}
               </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Тип товара *
+                  <HelpCircle className="h-3 w-3 inline-block ml-1 text-white/50" title="Выберите тип товара в зависимости от сложности ценообразования" />
+                </label>
+                <select
+                  {...register('productType', { required: true })}
+                  className="w-full px-3 sm:px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white focus:outline-none focus:ring-2 focus:ring-white/30 text-sm sm:text-base"
+                >
+                  <option value={ProductType.SIMPLE} className="bg-[#0a0a0a]">Простой</option>
+                  <option value={ProductType.SINGLE_VARIANT} className="bg-[#0a0a0a]">С одним вариантом</option>
+                  <option value={ProductType.MATRIX} className="bg-[#0a0a0a]">Матрица</option>
+                  <option value={ProductType.RANGE} className="bg-[#0a0a0a]">Диапазон</option>
+                  <option value={ProductType.CONFIGURABLE} className="bg-[#0a0a0a]">Настраиваемый</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Единица измерения
+                  <HelpCircle className="h-3 w-3 inline-block ml-1 text-white/50" title="Единица измерения для цены и остатков" />
+                </label>
+                <select
+                  {...register('unit')}
+                  className="w-full px-3 sm:px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white focus:outline-none focus:ring-2 focus:ring-white/30 text-sm sm:text-base"
+                >
+                  <option value={UnitType.PIECE} className="bg-[#0a0a0a]">Штука (шт)</option>
+                  <option value={UnitType.SQUARE_METER} className="bg-[#0a0a0a]">Квадратный метр (м²)</option>
+                  <option value={UnitType.TON} className="bg-[#0a0a0a]">Тонна (Т)</option>
+                  <option value={UnitType.SET} className="bg-[#0a0a0a]">Комплект (компл)</option>
+                </select>
+              </div>
+            </div>
 
               {productType === ProductType.SIMPLE && (
                 <div>
@@ -629,41 +672,75 @@ export default function ProductForm() {
 
         {/* Атрибуты товара */}
         {activeTab === 'attributes' && (
-          <Card className="glass-strong border-white/20 shadow-xl">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-white font-semibold flex items-center gap-2">
-                  <Tag className="h-5 w-5" />
-                  Атрибуты товара
-                </CardTitle>
-                <p className="text-sm text-white/60 mt-1">
-                  Атрибуты определяют варианты товара. Например: Размер, Сорт, Высота, Диаметр
-                </p>
+          <>
+            {/* Шаблоны атрибутов */}
+            {(productType === ProductType.SINGLE_VARIANT || productType === ProductType.MATRIX) && (
+              <div className="space-y-4">
+                {!showTemplates && attributeFields.length === 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowTemplates(true)}
+                    className="w-full border-blue-400/50 text-blue-300 hover:bg-blue-500/20"
+                  >
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Выбрать шаблон атрибутов из прайс-листов
+                  </Button>
+                )}
+                {showTemplates && (
+                  <>
+                    <AttributeTemplates
+                      productType={productType}
+                      onSelectTemplate={applyTemplate}
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setShowTemplates(false)}
+                      className="w-full"
+                    >
+                      Скрыть шаблоны
+                    </Button>
+                  </>
+                )}
               </div>
-              <div className="flex gap-2">
-                {productType === ProductType.MATRIX && attributeFields.length > 0 && (
+            )}
+
+            <Card className="glass-strong border-white/20 shadow-xl">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-white font-semibold flex items-center gap-2">
+                    <Tag className="h-5 w-5" />
+                    Атрибуты товара
+                  </CardTitle>
+                  <p className="text-sm text-white/60 mt-1">
+                    Атрибуты определяют варианты товара. Например: Размер, Сорт, Высота, Диаметр
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {productType === ProductType.MATRIX && attributeFields.length >= 2 && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={generateMatrixVariants}
+                      className="border-blue-400/50 text-blue-300 hover:bg-blue-500/20"
+                    >
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Сгенерировать варианты
+                    </Button>
+                  )}
                   <Button
                     type="button"
                     size="sm"
-                    variant="outline"
-                    onClick={generateMatrixVariants}
-                    className="border-blue-400/50 text-blue-300 hover:bg-blue-500/20"
+                    onClick={() => appendAttribute({ name: '', slug: '', type: 'select', order: attributeFields.length, values: [] })}
                   >
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    Сгенерировать варианты
+                    <Plus className="h-4 w-4 mr-2" />
+                    Добавить атрибут
                   </Button>
-                )}
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => appendAttribute({ name: '', slug: '', type: 'select', order: attributeFields.length, values: [] })}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Добавить атрибут
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
               {attributeFields.length === 0 ? (
                 <div className="text-center py-12 border-2 border-dashed border-white/20 rounded-lg">
                   <Tag className="h-12 w-12 mx-auto mb-4 text-white/30" />
@@ -687,8 +764,8 @@ export default function ProductForm() {
                 attributeFields.map((field, attrIndex) => (
                   <Card key={field.id} className="bg-white/5 border-white/10">
                     <CardContent className="p-4 space-y-4">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
+                        <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                             <label className="block text-sm font-medium text-white mb-2">
                               Название атрибута *
@@ -722,17 +799,17 @@ export default function ProductForm() {
                               <option value="number" className="bg-[#0a0a0a]">Число</option>
                             </select>
                           </div>
-                          <div className="flex items-center gap-2 pt-6">
-                            <input
-                              type="checkbox"
-                              {...register(`attributes.${attrIndex}.isRequired` as const)}
-                              className="w-4 h-4 rounded"
-                              id={`required-${attrIndex}`}
-                            />
-                            <label htmlFor={`required-${attrIndex}`} className="text-sm text-white cursor-pointer">
-                              Обязательный для выбора
-                            </label>
-                          </div>
+                        <div className="flex items-center gap-2 sm:pt-6">
+                          <input
+                            type="checkbox"
+                            {...register(`attributes.${attrIndex}.isRequired` as const)}
+                            className="w-4 h-4 rounded flex-shrink-0"
+                            id={`required-${attrIndex}`}
+                          />
+                          <label htmlFor={`required-${attrIndex}`} className="text-sm text-white cursor-pointer">
+                            Обязательный для выбора
+                          </label>
+                        </div>
                         </div>
                         <Button
                           type="button"
@@ -778,23 +855,23 @@ export default function ProductForm() {
                         ) : (
                           <div className="space-y-2">
                             {watch(`attributes.${attrIndex}.values`)?.map((value: ProductAttributeValue, valueIndex: number) => (
-                              <div key={valueIndex} className="flex gap-2">
+                              <div key={valueIndex} className="flex flex-col sm:flex-row gap-2">
                                 <input
                                   {...register(`attributes.${attrIndex}.values.${valueIndex}.value` as const, { required: true })}
                                   placeholder="Значение (для системы)"
-                                  className="flex-1 px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                                  className="flex-1 px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm min-w-0"
                                 />
                                 <input
                                   {...register(`attributes.${attrIndex}.values.${valueIndex}.displayName` as const, { required: true })}
                                   placeholder="Отображаемое название"
-                                  className="flex-1 px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                                  className="flex-1 px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm min-w-0"
                                 />
                                 <Button
                                   type="button"
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => removeAttributeValue(attrIndex, valueIndex)}
-                                  className="text-red-400"
+                                  className="text-red-400 flex-shrink-0"
                                 >
                                   <X className="h-4 w-4" />
                                 </Button>
@@ -855,35 +932,46 @@ export default function ProductForm() {
                 </div>
               ) : (
                 <>
-                  {/* Визуализация матрицы для MATRIX типа */}
-                  {productType === ProductType.MATRIX && attributes.length >= 2 && variants.length > 0 && (
+                  {/* Табличный редактор цен для MATRIX типа */}
+                  {productType === ProductType.MATRIX && attributes.length === 2 && variants.length > 0 && (
+                    <PriceMatrixEditor
+                      attributes={attributes}
+                      variants={variants}
+                      onPriceChange={handlePriceChange}
+                      onStockChange={handleStockChange}
+                      onWeightChange={handleWeightChange}
+                    />
+                  )}
+
+                  {/* Визуализация матрицы для MATRIX типа (если больше 2 атрибутов) */}
+                  {productType === ProductType.MATRIX && attributes.length > 2 && variants.length > 0 && (
                     <Card className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/30 mb-4">
                       <CardContent className="p-4">
                         <div className="flex items-center gap-2 mb-3">
                           <Sparkles className="h-4 w-4 text-purple-400" />
                           <span className="text-sm font-medium text-white">Матрица цен</span>
                         </div>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
+                        <div className="overflow-x-auto -mx-4 px-4">
+                          <table className="w-full text-sm min-w-full">
                             <thead>
                               <tr className="border-b border-white/10">
                                 {attributes.map((attr) => (
-                                  <th key={attr.slug} className="text-left py-2 px-3 text-white/80 font-medium">
+                                  <th key={attr.slug} className="text-left py-2 px-2 sm:px-3 text-white/80 font-medium whitespace-nowrap min-w-[100px]">
                                     {attr.name}
                                   </th>
                                 ))}
-                                <th className="text-right py-2 px-3 text-white/80 font-medium">Цена</th>
+                                <th className="text-right py-2 px-2 sm:px-3 text-white/80 font-medium whitespace-nowrap">Цена</th>
                               </tr>
                             </thead>
                             <tbody>
                               {variants.slice(0, 10).map((variant: ProductVariant, idx: number) => (
                                 <tr key={idx} className="border-b border-white/5 hover:bg-white/5">
                                   {attributes.map((attr) => (
-                                    <td key={attr.slug} className="py-2 px-3 text-white/70">
+                                    <td key={attr.slug} className="py-2 px-2 sm:px-3 text-white/70 whitespace-nowrap">
                                       {variant.attributes?.[attr.slug] || '-'}
                                     </td>
                                   ))}
-                                  <td className="py-2 px-3 text-right text-white font-semibold">
+                                  <td className="py-2 px-2 sm:px-3 text-right text-white font-semibold whitespace-nowrap">
                                     {variant.price} ₽
                                   </td>
                                 </tr>
@@ -916,16 +1004,16 @@ export default function ProductForm() {
                     return (
                       <Card key={field.id} className="bg-white/5 border-white/10">
                         <CardContent className="p-4">
-                          <div className="flex items-start justify-between gap-4 mb-4">
-                            <div className="flex-1">
+                          <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-4">
+                            <div className="flex-1 w-full">
                               {attrDisplay && (
-                                <div className="mb-3 flex items-center gap-2">
-                                  <span className="text-xs font-medium text-blue-300 bg-blue-500/20 px-2 py-1 rounded border border-blue-500/30">
+                                <div className="mb-3 flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-medium text-blue-300 bg-blue-500/20 px-2 py-1 rounded border border-blue-500/30 break-words">
                                     {attrDisplay}
                                   </span>
                                 </div>
                               )}
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <div>
                                   <label className="block text-sm font-medium text-white mb-2">Название</label>
                                   <input
@@ -993,7 +1081,7 @@ export default function ProductForm() {
                               variant="ghost"
                               size="sm"
                               onClick={() => removeVariant(variantIndex)}
-                              className="text-red-400 hover:text-red-300"
+                              className="text-red-400 hover:text-red-300 flex-shrink-0 self-start sm:self-auto"
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>
@@ -1055,7 +1143,7 @@ export default function ProductForm() {
               )}
 
               {mediaItems.length > 0 && (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
                   {mediaItems.map((item, index) => (
                     <div
                       key={item.id || `new-${index}`}
@@ -1091,9 +1179,9 @@ export default function ProductForm() {
                           <X className="w-4 h-4" />
                         </Button>
                       </div>
-                      <div className="absolute top-2 left-2 bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                        <GripVertical className="w-3 h-3" />
-                        {index + 1}
+                      <div className="absolute top-1.5 left-1.5 sm:top-2 sm:left-2 bg-black/70 text-white text-xs px-1.5 sm:px-2 py-0.5 sm:py-1 rounded flex items-center gap-1">
+                        <GripVertical className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
+                        <span className="text-xs">{index + 1}</span>
                       </div>
                     </div>
                   ))}
@@ -1104,11 +1192,11 @@ export default function ProductForm() {
         )}
 
         {/* Кнопки действий */}
-        <div className="flex gap-4 pt-4 border-t border-white/10">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-white/10 sticky bottom-0 bg-background/95 backdrop-blur-sm pb-4 -mx-4 sm:mx-0 px-4 sm:px-0">
           <Button
             type="submit"
             disabled={createMutation.isPending || updateMutation.isPending}
-            className="flex-1"
+            className="flex-1 w-full sm:w-auto"
           >
             <Save className="h-4 w-4 mr-2" />
             {createMutation.isPending || updateMutation.isPending ? 'Сохранение...' : 'Сохранить товар'}
@@ -1117,6 +1205,7 @@ export default function ProductForm() {
             type="button"
             variant="ghost"
             onClick={() => navigate('/products')}
+            className="w-full sm:w-auto"
           >
             Отмена
           </Button>
