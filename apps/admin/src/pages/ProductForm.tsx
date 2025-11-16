@@ -897,6 +897,7 @@ export default function ProductForm() {
               )}
             </CardContent>
           </Card>
+          </>
         )}
 
         {/* Варианты товара */}
