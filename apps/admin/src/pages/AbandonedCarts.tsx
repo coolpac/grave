@@ -47,18 +47,18 @@ export default function AbandonedCarts() {
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
         <Card className="glass-strong card-hover border-white/20 shadow-xl">
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Всего брошенных</CardTitle>
+            <CardTitle className="text-sm font-medium text-white">Всего брошенных</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalCount || 0}</div>
+            <div className="text-3xl font-bold text-white">{stats.totalCount || 0}</div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="glass-strong card-hover border-white/20 shadow-xl">
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Общая стоимость</CardTitle>
+            <CardTitle className="text-sm font-medium text-white">Общая стоимость</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
+            <div className="text-3xl font-bold text-white">
               {new Intl.NumberFormat('ru-RU', {
                 style: 'currency',
                 currency: 'RUB',
@@ -67,12 +67,12 @@ export default function AbandonedCarts() {
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="glass-strong card-hover border-white/20 shadow-xl">
           <CardHeader>
-            <CardTitle className="text-sm font-medium">Восстановлено</CardTitle>
+            <CardTitle className="text-sm font-medium text-white">Восстановлено</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.recoveredCount || 0}</div>
+            <div className="text-3xl font-bold text-white">{stats.recoveredCount || 0}</div>
           </CardContent>
         </Card>
       </div>
@@ -83,9 +83,9 @@ export default function AbandonedCarts() {
           <Card key={cart.id} className="glass-strong card-hover border-white/20 shadow-xl">
             <CardHeader>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <CardTitle className="text-base sm:text-lg">Корзина #{cart.id}</CardTitle>
+                <CardTitle className="text-base sm:text-lg text-white">Корзина #{cart.id}</CardTitle>
                 {cart.recovered && (
-                  <span className="text-xs px-2 py-1 rounded bg-green-100 text-green-800 self-start sm:self-auto">
+                  <span className="text-xs px-2 py-1 rounded bg-green-500/20 text-green-400 border border-green-500/30 self-start sm:self-auto">
                     Восстановлена
                   </span>
                 )}
@@ -94,24 +94,26 @@ export default function AbandonedCarts() {
             <CardContent>
               <div className="space-y-2 mb-4">
                 <div className="text-xs sm:text-sm">
-                  <span className="text-muted-foreground">Товаров:</span> {cart.itemsCount}
+                  <span className="text-white/70">Товаров:</span> <span className="text-white">{cart.itemsCount}</span>
                 </div>
                 <div className="text-xs sm:text-sm">
-                  <span className="text-muted-foreground">Сумма:</span>{' '}
-                  {new Intl.NumberFormat('ru-RU', {
-                    style: 'currency',
-                    currency: 'RUB',
-                    minimumFractionDigits: 0,
-                  }).format(cart.totalAmount)}
+                  <span className="text-white/70">Сумма:</span>{' '}
+                  <span className="text-white font-semibold">
+                    {new Intl.NumberFormat('ru-RU', {
+                      style: 'currency',
+                      currency: 'RUB',
+                      minimumFractionDigits: 0,
+                    }).format(cart.totalAmount)}
+                  </span>
                 </div>
                 <div className="text-xs sm:text-sm">
-                  <span className="text-muted-foreground">Создана:</span>{' '}
-                  {format(new Date(cart.createdAt), 'dd.MM.yyyy HH:mm')}
+                  <span className="text-white/70">Создана:</span>{' '}
+                  <span className="text-white">{format(new Date(cart.createdAt), 'dd.MM.yyyy HH:mm')}</span>
                 </div>
                 {cart.lastReminderAt && (
                   <div className="text-xs sm:text-sm">
-                    <span className="text-muted-foreground">Последнее напоминание:</span>{' '}
-                    {format(new Date(cart.lastReminderAt), 'dd.MM.yyyy HH:mm')}
+                    <span className="text-white/70">Последнее напоминание:</span>{' '}
+                    <span className="text-white">{format(new Date(cart.lastReminderAt), 'dd.MM.yyyy HH:mm')}</span>
                   </div>
                 )}
               </div>

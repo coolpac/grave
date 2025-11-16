@@ -59,26 +59,26 @@ export default function Banners() {
         {banners?.map((banner: any) => (
           <Card key={banner.id} className="glass-strong card-hover border-white/20 shadow-xl">
             <CardHeader>
-              <div className="aspect-video bg-muted rounded-md overflow-hidden mb-2">
+              <div className="aspect-video bg-white/5 rounded-md overflow-hidden mb-2 border border-white/10">
                 <img
                   src={banner.imageUrl}
                   alt={banner.title}
                   className="w-full h-full object-cover"
                 />
               </div>
-              <CardTitle className="text-lg">{banner.title}</CardTitle>
+              <CardTitle className="text-lg text-white">{banner.title}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
+              <p className="text-sm text-white/80 mb-4">
                 {banner.description}
               </p>
               <div className="flex items-center justify-between text-sm">
                 <div>
-                  <div className="text-muted-foreground">
-                    Позиция: {banner.position}
+                  <div className="text-white/70">
+                    Позиция: <span className="text-white">{banner.position}</span>
                   </div>
-                  <div className="text-muted-foreground">
-                    Кликов: {banner.clickCount}
+                  <div className="text-white/70">
+                    Кликов: <span className="text-white font-semibold">{banner.clickCount}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
