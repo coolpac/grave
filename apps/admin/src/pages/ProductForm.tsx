@@ -619,7 +619,7 @@ export default function ProductForm() {
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
                   Тип товара *
-                  <HelpCircle className="h-3 w-3 inline-block ml-1 text-white/50" title="Выберите тип товара в зависимости от сложности ценообразования" />
+                  <HelpCircle className="h-3 w-3 inline-block ml-1 text-white/70" title="Выберите тип товара в зависимости от сложности ценообразования" />
                 </label>
                 <select
                   {...register('productType', { required: true })}
@@ -636,7 +636,7 @@ export default function ProductForm() {
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
                   Единица измерения
-                  <HelpCircle className="h-3 w-3 inline-block ml-1 text-white/50" title="Единица измерения для цены и остатков" />
+                  <HelpCircle className="h-3 w-3 inline-block ml-1 text-white/70" title="Единица измерения для цены и остатков" />
                 </label>
                 <select
                   {...register('unit')}
@@ -803,7 +803,7 @@ export default function ProductForm() {
                             <label className="block text-sm font-medium text-white mb-2">Тип атрибута</label>
                             <select
                               {...register(`attributes.${attrIndex}.type` as const)}
-                              className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white text-sm"
+                              className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50"
                             >
                               <option value="select" className="bg-[#0a0a0a]">Выбор из списка</option>
                               <option value="text" className="bg-[#0a0a0a]">Текст</option>
