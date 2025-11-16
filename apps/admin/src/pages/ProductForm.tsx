@@ -473,7 +473,7 @@ export default function ProductForm() {
           <h1 className="text-2xl sm:text-3xl font-bold mb-2 gradient-text">
             {isEditMode ? 'Редактирование товара' : 'Создание товара'}
           </h1>
-          <p className="text-sm sm:text-base text-white/70">Управление товарами и их вариантами</p>
+          <p className="text-sm sm:text-base text-white/90 font-medium">Управление товарами и их вариантами</p>
         </div>
       </div>
 
@@ -486,19 +486,19 @@ export default function ProductForm() {
                 <TypeIcon className="h-6 w-6 text-blue-400" />
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="text-base sm:text-lg font-semibold text-white mb-1 flex items-center gap-2 flex-wrap">
+                <h3 className="text-base sm:text-lg font-bold text-white mb-2 flex items-center gap-2 flex-wrap">
                   {typeInfo.title}
-                  <HelpCircle className="h-4 w-4 text-white/50 flex-shrink-0" />
+                  <HelpCircle className="h-4 w-4 text-white/70 flex-shrink-0" />
                 </h3>
-                <p className="text-xs sm:text-sm text-white/80 mb-2 break-words">{typeInfo.description}</p>
-                <div className="flex items-start gap-2 text-xs text-blue-300/80 bg-blue-500/10 px-3 py-1.5 rounded-lg border border-blue-500/20">
-                  <Info className="h-3 w-3 flex-shrink-0 mt-0.5" />
+                <p className="text-xs sm:text-sm text-white/95 mb-3 break-words font-medium leading-relaxed">{typeInfo.description}</p>
+                <div className="flex items-start gap-2 text-xs sm:text-sm text-blue-200 bg-blue-500/20 px-4 py-2 rounded-lg border-2 border-blue-400/40 font-semibold shadow-md">
+                  <Info className="h-4 w-4 flex-shrink-0 mt-0.5 text-blue-300" />
                   <span className="break-words">Пример: {typeInfo.example}</span>
                 </div>
                 {productType === ProductType.MATRIX && (
-                  <div className="mt-3 pt-3 border-t border-blue-500/20">
-                    <p className="text-xs text-blue-200/90 mb-2 font-medium">💡 Как работать с матрицей:</p>
-                    <ol className="text-xs text-blue-200/70 space-y-1 list-decimal list-inside">
+                  <div className="mt-4 pt-4 border-t-2 border-blue-400/30">
+                    <p className="text-xs sm:text-sm text-blue-200 mb-3 font-bold">💡 Как работать с матрицей:</p>
+                    <ol className="text-xs sm:text-sm text-white/90 space-y-1.5 list-decimal list-inside font-medium leading-relaxed">
                       <li>Выберите шаблон или создайте атрибуты вручную</li>
                       <li>Нажмите "Сгенерировать варианты"</li>
                       <li>Используйте табличный редактор для заполнения цен</li>
@@ -530,7 +530,7 @@ export default function ProductForm() {
                 flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-t-lg transition-all whitespace-nowrap flex-shrink-0
                 ${isActive 
                   ? 'bg-white/10 text-white border-b-2 border-blue-400' 
-                  : 'text-white/60 hover:text-white hover:bg-white/5'
+                  : 'text-white/80 hover:text-white hover:bg-white/10'
                 }
               `}
             >
@@ -538,7 +538,7 @@ export default function ProductForm() {
               <span className="text-xs sm:text-sm font-medium hidden sm:inline">{tab.label}</span>
               <span className="text-xs sm:text-sm font-medium sm:hidden">{tab.label.split(' ')[0]}</span>
               {tab.count !== undefined && (
-                <span className={`text-xs px-1.5 sm:px-2 py-0.5 rounded-full flex-shrink-0 ${isActive ? 'bg-blue-500/30 text-blue-300' : 'bg-white/10 text-white/60'}`}>
+                <span className={`text-xs px-1.5 sm:px-2 py-0.5 rounded-full flex-shrink-0 font-semibold ${isActive ? 'bg-blue-500/30 text-blue-300' : 'bg-white/15 text-white/85'}`}>
                   {tab.count}
                 </span>
               )}
@@ -565,11 +565,11 @@ export default function ProductForm() {
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
                   Slug *
-                  <span className="text-xs text-white/50 ml-2 hidden sm:inline">(URL-адрес товара)</span>
+                  <span className="text-xs text-white/70 ml-2 hidden sm:inline font-medium">(URL-адрес товара)</span>
                 </label>
                 <input
                   {...register('slug', { required: 'Slug обязателен' })}
-                  className="w-full px-3 sm:px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 text-sm sm:text-base"
+                  className="w-full px-3 sm:px-4 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 text-sm sm:text-base font-medium"
                   placeholder="product-slug"
                 />
                 {errors.slug && <p className="text-red-400 text-xs mt-1">{errors.slug.message}</p>}
@@ -579,7 +579,7 @@ export default function ProductForm() {
                 <label className="block text-sm font-medium text-white mb-2">Название *</label>
                 <input
                   {...register('name', { required: 'Название обязательно' })}
-                  className="w-full px-3 sm:px-4 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-white/30 text-sm sm:text-base"
+                  className="w-full px-3 sm:px-4 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 text-sm sm:text-base font-medium"
                   placeholder="Название товара"
                 />
                 {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name.message}</p>}
@@ -600,7 +600,7 @@ export default function ProductForm() {
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
                   Категория *
-                  <HelpCircle className="h-3 w-3 inline-block ml-1 text-white/50" title="Выберите категорию товара" />
+                  <HelpCircle className="h-3 w-3 inline-block ml-1 text-white/70" title="Выберите категорию товара" />
                 </label>
                 <select
                   {...register('categoryId', { required: 'Категория обязательна', valueAsNumber: true })}
@@ -654,7 +654,7 @@ export default function ProductForm() {
                 <div>
                   <label className="block text-sm font-medium text-white mb-2">
                     Базовая цена
-                    <span className="text-xs text-white/50 ml-2">(для простых товаров)</span>
+                    <span className="text-xs text-white/75 ml-2 font-medium">(для простых товаров)</span>
                   </label>
                   <input
                     type="number"
@@ -724,7 +724,7 @@ export default function ProductForm() {
                     <Tag className="h-5 w-5" />
                     Атрибуты товара
                   </CardTitle>
-                  <p className="text-sm text-white/60 mt-1">
+                  <p className="text-sm text-white/90 mt-1 font-medium">
                     Атрибуты определяют варианты товара. Например: Размер, Сорт, Высота, Диаметр
                   </p>
                 </div>
@@ -755,8 +755,8 @@ export default function ProductForm() {
               {attributeFields.length === 0 ? (
                 <div className="text-center py-12 border-2 border-dashed border-white/20 rounded-lg">
                   <Tag className="h-12 w-12 mx-auto mb-4 text-white/30" />
-                  <p className="text-white/70 mb-2">Атрибуты не добавлены</p>
-                  <p className="text-sm text-white/50 mb-4">
+                  <p className="text-white/90 mb-2 font-semibold">Атрибуты не добавлены</p>
+                  <p className="text-sm text-white/80 mb-4 font-medium">
                     {productType === ProductType.MATRIX 
                       ? 'Добавьте атрибуты (например, Размер и Сорт) для создания матрицы цен'
                       : 'Добавьте атрибут для создания вариантов товара'
@@ -780,11 +780,11 @@ export default function ProductForm() {
                           <div>
                             <label className="block text-sm font-medium text-white mb-2">
                               Название атрибута *
-                              <span className="text-xs text-white/50 ml-2">(например: Размер, Сорт, Высота)</span>
+                              <span className="text-xs text-white/75 ml-2 font-medium">(например: Размер, Сорт, Высота)</span>
                             </label>
                             <input
                               {...register(`attributes.${attrIndex}.name` as const, { required: true })}
-                              className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                              className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 text-sm font-medium"
                               placeholder="Размер"
                             />
                           </div>
@@ -795,7 +795,7 @@ export default function ProductForm() {
                             </label>
                             <input
                               {...register(`attributes.${attrIndex}.slug` as const, { required: true })}
-                              className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                              className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 text-sm font-medium"
                               placeholder="size"
                             />
                           </div>
@@ -838,7 +838,7 @@ export default function ProductForm() {
                         <div className="flex items-center justify-between">
                           <label className="text-sm font-medium text-white">
                             Значения атрибута *
-                            <span className="text-xs text-white/50 ml-2">(варианты для выбора)</span>
+                            <span className="text-xs text-white/75 ml-2 font-medium">(варианты для выбора)</span>
                           </label>
                           <Button
                             type="button"
@@ -851,8 +851,8 @@ export default function ProductForm() {
                           </Button>
                         </div>
                         {watch(`attributes.${attrIndex}.values`)?.length === 0 ? (
-                          <div className="text-center py-4 border border-dashed border-white/10 rounded-lg bg-white/5">
-                            <p className="text-sm text-white/50 mb-2">Нет значений</p>
+                          <div className="text-center py-4 border-2 border-dashed border-white/25 rounded-lg bg-white/10">
+                            <p className="text-sm text-white/85 mb-2 font-semibold">Нет значений</p>
                             <Button
                               type="button"
                               size="sm"
@@ -909,7 +909,7 @@ export default function ProductForm() {
                   <Sparkles className="h-5 w-5" />
                   Варианты товара
                 </CardTitle>
-                <p className="text-sm text-white/60 mt-1">
+                <p className="text-sm text-white/90 mt-1 font-medium">
                   Варианты определяют конкретные комбинации атрибутов и их цены
                 </p>
               </div>
@@ -926,8 +926,8 @@ export default function ProductForm() {
               {variantFields.length === 0 ? (
                 <div className="text-center py-12 border-2 border-dashed border-white/20 rounded-lg">
                   <Sparkles className="h-12 w-12 mx-auto mb-4 text-white/30" />
-                  <p className="text-white/70 mb-2">Варианты не добавлены</p>
-                  <p className="text-sm text-white/50 mb-4">
+                  <p className="text-white/90 mb-2 font-semibold">Варианты не добавлены</p>
+                  <p className="text-sm text-white/80 mb-4 font-medium">
                     {productType === ProductType.MATRIX
                       ? 'Нажмите "Сгенерировать варианты" на вкладке Атрибуты для автоматического создания всех комбинаций'
                       : 'Добавьте варианты товара с разными характеристиками и ценами'
@@ -979,7 +979,7 @@ export default function ProductForm() {
                               {variants.slice(0, 10).map((variant: ProductVariant, idx: number) => (
                                 <tr key={idx} className="border-b border-white/5 hover:bg-white/5">
                                   {attributes.map((attr) => (
-                                    <td key={attr.slug} className="py-2 px-2 sm:px-3 text-white/70 whitespace-nowrap">
+                                    <td key={attr.slug} className="py-2 px-2 sm:px-3 text-white/90 whitespace-nowrap font-medium">
                                       {variant.attributes?.[attr.slug] || '-'}
                                     </td>
                                   ))}
@@ -990,7 +990,7 @@ export default function ProductForm() {
                               ))}
                               {variants.length > 10 && (
                                 <tr>
-                                  <td colSpan={attributes.length + 1} className="py-2 px-3 text-center text-white/50 text-xs">
+                                  <td colSpan={attributes.length + 1} className="py-2 px-3 text-center text-white/75 text-xs font-medium">
                                     ... и еще {variants.length - 10} вариантов
                                   </td>
                                 </tr>
@@ -1014,7 +1014,7 @@ export default function ProductForm() {
                       : '';
 
                     return (
-                      <Card key={field.id} className="bg-white/5 border-white/10">
+                      <Card key={field.id} className="bg-white/10 border-2 border-white/25 shadow-lg">
                         <CardContent className="p-4">
                           <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-4">
                             <div className="flex-1 w-full">
@@ -1030,7 +1030,7 @@ export default function ProductForm() {
                                   <label className="block text-sm font-medium text-white mb-2">Название</label>
                                   <input
                                     {...register(`variants.${variantIndex}.name` as const)}
-                                    className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                                    className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 text-sm font-medium"
                                     placeholder="Название варианта"
                                   />
                                 </div>
@@ -1038,7 +1038,7 @@ export default function ProductForm() {
                                   <label className="block text-sm font-medium text-white mb-2">SKU</label>
                                   <input
                                     {...register(`variants.${variantIndex}.sku` as const)}
-                                    className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                                    className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 text-sm font-medium"
                                     placeholder="SKU"
                                   />
                                 </div>
@@ -1051,7 +1051,7 @@ export default function ProductForm() {
                                     type="number"
                                     step="0.01"
                                     {...register(`variants.${variantIndex}.price` as const, { valueAsNumber: true, required: true })}
-                                    className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                                    className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 text-sm font-medium"
                                     placeholder="0.00"
                                   />
                                 </div>
@@ -1060,7 +1060,7 @@ export default function ProductForm() {
                                   <input
                                     type="number"
                                     {...register(`variants.${variantIndex}.stock` as const, { valueAsNumber: true })}
-                                    className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                                    className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 text-sm font-medium"
                                     placeholder="0"
                                   />
                                 </div>
@@ -1070,7 +1070,7 @@ export default function ProductForm() {
                                     type="number"
                                     step="0.01"
                                     {...register(`variants.${variantIndex}.weight` as const, { valueAsNumber: true })}
-                                    className="w-full px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm"
+                                    className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 text-sm font-medium"
                                     placeholder="0.00"
                                   />
                                 </div>

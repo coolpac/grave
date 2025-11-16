@@ -206,38 +206,38 @@ export default function AttributeTemplates({ onSelectTemplate, productType }: At
   }
 
   return (
-    <Card className="glass-strong border-blue-500/30 shadow-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10">
+    <Card className="glass-strong border-blue-500/50 shadow-xl bg-gradient-to-r from-blue-500/20 to-purple-500/20 backdrop-blur-xl">
       <CardHeader>
-        <CardTitle className="text-white font-semibold flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-blue-400" />
+        <CardTitle className="text-white font-bold text-lg flex items-center gap-2">
+          <Sparkles className="h-5 w-5 text-blue-300" />
           Шаблоны атрибутов
         </CardTitle>
-        <p className="text-sm text-white/70 mt-1">
+        <p className="text-sm text-white/90 mt-2 font-medium">
           Выберите готовый шаблон для быстрого создания атрибутов на основе ваших прайс-листов
         </p>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredTemplates.map((template) => {
             const Icon = template.icon;
             return (
               <button
                 key={template.id}
                 onClick={() => onSelectTemplate(template)}
-                className="text-left p-4 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 hover:border-blue-500/30 transition-all group"
+                className="text-left p-4 rounded-lg border-2 border-white/20 bg-white/15 hover:bg-white/25 hover:border-blue-400/60 transition-all group shadow-lg hover:shadow-xl"
               >
                 <div className="flex items-start gap-3">
-                  <div className="p-2 rounded-lg bg-blue-500/20 border border-blue-500/30 group-hover:bg-blue-500/30 transition-colors">
-                    <Icon className="h-5 w-5 text-blue-400" />
+                  <div className="p-2.5 rounded-lg bg-blue-500/30 border-2 border-blue-400/50 group-hover:bg-blue-500/40 transition-colors shadow-md">
+                    <Icon className="h-5 w-5 text-blue-200" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-semibold text-white mb-1 text-sm">{template.name}</h4>
-                    <p className="text-xs text-white/60 mb-2">{template.description}</p>
-                    <div className="flex flex-wrap gap-1">
+                    <h4 className="font-bold text-white mb-1.5 text-sm leading-tight">{template.name}</h4>
+                    <p className="text-xs text-white/85 mb-2.5 font-medium leading-relaxed">{template.description}</p>
+                    <div className="flex flex-wrap gap-1.5">
                       {template.attributes.map((attr) => (
                         <span
                           key={attr.slug}
-                          className="text-xs px-2 py-0.5 rounded bg-white/10 text-white/70 border border-white/10"
+                          className="text-xs px-2.5 py-1 rounded-md bg-white/20 text-white font-semibold border border-white/30 shadow-sm"
                         >
                           {attr.name}
                         </span>
