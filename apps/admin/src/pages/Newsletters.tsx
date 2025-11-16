@@ -51,36 +51,36 @@ export default function Newsletters() {
           <Card key={newsletter.id} className="glass-strong card-hover border-white/20 shadow-xl">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle>{newsletter.subject}</CardTitle>
-                <span className={`text-xs px-2 py-1 rounded ${
-                  newsletter.status === 'sent' ? 'bg-green-100 text-green-800' :
-                  newsletter.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
-                  'bg-gray-100 text-gray-800'
+                <CardTitle className="text-white">{newsletter.subject}</CardTitle>
+                <span className={`text-xs px-2 py-1 rounded border ${
+                  newsletter.status === 'sent' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
+                  newsletter.status === 'scheduled' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
+                  'bg-white/10 text-white/80 border-white/20'
                 }`}>
                   {newsletter.status}
                 </span>
               </div>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+              <p className="text-sm text-white/80 mb-4 line-clamp-2">
                 {newsletter.content}
               </p>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-sm">
                 <div className="space-y-1">
                   {newsletter.scheduledAt && (
-                    <div className="text-muted-foreground">
-                      Запланировано: {format(new Date(newsletter.scheduledAt), 'dd.MM.yyyy HH:mm')}
+                    <div className="text-white/70">
+                      Запланировано: <span className="text-white">{format(new Date(newsletter.scheduledAt), 'dd.MM.yyyy HH:mm')}</span>
                     </div>
                   )}
                   {newsletter.sentAt && (
-                    <div className="text-muted-foreground">
-                      Отправлено: {format(new Date(newsletter.sentAt), 'dd.MM.yyyy HH:mm')}
+                    <div className="text-white/70">
+                      Отправлено: <span className="text-white">{format(new Date(newsletter.sentAt), 'dd.MM.yyyy HH:mm')}</span>
                     </div>
                   )}
-                  <div className="text-muted-foreground text-xs sm:text-sm">
-                    Получателей: {newsletter.recipientCount} · 
-                    Открытий: {newsletter.openedCount} · 
-                    Кликов: {newsletter.clickedCount}
+                  <div className="text-white/70 text-xs sm:text-sm">
+                    Получателей: <span className="text-white">{newsletter.recipientCount}</span> · 
+                    Открытий: <span className="text-white">{newsletter.openedCount}</span> · 
+                    Кликов: <span className="text-white">{newsletter.clickedCount}</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
