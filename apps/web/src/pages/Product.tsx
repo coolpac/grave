@@ -556,6 +556,21 @@ export default function Product() {
         )}
 
 
+        {/* Specifications */}
+        {product.specifications && Object.keys(product.specifications).length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.25 }}
+          >
+            <StoneCard>
+              <div className="p-4">
+                <ProductSpecifications specifications={product.specifications} />
+              </div>
+            </StoneCard>
+          </motion.div>
+        )}
+
         {/* Description with Markdown - гранитный стиль */}
         {product.description && (
           <motion.div
