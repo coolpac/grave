@@ -4,12 +4,17 @@ import { useRef } from 'react'
 
 interface ProductCardProps {
   product: {
+    id?: number
     slug: string
     name: string
     price: number
     image?: string
     images?: string[]
     options?: string
+    productType?: string
+    variants?: any[]
+    attributes?: any[]
+    material?: string
   }
   index?: number
   onAddToCart?: (product: any, position: { x: number; y: number }) => void
@@ -75,9 +80,36 @@ export default function ProductCard({ product, index = 0, onAddToCart }: Product
           <h3 className="text-sm font-body font-medium text-gray-900 mb-1 line-clamp-2">
             {product.name}
           </h3>
-          <p className="text-base font-body font-semibold text-gray-900">
-            {product.price.toLocaleString('ru-RU')} P
-          </p>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-base font-body font-semibold text-gray-900">
+              {product.price > 0 ? `${product.price.toLocaleString('ru-RU')} ₽` : 'По запросу'}
+            </p>
+            {product.material && (
+              <span className={`text-xs px-2 py-0.5 rounded ${
+                product.material === 'MARBLE' 
+                  ? 'bg-blue-100 text-blue-700' 
+                  : product.material === 'GRANITE'
+                  ? 'bg-gray-100 text-gray-700'
+                  : 'bg-gray-100 text-gray-600'
+              }`}>
+                {product.material === 'MARBLE' ? 'Мрамор' : product.material === 'GRANITE' ? 'Гранит' : product.material}
+              </span>
+            )}
+          </div>
+          {product.productType && product.productType !== 'SIMPLE' && (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {product.variants && product.variants.length > 0 && (
+                <span className="text-xs text-gray-500">
+                  {product.variants.length} {product.variants.length === 1 ? 'вариант' : product.variants.length < 5 ? 'варианта' : 'вариантов'}
+                </span>
+              )}
+              {product.attributes && product.attributes.length > 0 && (
+                <span className="text-xs text-gray-500">
+                  • {product.attributes.length} {product.attributes.length === 1 ? 'атрибут' : product.attributes.length < 5 ? 'атрибута' : 'атрибутов'}
+                </span>
+              )}
+            </div>
+          )}
           {product.options && (
             <p className="text-xs font-body text-gray-600 mt-1">{product.options}</p>
           )}

@@ -2,10 +2,15 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { AddToCartDto } from './dto/add-to-cart.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
+import { RemoveFromCartDto } from './dto/remove-from-cart.dto';
+import { CartAbandonedService } from './cart-abandoned.service';
 
 @Injectable()
 export class CartService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private cartAbandonedService: CartAbandonedService,
+  ) {}
 
   async getCart(userId: number) {
     let cart = await this.prisma.cart.findUnique({
@@ -48,6 +53,9 @@ export class CartService {
           },
         },
       });
+    } else {
+      // Проверяем активность корзины для брошенных корзин
+      await this.cartAbandonedService.checkCartActivity(cart.id);
     }
 
     return cart;
@@ -104,9 +112,10 @@ export class CartService {
       },
     });
 
+    let result;
     if (existingItem) {
       // Обновление количества
-      return this.prisma.cartItem.update({
+      result = await this.prisma.cartItem.update({
         where: { id: existingItem.id },
         data: {
           quantity: existingItem.quantity + addDto.quantity,
@@ -126,7 +135,7 @@ export class CartService {
       });
     } else {
       // Создание нового элемента
-      return this.prisma.cartItem.create({
+      result = await this.prisma.cartItem.create({
         data: {
           cartId: cart.id,
           productId: addDto.productId,
@@ -147,6 +156,15 @@ export class CartService {
         },
       });
     }
+
+    // Обновляем время обновления корзины и проверяем активность
+    await this.prisma.cart.update({
+      where: { id: cart.id },
+      data: { updatedAt: new Date() },
+    });
+    await this.cartAbandonedService.checkCartActivity(cart.id);
+
+    return result;
   }
 
   async updateCartItem(userId: number, itemId: number, updateDto: UpdateCartItemDto) {
@@ -169,7 +187,7 @@ export class CartService {
       throw new NotFoundException('Cart item not found');
     }
 
-    return this.prisma.cartItem.update({
+    const result = await this.prisma.cartItem.update({
       where: { id: itemId },
       data: { quantity: updateDto.quantity },
       include: {
@@ -182,6 +200,15 @@ export class CartService {
         variant: true,
       },
     });
+
+    // Обновляем время обновления корзины
+    await this.prisma.cart.update({
+      where: { id: cart.id },
+      data: { updatedAt: new Date() },
+    });
+    await this.cartAbandonedService.checkCartActivity(cart.id);
+
+    return result;
   }
 
   async removeFromCart(userId: number, itemId: number) {
@@ -207,6 +234,69 @@ export class CartService {
     return this.prisma.cartItem.delete({
       where: { id: itemId },
     });
+  }
+
+  async removeFromCartByProduct(userId: number, removeDto: RemoveFromCartDto) {
+    const cart = await this.prisma.cart.findUnique({
+      where: { userId },
+    });
+
+    if (!cart) {
+      throw new NotFoundException('Cart not found');
+    }
+
+    // Находим товар по slug или id
+    const productId = isNaN(Number(removeDto.productId))
+      ? (await this.prisma.product.findUnique({
+          where: { slug: removeDto.productId },
+          select: { id: true },
+        }))?.id
+      : Number(removeDto.productId);
+
+    if (!productId) {
+      throw new NotFoundException('Product not found');
+    }
+
+    // Находим элемент корзины
+    const whereClause: any = {
+      cartId: cart.id,
+      productId: productId,
+    };
+
+    if (removeDto.variantId) {
+      whereClause.variantId = removeDto.variantId;
+    } else {
+      whereClause.variantId = null;
+    }
+
+    const item = await this.prisma.cartItem.findFirst({
+      where: whereClause,
+    });
+
+    if (!item) {
+      throw new NotFoundException('Cart item not found');
+    }
+
+    // Если указано количество, уменьшаем его, иначе удаляем полностью
+    if (removeDto.quantity && removeDto.quantity < item.quantity) {
+      return this.prisma.cartItem.update({
+        where: { id: item.id },
+        data: { quantity: item.quantity - removeDto.quantity },
+        include: {
+          product: {
+            include: {
+              category: true,
+              media: true,
+            },
+          },
+          variant: true,
+        },
+      });
+    } else {
+      return this.prisma.cartItem.delete({
+        where: { id: item.id },
+      });
+    }
   }
 
   async clearCart(userId: number) {

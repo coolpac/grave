@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Скрипт для запуска обоих ботов
+# Скрипт для запуска всех ботов
 
 echo "🚀 Запуск Telegram ботов..."
 
@@ -31,11 +31,29 @@ echo "🤖 Запуск Admin Bot на порту 8002..."
 python3 admin_bot.py &
 ADMIN_PID=$!
 
+# Запускаем бот для автоматических напоминаний о брошенных корзинах
+if [ -f abandoned_cart_bot.py ]; then
+    echo "🤖 Запуск Abandoned Cart Bot..."
+    python3 abandoned_cart_bot.py &
+    ABANDONED_CART_PID=$!
+    echo "   Abandoned Cart Bot PID: $ABANDONED_CART_PID"
+else
+    echo "⚠️  abandoned_cart_bot.py не найден, пропускаем"
+    ABANDONED_CART_PID=""
+fi
+
 echo "✅ Боты запущены!"
 echo "   Customer Bot PID: $CUSTOMER_PID"
 echo "   Admin Bot PID: $ADMIN_PID"
+if [ ! -z "$ABANDONED_CART_PID" ]; then
+    echo "   Abandoned Cart Bot PID: $ABANDONED_CART_PID"
+fi
 echo ""
-echo "Для остановки используйте: kill $CUSTOMER_PID $ADMIN_PID"
+if [ ! -z "$ABANDONED_CART_PID" ]; then
+    echo "Для остановки используйте: kill $CUSTOMER_PID $ADMIN_PID $ABANDONED_CART_PID"
+else
+    echo "Для остановки используйте: kill $CUSTOMER_PID $ADMIN_PID"
+fi
 
 # Ожидание завершения
 wait

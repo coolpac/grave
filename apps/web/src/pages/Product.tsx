@@ -1,14 +1,17 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { StoneCard } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
+import { useCart } from '../hooks/useCart'
 import { ArrowLeft, ShoppingCart, Plus, Minus, Check, Calculator, Truck, MapPin, User, Phone } from 'lucide-react'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo } from 'react'
 import ProductImageGallery from '../components/ProductImageGallery'
 import ProductSpecifications from '../components/ProductSpecifications'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
+import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
+import ProductVariantSelector from '../components/product/ProductVariantSelector'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
@@ -36,6 +39,7 @@ const setApiAvailable = (available: boolean) => {
 // Создаем axios instance с умной обработкой ошибок
 const silentAxios = axios.create({
   timeout: 1500,
+  validateStatus: (status) => status < 500, // Не показываем ошибку для 401/403/404
 })
 
 // Перехватываем ошибки и обновляем флаг доступности
@@ -45,6 +49,11 @@ silentAxios.interceptors.response.use(
     return response
   },
   (error) => {
+    // Игнорируем ошибки авторизации (401, 403) - это нормально для публичных страниц
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      setApiAvailable(false)
+      return Promise.reject({ ...error, silent: true })
+    }
     const isNetworkError = error?.code === 'ERR_NETWORK' || 
                           error?.code === 'ERR_CONNECTION_REFUSED' ||
                           error?.code === 'ECONNABORTED' ||
@@ -186,10 +195,11 @@ export default function Product() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   const { BackButton, MainButton } = useTelegram()
-  const [cartQuantity, setCartQuantity] = useState(0) // Количество товара в корзине
+  const { addToCart, updateQuantity, items: cartItems } = useCart()
   const [showGallery, setShowGallery] = useState(false)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [selectedVariant, setSelectedVariant] = useState<number | null>(null)
+  const [selectedPrice, setSelectedPrice] = useState<number | null>(null) // Цена выбранного варианта
   const [isUpdatingCart, setIsUpdatingCart] = useState(false)
   const [showCalculationForm, setShowCalculationForm] = useState(false)
   const [calculationData, setCalculationData] = useState({
@@ -202,215 +212,169 @@ export default function Product() {
   const { scrollYProgress } = useScroll()
   const opacity = useTransform(scrollYProgress, [0, 0.3], [0, 1])
   
-  const product = slug ? getMockProduct(slug) : null
+  // Загрузка товара из API
+  const { data: productData, isLoading: isLoadingProduct, error: productError } = useQuery({
+    queryKey: ['product', slug],
+    queryFn: async () => {
+      if (!slug) return null
+      const { data } = await axios.get(`${API_URL}/products/slug/${slug}`)
+      return data
+    },
+    enabled: !!slug,
+    staleTime: 5 * 60 * 1000, // Кэш на 5 минут
+  })
 
-  // Загрузка количества товара в корзине
+  // Используем данные из API или fallback на моковые данные
+  const product = productData || (slug ? getMockProduct(slug) : null)
+
+  // Вычисляем количество товара в корзине из хука useCart
+  const cartQuantity = useMemo(() => {
+    if (!product) return 0
+    
+    const cartItem = cartItems.find((item) => {
+      const matchesProduct = item.product.id === product.id || item.product.slug === product.slug
+      const matchesVariant = selectedVariant 
+        ? item.variantId === selectedVariant 
+        : !item.variantId
+      return matchesProduct && matchesVariant
+    })
+    
+    return cartItem?.quantity || 0
+  }, [cartItems, product, selectedVariant])
+
   useEffect(() => {
-    const loadCartQuantity = async () => {
-      if (!product) return
-      
-      // Пропускаем запрос только если API точно недоступен (после первой ошибки)
-      const apiAvailable = getApiAvailable()
-      if (!apiAvailable) {
-        // API недоступен - используем локальное состояние из sessionStorage
-        try {
-          const cartData = sessionStorage.getItem(`cart_${product.slug}_${selectedVariant || 'default'}`)
-          if (cartData) {
-            const parsed = JSON.parse(cartData)
-            setCartQuantity(parsed.quantity || 0)
-            return
-          }
-        } catch {
-          // Игнорируем ошибки парсинга
-        }
-        setCartQuantity(0)
-        return
-      }
-      
+    // Проверяем поддержку BackButton перед использованием
+    if (BackButton && typeof BackButton.show === 'function') {
       try {
-        const response = await silentAxios.get(`${API_URL}/cart`)
-        const items = response.data?.items || []
-        // Находим товар в корзине по slug и variant
-        const cartItem = items.find((item: any) => {
-          const matchesSlug = item.product?.slug === product.slug || item.slug === product.slug
-          const matchesVariant = selectedVariant 
-            ? item.variantId === selectedVariant 
-            : !item.variantId
-          return matchesSlug && matchesVariant
+        BackButton.show()
+        BackButton.onClick(() => {
+          navigate(-1)
         })
-        const quantity = cartItem?.quantity || 0
-        setCartQuantity(quantity)
-        // Сохраняем в sessionStorage для офлайн режима
-        try {
-          sessionStorage.setItem(`cart_${product.slug}_${selectedVariant || 'default'}`, JSON.stringify({ quantity }))
-        } catch {
-          // Игнорируем ошибки sessionStorage
-        }
-      } catch (error: any) {
-        // Тихая обработка сетевых ошибок (API может быть не запущен)
-        const isNetworkError = error?.isNetworkError || error?.silent ||
-                              error?.code === 'ERR_NETWORK' || 
-                              error?.code === 'ERR_CONNECTION_REFUSED' ||
-                              error?.code === 'ECONNABORTED' ||
-                              error?.message?.includes('Network Error') ||
-                              error?.message?.includes('ERR_CONNECTION_REFUSED') ||
-                              error?.message === 'Network error'
-        
-        // Не логируем сетевые ошибки
-        if (!isNetworkError) {
-          console.error('Error loading cart quantity:', error)
-        }
-        // Пытаемся загрузить из sessionStorage
-        try {
-          const cartData = sessionStorage.getItem(`cart_${product.slug}_${selectedVariant || 'default'}`)
-          if (cartData) {
-            const parsed = JSON.parse(cartData)
-            setCartQuantity(parsed.quantity || 0)
-          } else {
-            setCartQuantity(0)
-          }
-        } catch {
-          setCartQuantity(0)
-        }
+      } catch (error) {
+        // BackButton не поддерживается в этой версии Telegram
+        console.debug('BackButton not supported:', error)
       }
     }
-    loadCartQuantity()
-  }, [product, selectedVariant])
-
-  useEffect(() => {
-    BackButton.show()
-    BackButton.onClick(() => {
-      navigate(-1)
-    })
 
     return () => {
-      BackButton.hide()
-      BackButton.offClick(() => {})
-      MainButton.hide()
-      MainButton.offClick(() => {})
+      if (BackButton && typeof BackButton.hide === 'function') {
+        try {
+          BackButton.hide()
+          BackButton.offClick(() => {})
+        } catch (error) {
+          // Игнорируем ошибки при очистке
+        }
+      }
+      if (MainButton && typeof MainButton.hide === 'function') {
+        MainButton.hide()
+        MainButton.offClick(() => {})
+      }
     }
   }, [BackButton, MainButton, navigate])
 
   // Добавление товара в корзину
-  const handleAddToCart = async () => {
+  const handleAddToCart = () => {
     if (!product || isUpdatingCart) return
     
-    // Сразу обновляем локальное состояние для мгновенной обратной связи
-    setCartQuantity((prev) => {
-      const newQuantity = prev + 1
-      // Сохраняем в sessionStorage для офлайн режима
-      try {
-        sessionStorage.setItem(`cart_${product.slug}_${selectedVariant || 'default'}`, JSON.stringify({ quantity: newQuantity }))
-      } catch {
-        // Игнорируем ошибки sessionStorage
-      }
-      return newQuantity
+    setIsUpdatingCart(true)
+    
+    // Определяем цену: если есть вариант, используем его цену, иначе базовую цену продукта
+    const priceToUse = selectedVariant && selectedPrice 
+      ? selectedPrice 
+      : (product.basePrice || currentPrice || 0)
+    
+    // Используем хук useCart для добавления
+    addToCart(product.id, {
+      variantId: selectedVariant || undefined,
+      quantity: 1,
+      productSlug: product.slug,
+      productName: product.name,
+      productPrice: product.basePrice || priceToUse || 0, // Убеждаемся, что цена есть
+      variantPrice: selectedVariant && selectedPrice ? selectedPrice : undefined,
+      variantName: product.variants?.find((v: any) => v.id === selectedVariant)?.name,
+      imageUrl: product.media?.[0]?.url || product.images?.[0],
     })
     
-    // Если API недоступен, работаем только с локальным состоянием
-    const apiAvailable = getApiAvailable()
-    if (!apiAvailable) {
-      return
-    }
-    
-    setIsUpdatingCart(true)
-    try {
-      await silentAxios.post(`${API_URL}/cart/add`, {
-        productId: product.slug,
-        variantId: selectedVariant,
-        quantity: 1,
-      })
-      // Успешно добавлено - состояние уже обновлено
-    } catch (error: any) {
-      // Если API недоступен, состояние уже обновлено локально
-      const isNetworkError = error?.isNetworkError || error?.silent ||
-                            error?.code === 'ERR_NETWORK' || 
-                            error?.code === 'ERR_CONNECTION_REFUSED' ||
-                            error?.code === 'ECONNABORTED' ||
-                            error?.message?.includes('Network Error') ||
-                            error?.message?.includes('ERR_CONNECTION_REFUSED') ||
-                            error?.message === 'Network error'
-      if (!isNetworkError) {
-        // Откатываем изменение при не-сетевой ошибке
-        setCartQuantity((prev) => {
-          const newQuantity = Math.max(0, prev - 1)
-          try {
-            sessionStorage.setItem(`cart_${product.slug}_${selectedVariant || 'default'}`, JSON.stringify({ quantity: newQuantity }))
-          } catch {
-            // Игнорируем ошибки sessionStorage
-          }
-          return newQuantity
-        })
-        console.error('Error adding to cart:', error)
-      }
-    } finally {
-      setIsUpdatingCart(false)
-    }
+    // Сбрасываем флаг обновления через небольшую задержку для UX
+    setTimeout(() => setIsUpdatingCart(false), 300)
   }
 
-  // Удаление товара из корзины
-  const handleRemoveFromCart = async () => {
+  // Удаление товара из корзины (уменьшение количества на 1)
+  const handleRemoveFromCart = () => {
     if (!product || cartQuantity <= 0 || isUpdatingCart) return
     
-    // Сразу обновляем локальное состояние для мгновенной обратной связи
-    setCartQuantity((prev) => {
-      const newQuantity = Math.max(0, prev - 1)
-      // Сохраняем в sessionStorage для офлайн режима
-      try {
-        sessionStorage.setItem(`cart_${product.slug}_${selectedVariant || 'default'}`, JSON.stringify({ quantity: newQuantity }))
-      } catch {
-        // Игнорируем ошибки sessionStorage
-      }
-      return newQuantity
+    // Находим элемент корзины
+    const cartItem = cartItems.find((item) => {
+      const matchesProduct = item.product.id === product.id || item.product.slug === product.slug
+      const matchesVariant = selectedVariant 
+        ? item.variantId === selectedVariant 
+        : !item.variantId
+      return matchesProduct && matchesVariant
     })
     
-    // Если API недоступен, работаем только с локальным состоянием
-    const apiAvailable = getApiAvailable()
-    if (!apiAvailable) {
-      return
-    }
-    
-    setIsUpdatingCart(true)
-    try {
-      await silentAxios.post(`${API_URL}/cart/remove`, {
-        productId: product.slug,
-        variantId: selectedVariant,
-        quantity: 1,
-      })
-      // Успешно удалено - состояние уже обновлено
-    } catch (error: any) {
-      // Если API недоступен, состояние уже обновлено локально
-      const isNetworkError = error?.isNetworkError || error?.silent ||
-                            error?.code === 'ERR_NETWORK' || 
-                            error?.code === 'ERR_CONNECTION_REFUSED' ||
-                            error?.code === 'ECONNABORTED' ||
-                            error?.message?.includes('Network Error') ||
-                            error?.message?.includes('ERR_CONNECTION_REFUSED') ||
-                            error?.message === 'Network error'
-      if (!isNetworkError) {
-        // Откатываем изменение при не-сетевой ошибке
-        setCartQuantity((prev) => {
-          const newQuantity = prev + 1
-          try {
-            sessionStorage.setItem(`cart_${product.slug}_${selectedVariant || 'default'}`, JSON.stringify({ quantity: newQuantity }))
-          } catch {
-            // Игнорируем ошибки sessionStorage
-          }
-          return newQuantity
-        })
-        console.error('Error removing from cart:', error)
-      }
-    } finally {
-      setIsUpdatingCart(false)
+    if (cartItem) {
+      setIsUpdatingCart(true)
+      // Используем updateQuantity для уменьшения количества на 1
+      updateQuantity(cartItem.id, -1)
+      setTimeout(() => setIsUpdatingCart(false), 300)
     }
   }
 
-  const currentPrice = selectedVariant
-    ? product?.variants?.find((v: any) => v.id === selectedVariant)?.price || product?.price || 0
-    : product?.price || 0
+  // Определяем текущую цену (используем selectedPrice если есть, иначе вычисляем)
+  const currentPrice = (() => {
+    if (!product) return 0
+    
+    // Если есть выбранная цена из селектора вариантов, используем её
+    if (selectedPrice !== null) return selectedPrice
+    
+    // Если есть выбранный вариант, используем его цену
+    if (selectedVariant && product.variants) {
+      const variant = product.variants.find((v: any) => v.id === selectedVariant)
+      if (variant) return variant.price
+    }
+    
+    // Если есть варианты, берем минимальную цену
+    if (product.variants && product.variants.length > 0) {
+      const activeVariants = product.variants.filter((v: any) => v.isActive !== false)
+      if (activeVariants.length > 0) {
+        return Math.min(...activeVariants.map((v: any) => v.price))
+      }
+    }
+    
+    // Используем базовую цену или цену из продукта
+    return product.basePrice || product.price || 0
+  })()
 
-  if (!product) {
-    return <div>Товар не найден</div>
+  // Преобразуем изображения из media
+  const productImages = product?.media?.map((m: any) => m.url) || 
+                        product?.images || 
+                        (product?.image ? [product.image] : [])
+
+  if (isLoadingProduct) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-bronze-500 mb-4" />
+          <p className="text-gray-600">Загрузка товара...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (productError || !product) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center px-4">
+        <div className="text-center">
+          <p className="text-gray-600 mb-4">Товар не найден</p>
+          <button
+            onClick={() => navigate(-1)}
+            className="px-4 py-2 bg-bronze-500 text-white rounded-lg"
+          >
+            Вернуться назад
+          </button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -442,10 +406,10 @@ export default function Product() {
       <div className="px-4 pb-4">
         <StoneCard padding={false} className="overflow-hidden cursor-pointer" onClick={() => setShowGallery(true)}>
           <div className="aspect-square bg-gray-100 relative">
-            {product.images && product.images.length > 0 ? (
+            {productImages && productImages.length > 0 ? (
               <>
                 <img
-                  src={product.images[selectedImageIndex]}
+                  src={productImages[selectedImageIndex]}
                   alt={product.name}
                   className="w-full h-full object-cover"
                   onError={(e) => {
@@ -454,9 +418,9 @@ export default function Product() {
                     target.src = `https://via.placeholder.com/400/cccccc/666666?text=${encodeURIComponent(product.name)}`
                   }}
                 />
-                {product.images.length > 1 && (
+                {productImages.length > 1 && (
                   <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
-                    {product.images.map((_: string, index: number) => (
+                    {productImages.map((_: string, index: number) => (
                       <button
                         key={index}
                         onClick={(e) => {
@@ -487,9 +451,9 @@ export default function Product() {
         </StoneCard>
       </div>
 
-      {showGallery && product.images && (
+      {showGallery && productImages && productImages.length > 0 && (
         <ProductImageGallery
-          images={product.images}
+          images={productImages}
           onClose={() => setShowGallery(false)}
         />
       )}
@@ -513,8 +477,64 @@ export default function Product() {
           </div>
         </motion.div>
 
-        {/* Variant Selection - гранитный стиль */}
-        {product.variants && product.variants.length > 0 && (
+        {/* Variant Selection - используем ProductVariantSelector для правильного отображения атрибутов */}
+        {product.attributes && product.attributes.length > 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+          >
+            <StoneCard>
+              <ProductVariantSelector
+                product={{
+                  id: product.id,
+                  slug: product.slug,
+                  name: product.name,
+                  productType: product.productType,
+                  basePrice: product.basePrice,
+                  price: currentPrice,
+                  attributes: product.attributes?.map((attr: any) => ({
+                    id: attr.id,
+                    name: attr.name,
+                    slug: attr.slug,
+                    values: attr.values?.map((val: any) => ({
+                      id: val.id,
+                      value: val.value,
+                      displayName: val.displayName,
+                    })) || [],
+                  })) || [],
+                  variants: product.variants || [],
+                }}
+                onPriceChange={(price) => {
+                  // Обновляем выбранную цену при изменении варианта
+                  setSelectedPrice(price)
+                }}
+                onAddToCart={(variantId, selectedAttrs) => {
+                  setSelectedVariant(variantId)
+                  // Находим вариант для получения цены
+                  const variant = variantId 
+                    ? product.variants?.find((v: any) => v.id === variantId)
+                    : null
+                  
+                  // Добавляем товар в корзину при выборе варианта
+                  if (product) {
+                    addToCart(product.id, {
+                      variantId: variantId || undefined,
+                      quantity: 1,
+                      productSlug: product.slug,
+                      productName: product.name,
+                      productPrice: product.basePrice,
+                      variantPrice: variant?.price || selectedPrice || undefined,
+                      variantName: variant?.name,
+                      imageUrl: product.media?.[0]?.url || product.images?.[0],
+                    })
+                  }
+                }}
+              />
+            </StoneCard>
+          </motion.div>
+        ) : product.variants && product.variants.length > 0 ? (
+          // Fallback для старых товаров без атрибутов
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -541,7 +561,7 @@ export default function Product() {
                       >
                         <div className="flex items-center gap-2">
                           {isSelected && <Check className="w-4 h-4" />}
-                          <span>{variant.name}</span>
+                          <span>{variant.name || `Вариант ${variant.id}`}</span>
                           <span className="text-sm opacity-80">
                             {variant.price.toLocaleString('ru-RU')} ₽
                           </span>
@@ -553,23 +573,34 @@ export default function Product() {
               </div>
             </StoneCard>
           </motion.div>
-        )}
+        ) : null}
 
 
         {/* Specifications */}
-        {product.specifications && Object.keys(product.specifications).length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.25 }}
-          >
-            <StoneCard>
-              <div className="p-4">
-                <ProductSpecifications specifications={product.specifications} />
-              </div>
-            </StoneCard>
-          </motion.div>
-        )}
+        {(() => {
+          // Парсим specifications если это строка JSON
+          let specs = product.specifications
+          if (typeof specs === 'string') {
+            try {
+              specs = JSON.parse(specs)
+            } catch {
+              specs = {}
+            }
+          }
+          return specs && typeof specs === 'object' && Object.keys(specs).length > 0 ? (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.25 }}
+            >
+              <StoneCard>
+                <div className="p-4">
+                  <ProductSpecifications specifications={specs} />
+                </div>
+              </StoneCard>
+            </motion.div>
+          ) : null
+        })()}
 
         {/* Description with Markdown - гранитный стиль */}
         {product.description && (
@@ -588,33 +619,11 @@ export default function Product() {
           </motion.div>
         )}
 
-        {/* Delivery Information - гранитный стиль */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.4 }}
-        >
-          <StoneCard>
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 mb-3">
-                <Truck className="w-5 h-5 text-gray-700" />
-                <h3 className="font-inscription text-lg text-gray-900">Условия доставки</h3>
-              </div>
-              <div className="space-y-2 text-sm font-body text-gray-700">
-                <p>• Доставка по городу: от 1 500 ₽</p>
-                <p>• Доставка в регионы: рассчитывается индивидуально</p>
-                <p>• Срок доставки: 3-7 рабочих дней</p>
-                <p>• Установка: по договоренности</p>
-              </div>
-            </div>
-          </StoneCard>
-        </motion.div>
-
         {/* Calculation Form Button */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.5 }}
+          transition={{ duration: 0.4, delay: 0.4 }}
         >
           <motion.button
             onClick={() => setShowCalculationForm(true)}
@@ -672,11 +681,26 @@ export default function Product() {
                   onSubmit={async (e) => {
                     e.preventDefault()
                     setIsSubmittingCalculation(true)
-                    // Здесь будет отправка данных на сервер
-                    await new Promise((resolve) => setTimeout(resolve, 1000))
-                    setIsSubmittingCalculation(false)
-                    setShowCalculationForm(false)
-                    // Можно показать уведомление об успешной отправке
+                    try {
+                      // Отправка данных расчета на сервер
+                      await axios.post(`${API_URL}/products/${product.slug}/calculation-request`, {
+                        name: calculationData.name,
+                        phone: calculationData.phone,
+                        city: calculationData.city,
+                        productId: product.id,
+                        variantId: selectedVariant,
+                        price: currentPrice,
+                      })
+                      // Очистка формы
+                      setCalculationData({ name: '', phone: '', city: '' })
+                      setShowCalculationForm(false)
+                      // Можно показать уведомление об успехе
+                    } catch (error) {
+                      console.error('Ошибка отправки расчета:', error)
+                      // Можно показать ошибку пользователю
+                    } finally {
+                      setIsSubmittingCalculation(false)
+                    }
                   }}
                   className="space-y-4"
                 >
@@ -722,7 +746,7 @@ export default function Product() {
                     <label className="block mb-2 font-body text-sm font-medium text-gray-900">
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4" />
-                        <span>Город (для расчета доставки)</span>
+                        <span>Город</span>
                       </div>
                     </label>
                     <input

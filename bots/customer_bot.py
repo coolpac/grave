@@ -157,6 +157,59 @@ def notify_status():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/notify/abandoned-cart', methods=['POST'])
+def notify_abandoned_cart():
+    """Отправка напоминания о брошенной корзине"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        telegram_id = data.get('telegramId')
+        cart_id = data.get('cartId')
+        items = data.get('items', '')
+        total_amount = data.get('totalAmount', 0)
+        days_since = data.get('daysSinceAbandoned', 0)
+        
+        if not telegram_id or not cart_id:
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        # Формирование сообщения
+        days_text = f'{days_since} дн.' if days_since > 0 else 'сегодня'
+        
+        message = f"""
+🛒 <b>Напоминание о корзине</b>
+
+Вы оставили товары в корзине {days_text} назад.
+
+📦 <b>Ваша корзина:</b>
+{items}
+
+💰 <b>Сумма:</b> {total_amount:,.0f} ₽
+
+Не упустите возможность завершить покупку! Ваши товары ждут вас.
+
+<a href="https://t.me/your_bot?start=cart_{cart_id}">Перейти к корзине</a>
+        """.strip()
+        
+        # Отправка сообщения
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        success = loop.run_until_complete(send_message(telegram_id, message))
+        loop.close()
+        
+        if success:
+            logger.info(f'Abandoned cart reminder sent to customer {telegram_id} for cart {cart_id}')
+            return jsonify({'status': 'success', 'message': 'Reminder sent'})
+        else:
+            return jsonify({'error': 'Failed to send reminder'}), 500
+            
+    except Exception as e:
+        logger.error(f'Error processing abandoned cart reminder: {e}')
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 8001))
     logger.info(f'Starting customer bot API on port {port}')

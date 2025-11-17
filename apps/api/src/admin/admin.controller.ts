@@ -47,9 +47,33 @@ export class AdminController {
     return this.adminService.getAbandonedCarts();
   }
 
+  @Get('abandoned-carts/:id/details')
+  getAbandonedCartDetails(@Param('id', ParseIntPipe) id: number) {
+    return this.adminService.getAbandonedCartDetails(id);
+  }
+
   @Post('abandoned-carts/:id/send-reminder')
   sendAbandonedCartReminder(@Param('id', ParseIntPipe) id: number) {
     return this.adminService.sendAbandonedCartReminder(id);
+  }
+
+  @Post('abandoned-carts/:id/mark-reminder-sent')
+  markReminderSent(@Param('id', ParseIntPipe) id: number) {
+    return this.adminService.markReminderSent(id);
+  }
+
+  @Get('abandoned-carts/settings')
+  getAbandonedCartSettings() {
+    return this.adminService.getAbandonedCartSettings();
+  }
+
+  @Post('abandoned-carts/settings')
+  updateAbandonedCartSettings(@Body() updateDto: {
+    autoRemindersEnabled?: boolean;
+    reminderIntervalHours?: number;
+    maxReminders?: number;
+  }) {
+    return this.adminService.updateAbandonedCartSettings(updateDto);
   }
 }
 

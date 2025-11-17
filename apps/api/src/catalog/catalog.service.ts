@@ -4,6 +4,7 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { PaginationDto, createPaginatedResponse } from '../common/dto/pagination.dto';
 
 @Injectable()
 export class CatalogService {
@@ -16,17 +17,77 @@ export class CatalogService {
     });
   }
 
-  async findAllCategories(activeOnly = false) {
-    const where = activeOnly ? { isActive: true } : {};
-    return this.prisma.category.findMany({
-      where,
-      orderBy: { order: 'asc' },
-      include: {
-        _count: {
-          select: { products: true },
+  async findAllCategories(activeOnly = false, material?: string) {
+    const where: any = activeOnly ? { isActive: true } : {};
+    
+    // Если указан материал, сначала находим категории, которые содержат товары с этим материалом
+    let categoryIds: number[] | undefined;
+    if (material) {
+      const materialUpper = material.toUpperCase();
+      const productsWithMaterial = await this.prisma.product.findMany({
+        where: {
+          material: materialUpper,
+          isActive: activeOnly ? true : undefined,
         },
-      },
+        select: {
+          categoryId: true,
+        },
+        distinct: ['categoryId'],
+      });
+      categoryIds = productsWithMaterial.map(p => p.categoryId);
+      
+      // Если нет товаров с таким материалом, возвращаем пустой массив
+      if (categoryIds.length === 0) {
+        return [];
+      }
+    }
+    
+    // Получаем категории с учетом фильтров
+    const categoryWhere: any = {
+      ...where,
+      ...(categoryIds && { id: { in: categoryIds } }),
+    };
+    
+    const categories = await this.prisma.category.findMany({
+      where: categoryWhere,
+      orderBy: { order: 'asc' },
     });
+
+    // Подсчитываем товары для каждой категории с учетом фильтров
+    const categoriesWithCounts = await Promise.all(
+      categories.map(async (category) => {
+        const productWhere: any = {
+          categoryId: category.id,
+        };
+        
+        if (activeOnly) {
+          productWhere.isActive = true;
+        }
+        
+        if (material) {
+          // Преобразуем 'marble' -> 'MARBLE', 'granite' -> 'GRANITE'
+          productWhere.material = material.toUpperCase();
+        }
+
+        const productCount = await this.prisma.product.count({
+          where: productWhere,
+        });
+
+        return {
+          ...category,
+          _count: {
+            products: productCount,
+          },
+        };
+      })
+    );
+
+    // Фильтруем категории, которые имеют товары (если указан материал)
+    if (material) {
+      return categoriesWithCounts.filter(cat => cat._count.products > 0);
+    }
+
+    return categoriesWithCounts;
   }
 
   async findCategoryBySlug(slug: string) {
@@ -38,10 +99,28 @@ export class CatalogService {
           include: {
             variants: {
               where: { isActive: true },
+              orderBy: {
+                id: 'asc',
+              },
+            },
+            attributes: {
+              include: {
+                values: {
+                  orderBy: {
+                    order: 'asc',
+                  },
+                },
+              },
+              orderBy: {
+                order: 'asc',
+              },
             },
             media: {
               orderBy: { order: 'asc' },
             },
+          },
+          orderBy: {
+            createdAt: 'desc',
           },
         },
       },
@@ -107,30 +186,126 @@ export class CatalogService {
     });
   }
 
-  async findAllProducts(categoryId?: number, activeOnly = false) {
-    const where: any = {};
-    
-    if (categoryId) {
-      where.categoryId = categoryId;
-    }
-    
-    if (activeOnly) {
-      where.isActive = true;
-    }
+  async findAllProducts(categoryId?: number, activeOnly = false, pagination?: PaginationDto) {
+    try {
+      const where: any = {};
+      
+      if (categoryId) {
+        where.categoryId = categoryId;
+      }
+      
+      if (activeOnly) {
+        where.isActive = true;
+      }
 
-    return this.prisma.product.findMany({
-      where,
-      include: {
-        category: true,
-        variants: {
-          where: activeOnly ? { isActive: true } : {},
-        },
-        media: {
-          orderBy: { order: 'asc' },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+      // Проверяем, есть ли валидная пагинация
+      // Важно: проверяем, что pagination существует и имеет валидные значения
+      const hasPagination = pagination && 
+        typeof pagination === 'object' &&
+        (pagination.page !== undefined || pagination.limit !== undefined) &&
+        pagination.page !== null && 
+        pagination.limit !== null &&
+        !isNaN(Number(pagination.page)) && 
+        !isNaN(Number(pagination.limit)) &&
+        Number(pagination.page) > 0 && 
+        Number(pagination.limit) > 0;
+
+      // Если пагинация не указана или невалидна, возвращаем все товары (для обратной совместимости)
+      if (!hasPagination) {
+        return this.prisma.product.findMany({
+          where,
+          include: {
+            category: true,
+            media: {
+              orderBy: { order: 'asc' },
+            },
+            variants: {
+              where: { isActive: true },
+              orderBy: { id: 'asc' },
+            },
+            attributes: {
+              include: {
+                values: {
+                  orderBy: { order: 'asc' },
+                },
+              },
+              orderBy: { order: 'asc' },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
+      }
+
+      // С пагинацией - убеждаемся, что значения валидны
+      // Используем Number() для явного преобразования
+      const page = Number(pagination!.page) || 1;
+      const limit = Number(pagination!.limit) || 20;
+      const skip = ((page - 1) * limit) || 0;
+      const take = limit || 20;
+
+      if (isNaN(skip) || isNaN(take) || skip < 0 || take < 1 || take > 100) {
+        throw new BadRequestException(`Invalid pagination parameters: page=${page}, limit=${limit}`);
+      }
+
+      const [data, total] = await Promise.all([
+        this.prisma.product.findMany({
+          where,
+          skip,
+          take,
+          include: {
+            category: true,
+            media: {
+              orderBy: { order: 'asc' },
+              take: 1, // Только первое изображение для списка
+            },
+            variants: {
+              where: { isActive: true },
+              orderBy: { id: 'asc' },
+              take: 1, // Только первый вариант для списка
+            },
+            attributes: {
+              include: {
+                values: {
+                  orderBy: { order: 'asc' },
+                  take: 3, // Ограничиваем количество значений
+                },
+              },
+              orderBy: { order: 'asc' },
+              take: 2, // Ограничиваем количество атрибутов
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        }),
+        this.prisma.product.count({ where }),
+      ]);
+
+      // Создаем новый объект пагинации с валидными значениями
+      const validPagination: PaginationDto = {
+        page,
+        limit,
+      };
+
+      return createPaginatedResponse(data, total, validPagination);
+    } catch (error) {
+      // Логируем ошибку для отладки
+      console.error('Error in findAllProducts:', error);
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      // Для других ошибок логируем детали
+      console.error('Error details:', {
+        categoryId,
+        activeOnly,
+        pagination,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+      throw error;
+    }
   }
 
   async findProductBySlug(slug: string) {
@@ -216,9 +391,3 @@ export class CatalogService {
     });
   }
 }
-
-
-
-
-
-

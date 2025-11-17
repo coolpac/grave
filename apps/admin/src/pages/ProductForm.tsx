@@ -69,6 +69,7 @@ interface ProductFormData {
   productType: ProductType;
   basePrice?: number;
   unit?: UnitType;
+  material?: 'MARBLE' | 'GRANITE';
   isActive: boolean;
   attributes?: ProductAttribute[];
   variants?: ProductVariant[];
@@ -119,12 +120,16 @@ export default function ProductForm() {
   const [activeTab, setActiveTab] = useState<'basic' | 'attributes' | 'variants' | 'specifications' | 'media'>('basic');
   const [showTemplates, setShowTemplates] = useState(false);
 
-  // Получение категорий
+  // Получение категорий (только активные, без ритуальных)
   const { data: categories } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
-      const { data } = await api.get('/catalog/categories');
-      return data;
+      const { data } = await api.get('/catalog/categories?activeOnly=true');
+      // Фильтруем только основные категории (marble-* и granite-*), исключаем ritual-*
+      return data.filter((cat: any) => 
+        cat.isActive && 
+        (cat.slug.startsWith('marble-') || cat.slug.startsWith('granite-'))
+      );
     },
   });
 
@@ -149,6 +154,7 @@ export default function ProductForm() {
     defaultValues: {
       productType: ProductType.SIMPLE,
       isActive: true,
+      material: undefined,
       attributes: [],
       variants: [],
       specifications: {},
@@ -179,6 +185,7 @@ export default function ProductForm() {
       setValue('productType', product.productType || ProductType.SIMPLE);
       setValue('basePrice', product.basePrice || 0);
       setValue('unit', product.unit || UnitType.PIECE);
+      setValue('material', product.material || undefined);
       setValue('isActive', product.isActive ?? true);
       
       if (product.attributes) {
@@ -450,8 +457,11 @@ export default function ProductForm() {
 
   if (productLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-white/80 text-lg">Загрузка...</div>
+      <div className="flex items-center justify-center h-64 animate-fade-in">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-white/20 border-t-blue-400 mb-4" />
+          <div className="text-white/80 text-lg font-medium">Загрузка товара...</div>
+        </div>
       </div>
     );
   }
@@ -460,23 +470,30 @@ export default function ProductForm() {
   const TypeIcon = typeInfo.icon;
 
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6 relative max-w-7xl mx-auto overflow-x-hidden">
-      {/* Заголовок */}
-      <div className="flex items-center gap-4 mb-6">
+    <div className="space-y-6 p-6 relative max-w-7xl mx-auto overflow-x-hidden animate-fade-in">
+      {/* Premium Header */}
+      <div className="flex items-center gap-4 mb-8">
         <Button
           variant="ghost"
           size="sm"
           onClick={() => navigate('/products')}
-          className="flex-shrink-0"
+          className="flex-shrink-0 text-white/80 hover:text-white hover:bg-white/10 border border-white/10 rounded-lg"
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Назад
         </Button>
-        <div className="flex-1">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2 gradient-text">
-            {isEditMode ? 'Редактирование товара' : 'Создание товара'}
-          </h1>
-          <p className="text-sm sm:text-base text-white/90 font-medium">Управление товарами и их вариантами</p>
+        <div className="flex-1 space-y-1">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-white/10">
+              <Package className="h-6 w-6 text-blue-400" />
+            </div>
+            <h1 className="text-3xl sm:text-4xl font-bold gradient-text">
+              {isEditMode ? 'Редактирование товара' : 'Создание товара'}
+            </h1>
+          </div>
+          <p className="text-sm sm:text-base text-white/70 font-medium ml-14">
+            Управление товарами и их вариантами
+          </p>
         </div>
       </div>
 
@@ -515,8 +532,8 @@ export default function ProductForm() {
         </Card>
       )}
 
-      {/* Вкладки */}
-      <div className="flex gap-1 sm:gap-2 border-b border-white/10 pb-2 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+      {/* Premium Tabs */}
+      <div className="flex gap-2 border-b border-white/10 pb-2 overflow-x-auto">
         {[
           { id: 'basic', label: 'Основное', icon: Package },
           { id: 'attributes', label: 'Атрибуты', icon: Tag, count: attributes.length, required: [ProductType.SINGLE_VARIANT, ProductType.MATRIX, ProductType.CONFIGURABLE].includes(productType) },
@@ -531,23 +548,22 @@ export default function ProductForm() {
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={`
-                flex items-center gap-1 sm:gap-2 px-2 sm:px-4 py-2 rounded-t-lg transition-all whitespace-nowrap flex-shrink-0
+                flex items-center gap-2 px-4 py-3 rounded-t-xl transition-all whitespace-nowrap flex-shrink-0 relative
                 ${isActive 
-                  ? 'bg-white/10 text-white border-b-2 border-blue-400' 
-                  : 'text-white/80 hover:text-white hover:bg-white/10'
+                  ? 'bg-gradient-to-b from-white/15 to-white/5 text-white border-b-2 border-blue-400 shadow-lg' 
+                  : 'text-white/70 hover:text-white hover:bg-white/5 border-b-2 border-transparent'
                 }
               `}
             >
-              <TabIcon className="h-4 w-4 flex-shrink-0" />
-              <span className="text-xs sm:text-sm font-medium hidden sm:inline">{tab.label}</span>
-              <span className="text-xs sm:text-sm font-medium sm:hidden">{tab.label.split(' ')[0]}</span>
+              <TabIcon className={`h-4 w-4 flex-shrink-0 ${isActive ? 'text-blue-400' : ''}`} />
+              <span className="text-sm font-semibold">{tab.label}</span>
               {tab.count !== undefined && (
-                <span className={`text-xs px-1.5 sm:px-2 py-0.5 rounded-full flex-shrink-0 font-semibold ${isActive ? 'bg-blue-500/30 text-blue-300' : 'bg-white/15 text-white/85'}`}>
+                <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 font-bold ${isActive ? 'bg-blue-500/30 text-blue-300' : 'bg-white/15 text-white/70'}`}>
                   {tab.count}
                 </span>
               )}
               {tab.required && (
-                <span className="text-xs text-red-400 flex-shrink-0">*</span>
+                <span className="text-xs text-red-400 flex-shrink-0 font-bold">*</span>
               )}
             </button>
           );
@@ -557,12 +573,14 @@ export default function ProductForm() {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Основная информация */}
         {activeTab === 'basic' && (
-          <Card className="glass-strong border-white/20 shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-white font-semibold flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Основная информация
-              </CardTitle>
+          <Card className="glass-strong border-white/20 shadow-xl animate-fade-in">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-blue-500/20 border border-blue-500/30">
+                  <Package className="h-5 w-5 text-blue-400" />
+                </div>
+                <CardTitle className="text-white font-semibold text-lg">Основная информация</CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="space-y-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -573,8 +591,9 @@ export default function ProductForm() {
                 </label>
                 <input
                   {...register('slug', { required: 'Slug обязателен' })}
-                  className="w-full px-3 sm:px-4 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 text-sm sm:text-base font-medium"
+                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
                   placeholder="product-slug"
+                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                 />
                 {errors.slug && <p className="text-red-400 text-xs mt-1">{errors.slug.message}</p>}
               </div>
@@ -583,8 +602,9 @@ export default function ProductForm() {
                 <label className="block text-sm font-medium text-white mb-2">Название *</label>
                 <input
                   {...register('name', { required: 'Название обязательно' })}
-                  className="w-full px-3 sm:px-4 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 text-sm sm:text-base font-medium"
+                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
                   placeholder="Название товара"
+                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                 />
                 {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name.message}</p>}
               </div>
@@ -595,8 +615,9 @@ export default function ProductForm() {
                 <textarea
                   {...register('description')}
                   rows={4}
-                  className="w-full px-4 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 resize-none font-medium"
+                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm resize-none font-medium"
                   placeholder="Подробное описание товара..."
+                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                 />
               </div>
 
@@ -608,11 +629,12 @@ export default function ProductForm() {
                 </label>
                 <select
                   {...register('categoryId', { required: 'Категория обязательна', valueAsNumber: true })}
-                  className="w-full px-3 sm:px-4 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 text-sm sm:text-base font-medium"
+                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
+                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                 >
-                  <option value="">Выберите категорию</option>
+                  <option value="" className="bg-[#0a0a0a] text-white">Выберите категорию</option>
                   {categories?.map((cat: any) => (
-                    <option key={cat.id} value={cat.id} className="bg-[#0a0a0a]">
+                    <option key={cat.id} value={cat.id} className="bg-[#0a0a0a] text-white">
                       {cat.name}
                     </option>
                   ))}
@@ -627,13 +649,14 @@ export default function ProductForm() {
                 </label>
                 <select
                   {...register('productType', { required: true })}
-                  className="w-full px-3 sm:px-4 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 text-sm sm:text-base font-medium"
+                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
+                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                 >
-                  <option value={ProductType.SIMPLE} className="bg-[#0a0a0a]">Простой</option>
-                  <option value={ProductType.SINGLE_VARIANT} className="bg-[#0a0a0a]">С одним вариантом</option>
-                  <option value={ProductType.MATRIX} className="bg-[#0a0a0a]">Матрица</option>
-                  <option value={ProductType.RANGE} className="bg-[#0a0a0a]">Диапазон</option>
-                  <option value={ProductType.CONFIGURABLE} className="bg-[#0a0a0a]">Настраиваемый</option>
+                  <option value={ProductType.SIMPLE} className="bg-[#0a0a0a] text-white">Простой</option>
+                  <option value={ProductType.SINGLE_VARIANT} className="bg-[#0a0a0a] text-white">С одним вариантом</option>
+                  <option value={ProductType.MATRIX} className="bg-[#0a0a0a] text-white">Матрица</option>
+                  <option value={ProductType.RANGE} className="bg-[#0a0a0a] text-white">Диапазон</option>
+                  <option value={ProductType.CONFIGURABLE} className="bg-[#0a0a0a] text-white">Настраиваемый</option>
                 </select>
               </div>
 
@@ -644,12 +667,28 @@ export default function ProductForm() {
                 </label>
                 <select
                   {...register('unit')}
-                  className="w-full px-3 sm:px-4 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 text-sm sm:text-base font-medium"
+                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
+                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                 >
-                  <option value={UnitType.PIECE} className="bg-[#0a0a0a]">Штука (шт)</option>
-                  <option value={UnitType.SQUARE_METER} className="bg-[#0a0a0a]">Квадратный метр (м²)</option>
-                  <option value={UnitType.TON} className="bg-[#0a0a0a]">Тонна (Т)</option>
-                  <option value={UnitType.SET} className="bg-[#0a0a0a]">Комплект (компл)</option>
+                  <option value={UnitType.PIECE} className="bg-[#0a0a0a] text-white">Штука (шт)</option>
+                  <option value={UnitType.SQUARE_METER} className="bg-[#0a0a0a] text-white">Квадратный метр (м²)</option>
+                  <option value={UnitType.TON} className="bg-[#0a0a0a] text-white">Тонна (Т)</option>
+                  <option value={UnitType.SET} className="bg-[#0a0a0a] text-white">Комплект (компл)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-white mb-2">
+                  Материал
+                  <HelpCircle className="h-3 w-3 inline-block ml-1 text-white/70" title="Тип материала: мрамор или гранит" />
+                </label>
+                <select
+                  {...register('material')}
+                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
+                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
+                >
+                  <option value="" className="bg-[#0a0a0a] text-white">Не указан</option>
+                  <option value="MARBLE" className="bg-[#0a0a0a] text-white">Мрамор</option>
+                  <option value="GRANITE" className="bg-[#0a0a0a] text-white">Гранит</option>
                 </select>
               </div>
             </div>
@@ -664,20 +703,21 @@ export default function ProductForm() {
                     type="number"
                     step="0.01"
                     {...register('basePrice', { valueAsNumber: true })}
-                    className="w-full px-4 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50 font-medium"
+                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
                     placeholder="0.00"
+                    style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                   />
                 </div>
               )}
 
-              <div className="flex items-center gap-2 p-4 bg-white/10 rounded-lg border-2 border-white/25 shadow-md">
+              <div className="flex items-center gap-3 p-4 bg-white/10 rounded-xl border border-white/20 shadow-lg hover:bg-white/15 transition-all">
                 <input
                   type="checkbox"
                   {...register('isActive')}
-                  className="w-4 h-4 rounded"
+                  className="w-5 h-5 rounded border-white/30 bg-white/10 text-blue-500 focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
                   id="isActive"
                 />
-                <label htmlFor="isActive" className="text-sm text-white cursor-pointer">
+                <label htmlFor="isActive" className="text-sm font-semibold text-white cursor-pointer">
                   Товар активен и отображается в каталоге
                 </label>
               </div>
@@ -721,14 +761,16 @@ export default function ProductForm() {
               </div>
             )}
 
-            <Card className="glass-strong border-white/20 shadow-xl">
-              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <CardTitle className="text-white font-semibold flex items-center gap-2">
-                    <Tag className="h-5 w-5" />
-                    Атрибуты товара
-                  </CardTitle>
-                  <p className="text-sm text-white/90 mt-1 font-medium">
+            <Card className="glass-strong border-white/20 shadow-xl animate-fade-in">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="p-2 rounded-lg bg-purple-500/20 border border-purple-500/30">
+                      <Tag className="h-5 w-5 text-purple-400" />
+                    </div>
+                    <CardTitle className="text-white font-semibold text-lg">Атрибуты товара</CardTitle>
+                  </div>
+                  <p className="text-sm text-white/70 font-medium ml-10">
                     Атрибуты определяют варианты товара. Например: Размер, Сорт, Высота, Диаметр
                   </p>
                 </div>
@@ -739,7 +781,7 @@ export default function ProductForm() {
                       size="sm"
                       variant="outline"
                       onClick={generateMatrixVariants}
-                      className="border-blue-400/50 text-blue-300 hover:bg-blue-500/20"
+                      className="border-blue-400/50 text-blue-300 hover:bg-blue-500/20 hover:border-blue-400 font-semibold"
                     >
                       <Sparkles className="h-4 w-4 mr-2" />
                       Сгенерировать варианты
@@ -749,6 +791,7 @@ export default function ProductForm() {
                     type="button"
                     size="sm"
                     onClick={() => appendAttribute({ name: '', slug: '', type: 'select', order: attributeFields.length, values: [] })}
+                    className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white border-0 font-semibold shadow-lg shadow-blue-500/25"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Добавить атрибут
@@ -757,10 +800,12 @@ export default function ProductForm() {
               </CardHeader>
               <CardContent className="space-y-4">
               {attributeFields.length === 0 ? (
-                <div className="text-center py-12 border-2 border-dashed border-white/20 rounded-lg">
-                  <Tag className="h-12 w-12 mx-auto mb-4 text-white/30" />
-                  <p className="text-white/90 mb-2 font-semibold">Атрибуты не добавлены</p>
-                  <p className="text-sm text-white/80 mb-4 font-medium">
+                <div className="text-center py-12 border-2 border-dashed border-white/20 rounded-xl bg-white/5">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+                    <Tag className="h-8 w-8 text-white/40" />
+                  </div>
+                  <p className="text-white/90 mb-2 font-bold text-lg">Атрибуты не добавлены</p>
+                  <p className="text-sm text-white/70 mb-6 font-medium">
                     {productType === ProductType.MATRIX 
                       ? 'Добавьте атрибуты (например, Размер и Сорт) для создания матрицы цен'
                       : 'Добавьте атрибут для создания вариантов товара'
@@ -770,6 +815,7 @@ export default function ProductForm() {
                     type="button"
                     size="sm"
                     onClick={() => appendAttribute({ name: '', slug: '', type: 'select', order: 0, values: [] })}
+                    className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white border-0 font-semibold"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Добавить первый атрибут
@@ -777,7 +823,7 @@ export default function ProductForm() {
                 </div>
               ) : (
                 attributeFields.map((field, attrIndex) => (
-                  <Card key={field.id} className="bg-white/10 border-2 border-white/25 shadow-lg">
+                  <Card key={field.id} className="glass-strong border-white/20 shadow-xl animate-fade-in" style={{ animationDelay: `${attrIndex * 50}ms` }}>
                     <CardContent className="p-4 space-y-4">
                       <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
                         <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -788,8 +834,9 @@ export default function ProductForm() {
                             </label>
                             <input
                               {...register(`attributes.${attrIndex}.name` as const, { required: true })}
-                              className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 text-sm font-medium"
+                              className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
                               placeholder="Размер"
+                              style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                             />
                           </div>
                           <div>
@@ -799,29 +846,31 @@ export default function ProductForm() {
                             </label>
                             <input
                               {...register(`attributes.${attrIndex}.slug` as const, { required: true })}
-                              className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 text-sm font-medium"
+                              className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium font-mono"
                               placeholder="size"
+                              style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                             />
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-white mb-2">Тип атрибута</label>
                             <select
                               {...register(`attributes.${attrIndex}.type` as const)}
-                              className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                              className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm"
+                              style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                             >
-                              <option value="select" className="bg-[#0a0a0a]">Выбор из списка</option>
-                              <option value="text" className="bg-[#0a0a0a]">Текст</option>
-                              <option value="number" className="bg-[#0a0a0a]">Число</option>
+                              <option value="select" className="bg-[#0a0a0a] text-white">Выбор из списка</option>
+                              <option value="text" className="bg-[#0a0a0a] text-white">Текст</option>
+                              <option value="number" className="bg-[#0a0a0a] text-white">Число</option>
                             </select>
                           </div>
-                        <div className="flex items-center gap-2 sm:pt-6">
+                        <div className="flex items-center gap-3 sm:pt-6 p-3 rounded-lg bg-white/5 border border-white/10">
                           <input
                             type="checkbox"
                             {...register(`attributes.${attrIndex}.isRequired` as const)}
-                            className="w-4 h-4 rounded flex-shrink-0"
+                            className="w-5 h-5 rounded border-white/30 bg-white/10 text-blue-500 focus:ring-2 focus:ring-blue-500/50 cursor-pointer"
                             id={`required-${attrIndex}`}
                           />
-                          <label htmlFor={`required-${attrIndex}`} className="text-sm text-white cursor-pointer">
+                          <label htmlFor={`required-${attrIndex}`} className="text-sm font-semibold text-white cursor-pointer">
                             Обязательный для выбора
                           </label>
                         </div>
@@ -839,54 +888,65 @@ export default function ProductForm() {
 
                       {/* Значения атрибута */}
                       <div className="space-y-2 pt-2 border-t border-white/10">
-                        <div className="flex items-center justify-between">
-                          <label className="text-sm font-medium text-white">
+                        <div className="flex items-center justify-between mb-3">
+                          <label className="text-sm font-semibold text-white/90">
                             Значения атрибута *
-                            <span className="text-xs text-white/75 ml-2 font-medium">(варианты для выбора)</span>
+                            <span className="text-xs text-white/60 ml-2 font-medium">(варианты для выбора)</span>
                           </label>
                           <Button
                             type="button"
                             size="sm"
                             variant="ghost"
                             onClick={() => addAttributeValue(attrIndex)}
+                            className="bg-white/10 hover:bg-white/15 border border-white/20 text-white font-semibold"
                           >
                             <Plus className="h-3 w-3 mr-1" />
                             Добавить значение
                           </Button>
                         </div>
                         {watch(`attributes.${attrIndex}.values`)?.length === 0 ? (
-                          <div className="text-center py-4 border-2 border-dashed border-white/25 rounded-lg bg-white/10">
-                            <p className="text-sm text-white/85 mb-2 font-semibold">Нет значений</p>
+                          <div className="text-center py-6 border-2 border-dashed border-white/25 rounded-xl bg-white/5">
+                            <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+                              <Tag className="h-6 w-6 text-white/40" />
+                            </div>
+                            <p className="text-sm text-white/90 mb-3 font-bold">Нет значений</p>
                             <Button
                               type="button"
                               size="sm"
                               variant="ghost"
                               onClick={() => addAttributeValue(attrIndex)}
+                              className="bg-white/10 hover:bg-white/15 border border-white/20 text-white font-semibold"
                             >
                               <Plus className="h-3 w-3 mr-1" />
                               Добавить первое значение
                             </Button>
                           </div>
                         ) : (
-                          <div className="space-y-2">
+                          <div className="space-y-3">
                             {watch(`attributes.${attrIndex}.values`)?.map((value: ProductAttributeValue, valueIndex: number) => (
-                              <div key={valueIndex} className="flex flex-col sm:flex-row gap-2">
+                              <div 
+                                key={valueIndex} 
+                                className="flex flex-col sm:flex-row gap-2 p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all animate-fade-in"
+                                style={{ animationDelay: `${valueIndex * 30}ms` }}
+                              >
                                 <input
                                   {...register(`attributes.${attrIndex}.values.${valueIndex}.value` as const, { required: true })}
                                   placeholder="Значение (для системы)"
-                                  className="flex-1 px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm min-w-0"
+                                  className="flex-1 px-4 py-2.5 border border-white/25 rounded-lg bg-white/12 text-white placeholder:text-white/50 text-sm min-w-0 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm"
+                                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                                 />
                                 <input
                                   {...register(`attributes.${attrIndex}.values.${valueIndex}.displayName` as const, { required: true })}
                                   placeholder="Отображаемое название"
-                                  className="flex-1 px-3 py-2 border border-white/20 rounded-lg bg-white/10 text-white placeholder:text-white/50 text-sm min-w-0"
+                                  className="flex-1 px-4 py-2.5 border border-white/25 rounded-lg bg-white/12 text-white placeholder:text-white/50 text-sm min-w-0 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm"
+                                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                                 />
                                 <Button
                                   type="button"
                                   variant="ghost"
                                   size="sm"
                                   onClick={() => removeAttributeValue(attrIndex, valueIndex)}
-                                  className="text-red-400 flex-shrink-0"
+                                  className="text-red-400/80 hover:text-red-400 hover:bg-red-500/20 border border-white/10 rounded-lg flex-shrink-0"
                                 >
                                   <X className="h-4 w-4" />
                                 </Button>
@@ -906,14 +966,16 @@ export default function ProductForm() {
 
         {/* Варианты товара */}
         {activeTab === 'variants' && (
-          <Card className="glass-strong border-white/20 shadow-xl">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-white font-semibold flex items-center gap-2">
-                  <Sparkles className="h-5 w-5" />
-                  Варианты товара
-                </CardTitle>
-                <p className="text-sm text-white/90 mt-1 font-medium">
+          <Card className="glass-strong border-white/20 shadow-xl animate-fade-in">
+            <CardHeader className="flex flex-row items-center justify-between pb-4">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-lg bg-green-500/20 border border-green-500/30">
+                    <Sparkles className="h-5 w-5 text-green-400" />
+                  </div>
+                  <CardTitle className="text-white font-semibold text-lg">Варианты товара</CardTitle>
+                </div>
+                <p className="text-sm text-white/70 font-medium ml-10">
                   Варианты определяют конкретные комбинации атрибутов и их цены
                 </p>
               </div>
@@ -921,6 +983,7 @@ export default function ProductForm() {
                 type="button"
                 size="sm"
                 onClick={() => appendVariant({ price: 0, stock: 0 })}
+                className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white border-0 font-semibold shadow-lg shadow-green-500/25"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Добавить вариант
@@ -928,10 +991,12 @@ export default function ProductForm() {
             </CardHeader>
             <CardContent className="space-y-4">
               {variantFields.length === 0 ? (
-                <div className="text-center py-12 border-2 border-dashed border-white/20 rounded-lg">
-                  <Sparkles className="h-12 w-12 mx-auto mb-4 text-white/30" />
-                  <p className="text-white/90 mb-2 font-semibold">Варианты не добавлены</p>
-                  <p className="text-sm text-white/80 mb-4 font-medium">
+                <div className="text-center py-12 border-2 border-dashed border-white/20 rounded-xl bg-white/5">
+                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+                    <Sparkles className="h-8 w-8 text-white/40" />
+                  </div>
+                  <p className="text-white/90 mb-2 font-bold text-lg">Варианты не добавлены</p>
+                  <p className="text-sm text-white/70 mb-6 font-medium">
                     {productType === ProductType.MATRIX
                       ? 'Нажмите "Сгенерировать варианты" на вкладке Атрибуты для автоматического создания всех комбинаций'
                       : 'Добавьте варианты товара с разными характеристиками и ценами'
@@ -941,6 +1006,7 @@ export default function ProductForm() {
                     type="button"
                     size="sm"
                     onClick={() => appendVariant({ price: 0, stock: 0 })}
+                    className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white border-0 font-semibold"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     Добавить первый вариант
@@ -1018,76 +1084,82 @@ export default function ProductForm() {
                       : '';
 
                     return (
-                      <Card key={field.id} className="bg-white/10 border-2 border-white/25 shadow-lg">
-                        <CardContent className="p-4">
+                      <Card key={field.id} className="glass-strong border-white/20 shadow-xl animate-fade-in" style={{ animationDelay: `${variantIndex * 50}ms` }}>
+                        <CardContent className="p-5">
                           <div className="flex flex-col sm:flex-row items-start justify-between gap-4 mb-4">
-                            <div className="flex-1 w-full">
+                            <div className="flex-1 w-full space-y-4">
                               {attrDisplay && (
-                                <div className="mb-3 flex items-center gap-2 flex-wrap">
-                                  <span className="text-xs font-medium text-blue-300 bg-blue-500/20 px-2 py-1 rounded border border-blue-500/30 break-words">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="badge-premium bg-blue-500/20 border-blue-500/30 text-blue-300">
                                     {attrDisplay}
                                   </span>
                                 </div>
                               )}
                               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <div>
-                                  <label className="block text-sm font-medium text-white mb-2">Название</label>
+                                  <label className="block text-sm font-semibold text-white/90 mb-2">Название</label>
                                   <input
                                     {...register(`variants.${variantIndex}.name` as const)}
-                                    className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 text-sm font-medium"
+                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
                                     placeholder="Название варианта"
+                                    style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-sm font-medium text-white mb-2">SKU</label>
+                                  <label className="block text-sm font-semibold text-white/90 mb-2">SKU</label>
                                   <input
                                     {...register(`variants.${variantIndex}.sku` as const)}
-                                    className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 text-sm font-medium"
+                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium font-mono"
                                     placeholder="SKU"
+                                    style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-sm font-medium text-white mb-2">
+                                  <label className="block text-sm font-semibold text-white/90 mb-2">
                                     Цена *
-                                    <span className="text-xs text-white/75 ml-1 font-medium">(₽)</span>
+                                    <span className="text-xs text-white/60 ml-1 font-medium">(₽)</span>
                                   </label>
                                   <input
                                     type="number"
                                     step="0.01"
                                     {...register(`variants.${variantIndex}.price` as const, { valueAsNumber: true, required: true })}
-                                    className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 text-sm font-medium"
+                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
                                     placeholder="0.00"
+                                    style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-sm font-medium text-white mb-2">Остаток</label>
+                                  <label className="block text-sm font-semibold text-white/90 mb-2">Остаток</label>
                                   <input
                                     type="number"
                                     {...register(`variants.${variantIndex}.stock` as const, { valueAsNumber: true })}
-                                    className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 text-sm font-medium"
+                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
                                     placeholder="0"
+                                    style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-sm font-medium text-white mb-2">Вес (кг)</label>
+                                  <label className="block text-sm font-semibold text-white/90 mb-2">Вес (кг)</label>
                                   <input
                                     type="number"
                                     step="0.01"
                                     {...register(`variants.${variantIndex}.weight` as const, { valueAsNumber: true })}
-                                    className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white placeholder:text-white/60 text-sm font-medium"
+                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
                                     placeholder="0.00"
+                                    style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-sm font-medium text-white mb-2">Единица</label>
+                                  <label className="block text-sm font-semibold text-white/90 mb-2">Единица</label>
                                   <select
                                     {...register(`variants.${variantIndex}.unit` as const)}
-                                    className="w-full px-3 py-2 border-2 border-white/30 rounded-lg bg-white/15 text-white text-sm font-medium focus:outline-none focus:ring-2 focus:ring-white/50 focus:border-white/50"
+                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm"
+                                    style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                                   >
-                                    <option value={UnitType.PIECE} className="bg-[#0a0a0a]">Штука</option>
-                                    <option value={UnitType.SQUARE_METER} className="bg-[#0a0a0a]">м²</option>
-                                    <option value={UnitType.TON} className="bg-[#0a0a0a]">Тонна</option>
-                                    <option value={UnitType.SET} className="bg-[#0a0a0a]">Комплект</option>
+                                    <option value={UnitType.PIECE} className="bg-[#0a0a0a] text-white">Штука</option>
+                                    <option value={UnitType.SQUARE_METER} className="bg-[#0a0a0a] text-white">м²</option>
+                                    <option value={UnitType.TON} className="bg-[#0a0a0a] text-white">Тонна</option>
+                                    <option value={UnitType.SET} className="bg-[#0a0a0a] text-white">Комплект</option>
                                   </select>
                                 </div>
                               </div>
@@ -1112,18 +1184,28 @@ export default function ProductForm() {
           </Card>
         )}
 
+        {/* Характеристики товара */}
+        {activeTab === 'specifications' && (
+          <SpecificationsEditor
+            specifications={watch('specifications') || {}}
+            onChange={(specs) => setValue('specifications', specs)}
+          />
+        )}
+
         {/* Изображения товара */}
         {activeTab === 'media' && (
-          <Card className="glass-strong border-white/20 shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-white font-semibold flex items-center gap-2">
-                <ImageIcon className="h-5 w-5" />
-                Изображения товара
-              </CardTitle>
+          <Card className="glass-strong border-white/20 shadow-xl animate-fade-in">
+            <CardHeader className="pb-4">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-pink-500/20 border border-pink-500/30">
+                  <ImageIcon className="h-5 w-5 text-pink-400" />
+                </div>
+                <CardTitle className="text-white font-semibold text-lg">Изображения товара</CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div
-                className="border-2 border-dashed border-white/20 rounded-lg p-8 text-center cursor-pointer transition-all hover:border-white/30 hover:bg-white/5"
+                className="border-2 border-dashed border-white/20 rounded-xl p-8 text-center cursor-pointer transition-all hover:border-white/40 hover:bg-white/10 hover:shadow-lg"
                 onDragOver={(e) => {
                   e.preventDefault();
                   e.currentTarget.classList.add('border-white/40', 'bg-white/10');
@@ -1155,15 +1237,19 @@ export default function ProductForm() {
               </div>
 
               {uploading && (
-                <p className="text-sm text-white/70 text-center">Загрузка...</p>
+                <div className="text-center py-4">
+                  <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-white/20 border-t-blue-400 mb-2" />
+                  <p className="text-sm text-white/70 font-medium">Загрузка изображений...</p>
+                </div>
               )}
 
               {mediaItems.length > 0 && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                   {mediaItems.map((item, index) => (
                     <div
                       key={item.id || `new-${index}`}
-                      className="relative group aspect-square rounded-lg overflow-hidden bg-white/5 border border-white/10 cursor-move"
+                      className="relative group aspect-square rounded-xl overflow-hidden bg-white/5 border border-white/20 cursor-move hover:border-white/40 hover:shadow-xl transition-all animate-fade-in"
+                      style={{ animationDelay: `${index * 50}ms` }}
                       draggable
                       onDragStart={(e) => {
                         e.dataTransfer.setData('text/plain', index.toString());
@@ -1207,21 +1293,30 @@ export default function ProductForm() {
           </Card>
         )}
 
-        {/* Кнопки действий */}
-        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-white/10 sticky bottom-0 bg-background/95 backdrop-blur-sm pb-4 -mx-4 sm:mx-0 px-4 sm:px-0">
+        {/* Premium Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-white/10 sticky bottom-0 bg-background/95 backdrop-blur-xl pb-6 -mx-6 px-6 sm:mx-0 sm:px-0">
           <Button
             type="submit"
             disabled={createMutation.isPending || updateMutation.isPending}
-            className="flex-1 w-full sm:w-auto"
+            className="flex-1 w-full sm:w-auto bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg shadow-blue-500/25 border-0 h-12 font-semibold disabled:opacity-50"
           >
-            <Save className="h-4 w-4 mr-2" />
-            {createMutation.isPending || updateMutation.isPending ? 'Сохранение...' : 'Сохранить товар'}
+            {createMutation.isPending || updateMutation.isPending ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white/30 border-t-white mr-2" />
+                Сохранение...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Сохранить товар
+              </>
+            )}
           </Button>
           <Button
             type="button"
             variant="ghost"
             onClick={() => navigate('/products')}
-            className="w-full sm:w-auto"
+            className="w-full sm:w-auto text-white/80 hover:text-white hover:bg-white/10 border border-white/10 rounded-lg h-12 font-semibold"
           >
             Отмена
           </Button>

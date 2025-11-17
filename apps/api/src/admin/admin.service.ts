@@ -22,7 +22,9 @@ const PaymentStatus = {
 
 @Injectable()
 export class AdminService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+  ) {}
 
   async getMetrics() {
     const now = new Date();
@@ -349,11 +351,18 @@ export class AdminService {
       orderBy: { createdAt: 'desc' },
     });
 
+    // Получаем также информацию о восстановленных корзинах для статистики
+    const recoveredCarts = await this.prisma.abandonedCart.count({
+      where: { recovered: true },
+    });
+
     return {
       carts: abandonedCarts.map((cart) => ({
         id: cart.id,
+        cartId: cart.cartId,
         userId: cart.userId,
         customerName: `${cart.user.firstName} ${cart.user.lastName || ''}`.trim(),
+        telegramId: cart.user.telegramId,
         itemsCount: cart.itemsCount,
         totalAmount: Number(cart.totalAmount),
         reminderSent: cart.reminderSent,
@@ -362,14 +371,17 @@ export class AdminService {
         daysSinceAbandoned: Math.floor(
           (Date.now() - cart.createdAt.getTime()) / (1000 * 60 * 60 * 24),
         ),
+        recovered: cart.recovered,
+        recoveredAt: cart.recoveredAt,
       })),
-      summary: {
-        total: abandonedCarts.length,
+      stats: {
+        totalCount: abandonedCarts.length,
         totalValue: abandonedCarts.reduce((sum, cart) => sum + Number(cart.totalAmount), 0),
         averageValue:
           abandonedCarts.length > 0
             ? abandonedCarts.reduce((sum, cart) => sum + Number(cart.totalAmount), 0) / abandonedCarts.length
             : 0,
+        recoveredCount: recoveredCarts,
       },
     };
   }
@@ -378,7 +390,33 @@ export class AdminService {
     const abandonedCart = await this.prisma.abandonedCart.findUnique({
       where: { id },
       include: {
-        user: true,
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+            telegramId: true,
+          },
+        },
+        cart: {
+          include: {
+            items: {
+              include: {
+                product: {
+                  select: {
+                    name: true,
+                    slug: true,
+                  },
+                },
+                variant: {
+                  select: {
+                    name: true,
+                    price: true,
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -386,8 +424,173 @@ export class AdminService {
       throw new Error('Abandoned cart not found or already recovered');
     }
 
-    // Здесь будет логика отправки напоминания через Telegram бота
-    // Пока просто обновляем счетчик
+    // Отправка напоминания через Python Customer Bot (если есть telegramId)
+    if (abandonedCart.user.telegramId) {
+      try {
+        const customerBotUrl = process.env.CUSTOMER_BOT_API_URL || 'http://localhost:8001';
+        const itemsText = abandonedCart.cart.items
+          .map((item) => {
+            const price = item.variant?.price || 0;
+            return `  • ${item.product.name}${item.variant?.name ? ` (${item.variant.name})` : ''} - ${item.quantity} шт. × ${price.toLocaleString('ru-RU')} ₽`;
+          })
+          .join('\n');
+
+        const axios = await import('axios');
+        await axios.default.post(`${customerBotUrl}/notify/abandoned-cart`, {
+          telegramId: abandonedCart.user.telegramId.toString(),
+          cartId: abandonedCart.cartId,
+          items: itemsText,
+          totalAmount: abandonedCart.totalAmount,
+          daysSinceAbandoned: Math.floor(
+            (Date.now() - abandonedCart.createdAt.getTime()) / (1000 * 60 * 60 * 24),
+          ),
+        }, {
+          timeout: 5000,
+        });
+      } catch (error) {
+        // Логируем ошибку, но не блокируем обновление счетчика
+        console.error('Failed to send abandoned cart reminder via Python bot:', error);
+      }
+    }
+
+    return this.prisma.abandonedCart.update({
+      where: { id },
+      data: {
+        reminderSent: abandonedCart.reminderSent + 1,
+        lastReminderAt: new Date(),
+      },
+    });
+  }
+
+  async getAbandonedCartSettings() {
+    // Получаем или создаем настройки
+    let settings = await this.prisma.abandonedCartSettings.findFirst();
+    
+    if (!settings) {
+      settings = await this.prisma.abandonedCartSettings.create({
+        data: {
+          autoRemindersEnabled: false,
+          reminderIntervalHours: 24,
+          maxReminders: 3,
+        },
+      });
+    }
+
+    return {
+      id: settings.id,
+      autoRemindersEnabled: settings.autoRemindersEnabled,
+      reminderIntervalHours: settings.reminderIntervalHours,
+      maxReminders: settings.maxReminders,
+      updatedAt: settings.updatedAt,
+    };
+  }
+
+  async updateAbandonedCartSettings(updateDto: {
+    autoRemindersEnabled?: boolean;
+    reminderIntervalHours?: number;
+    maxReminders?: number;
+  }) {
+    let settings = await this.prisma.abandonedCartSettings.findFirst();
+
+    if (!settings) {
+      settings = await this.prisma.abandonedCartSettings.create({
+        data: {
+          autoRemindersEnabled: updateDto.autoRemindersEnabled ?? false,
+          reminderIntervalHours: updateDto.reminderIntervalHours ?? 24,
+          maxReminders: updateDto.maxReminders ?? 3,
+        },
+      });
+    } else {
+      settings = await this.prisma.abandonedCartSettings.update({
+        where: { id: settings.id },
+        data: {
+          ...(updateDto.autoRemindersEnabled !== undefined && {
+            autoRemindersEnabled: updateDto.autoRemindersEnabled,
+          }),
+          ...(updateDto.reminderIntervalHours !== undefined && {
+            reminderIntervalHours: updateDto.reminderIntervalHours,
+          }),
+          ...(updateDto.maxReminders !== undefined && {
+            maxReminders: updateDto.maxReminders,
+          }),
+        },
+      });
+    }
+
+    return {
+      id: settings.id,
+      autoRemindersEnabled: settings.autoRemindersEnabled,
+      reminderIntervalHours: settings.reminderIntervalHours,
+      maxReminders: settings.maxReminders,
+      updatedAt: settings.updatedAt,
+    };
+  }
+
+  async getAbandonedCartDetails(id: number) {
+    const abandonedCart = await this.prisma.abandonedCart.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: {
+            telegramId: true,
+          },
+        },
+        cart: {
+          include: {
+            items: {
+              include: {
+                product: {
+                  select: {
+                    name: true,
+                    slug: true,
+                  },
+                },
+                variant: {
+                  select: {
+                    name: true,
+                    price: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!abandonedCart) {
+      throw new Error('Abandoned cart not found');
+    }
+
+    const itemsText = abandonedCart.cart.items
+      .map((item) => {
+        const price = item.variant?.price || 0;
+        return `  • ${item.product.name}${item.variant?.name ? ` (${item.variant.name})` : ''} - ${item.quantity} шт. × ${price.toLocaleString('ru-RU')} ₽`;
+      })
+      .join('\n');
+
+    return {
+      id: abandonedCart.id,
+      cartId: abandonedCart.cartId,
+      telegramId: abandonedCart.user.telegramId?.toString(),
+      itemsText,
+      totalAmount: Number(abandonedCart.totalAmount),
+      daysSinceAbandoned: Math.floor(
+        (Date.now() - abandonedCart.createdAt.getTime()) / (1000 * 60 * 60 * 24),
+      ),
+      reminderSent: abandonedCart.reminderSent,
+      lastReminderAt: abandonedCart.lastReminderAt,
+    };
+  }
+
+  async markReminderSent(id: number) {
+    const abandonedCart = await this.prisma.abandonedCart.findUnique({
+      where: { id },
+    });
+
+    if (!abandonedCart) {
+      throw new Error('Abandoned cart not found');
+    }
 
     return this.prisma.abandonedCart.update({
       where: { id },

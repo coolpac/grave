@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2, Mail, Send } from 'lucide-react';
+import { Plus, Trash2, Mail, Send, Clock, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import api from '../lib/api';
 import { Button } from '@ui/components/button';
@@ -8,12 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@ui/components/card';
 export default function Newsletters() {
   const queryClient = useQueryClient();
 
-  const { data: newsletters, isLoading } = useQuery({
+  const { data: newsletters, isLoading, error } = useQuery({
     queryKey: ['newsletters'],
     queryFn: async () => {
       const { data } = await api.get('/newsletters');
       return data;
     },
+    retry: 1,
   });
 
   const deleteMutation = useMutation({
@@ -27,94 +28,173 @@ export default function Newsletters() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-white/80 text-lg">Загрузка...</div>
+      <div className="flex items-center justify-center h-64 animate-fade-in">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-white/20 border-t-blue-400 mb-4" />
+          <div className="text-white/80 text-lg font-medium">Загрузка рассылок...</div>
+        </div>
       </div>
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64 animate-fade-in">
+        <Card className="glass-strong border-red-500/30 max-w-md">
+          <CardContent className="p-8 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-red-500/20 flex items-center justify-center">
+              <Mail className="h-8 w-8 text-red-400" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Ошибка загрузки</h3>
+            <p className="text-white/70">Не удалось загрузить рассылки</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  const getStatusBadge = (status: string) => {
+    const badges = {
+      sent: { bg: 'bg-green-500/20', border: 'border-green-500/30', text: 'text-green-300', icon: CheckCircle2, label: 'Отправлено' },
+      scheduled: { bg: 'bg-blue-500/20', border: 'border-blue-500/30', text: 'text-blue-300', icon: Clock, label: 'Запланировано' },
+      draft: { bg: 'bg-white/10', border: 'border-white/20', text: 'text-white/80', icon: Mail, label: 'Черновик' },
+    };
+    return badges[status as keyof typeof badges] || badges.draft;
+  };
+
   return (
-    <div className="space-y-4 sm:space-y-6 p-4 sm:p-6 relative">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2 gradient-text">Рассылки</h1>
-          <p className="text-sm sm:text-base text-white/70">Управление email рассылками</p>
+    <div className="space-y-6 p-6 animate-fade-in">
+      {/* Premium Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+        <div className="space-y-1">
+          <h1 className="text-3xl sm:text-4xl font-bold gradient-text">Рассылки</h1>
+          <p className="text-sm sm:text-base text-white/70 font-medium">
+            Управление email рассылками
+          </p>
         </div>
-        <Button className="w-full sm:w-auto">
-          <Plus className="mr-2 h-4 w-4" />
+        <Button className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg shadow-blue-500/25 border-0 h-11 px-6 font-semibold">
+          <Plus className="mr-2 h-5 w-5" />
           Создать рассылку
         </Button>
       </div>
 
-      <div className="grid gap-4">
-        {newsletters?.map((newsletter: any) => (
-          <Card key={newsletter.id} className="glass-strong card-hover border-white/20 shadow-xl">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-white">{newsletter.subject}</CardTitle>
-                <span className={`text-xs px-2 py-1 rounded border ${
-                  newsletter.status === 'sent' ? 'bg-green-500/20 text-green-400 border-green-500/30' :
-                  newsletter.status === 'scheduled' ? 'bg-blue-500/20 text-blue-400 border-blue-500/30' :
-                  'bg-white/10 text-white/80 border-white/20'
-                }`}>
-                  {newsletter.status}
-                </span>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-white/80 mb-4 line-clamp-2">
-                {newsletter.content}
-              </p>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-sm">
-                <div className="space-y-1">
-                  {newsletter.scheduledAt && (
-                    <div className="text-white/70">
-                      Запланировано: <span className="text-white">{format(new Date(newsletter.scheduledAt), 'dd.MM.yyyy HH:mm')}</span>
+      {/* Newsletters List */}
+      {newsletters && newsletters.length > 0 ? (
+        <div className="grid gap-4">
+          {newsletters.map((newsletter: any, index: number) => {
+            const statusBadge = getStatusBadge(newsletter.status);
+            const StatusIcon = statusBadge.icon;
+            
+            return (
+              <Card 
+                key={newsletter.id} 
+                className="glass-strong card-hover border-white/20 shadow-xl animate-fade-in"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
+                <CardHeader className="pb-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="p-2 rounded-lg bg-blue-500/20 border border-blue-500/30">
+                          <Mail className="h-5 w-5 text-blue-400" />
+                        </div>
+                        <CardTitle className="text-lg font-bold text-white flex-1">
+                          {newsletter.subject}
+                        </CardTitle>
+                      </div>
+                      <span className={`badge-premium ${statusBadge.bg} ${statusBadge.border} ${statusBadge.text} inline-flex items-center gap-1.5`}>
+                        <StatusIcon className="h-3.5 w-3.5" />
+                        {statusBadge.label}
+                      </span>
                     </div>
-                  )}
-                  {newsletter.sentAt && (
-                    <div className="text-white/70">
-                      Отправлено: <span className="text-white">{format(new Date(newsletter.sentAt), 'dd.MM.yyyy HH:mm')}</span>
-                    </div>
-                  )}
-                  <div className="text-white/70 text-xs sm:text-sm">
-                    Получателей: <span className="text-white">{newsletter.recipientCount}</span> · 
-                    Открытий: <span className="text-white">{newsletter.openedCount}</span> · 
-                    Кликов: <span className="text-white">{newsletter.clickedCount}</span>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {newsletter.status === 'draft' && (
-                    <Button variant="ghost" size="sm">
-                      <Send className="h-4 w-4" />
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-white/70 line-clamp-3 leading-relaxed">
+                    {newsletter.content}
+                  </p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-white/10">
+                    <div className="space-y-2">
+                      {newsletter.scheduledAt && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <Clock className="h-4 w-4 text-white/50" />
+                          <span className="text-white/60">Запланировано:</span>
+                          <span className="text-white/90 font-semibold">
+                            {format(new Date(newsletter.scheduledAt), 'dd.MM.yyyy HH:mm')}
+                          </span>
+                        </div>
+                      )}
+                      {newsletter.sentAt && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <CheckCircle2 className="h-4 w-4 text-white/50" />
+                          <span className="text-white/60">Отправлено:</span>
+                          <span className="text-white/90 font-semibold">
+                            {format(new Date(newsletter.sentAt), 'dd.MM.yyyy HH:mm')}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="text-sm text-white/60">
+                        Получателей:{' '}
+                        <span className="text-white/90 font-semibold">{newsletter.recipientCount || 0}</span>
+                      </div>
+                      <div className="text-sm text-white/60">
+                        Открытий:{' '}
+                        <span className="text-white/90 font-semibold">{newsletter.openedCount || 0}</span>
+                        {' · '}
+                        Кликов:{' '}
+                        <span className="text-white/90 font-semibold">{newsletter.clickedCount || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2 pt-2">
+                    {newsletter.status === 'draft' && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="text-white/80 hover:text-white hover:bg-green-500/20 border border-white/10 rounded-lg"
+                      >
+                        <Send className="mr-2 h-4 w-4" />
+                        Отправить
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        if (confirm('Вы уверены, что хотите удалить эту рассылку?')) {
+                          deleteMutation.mutate(newsletter.id);
+                        }
+                      }}
+                      className="text-red-400/80 hover:text-red-400 hover:bg-red-500/20 border border-white/10 rounded-lg ml-auto"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      if (confirm('Удалить рассылку?')) {
-                        deleteMutation.mutate(newsletter.id);
-                      }
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {(!newsletters || newsletters.length === 0) && (
-        <Card className="glass-strong border-white/20">
-          <CardContent className="p-8 text-center">
-            <p className="text-white/70">Рассылки не найдены</p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      ) : (
+        <Card className="glass-strong border-white/20 shadow-xl">
+          <CardContent className="p-12 text-center">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+              <Mail className="h-10 w-10 text-white/40" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Рассылки не найдены</h3>
+            <p className="text-white/60 mb-6">Начните с создания первой рассылки</p>
+            <Button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white">
+              <Plus className="mr-2 h-4 w-4" />
+              Создать рассылку
+            </Button>
           </CardContent>
         </Card>
       )}
     </div>
   );
 }
-

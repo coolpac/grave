@@ -4,37 +4,39 @@ import { useTelegram } from '../hooks/useTelegram'
 import { Package, Sparkles, Star, TrendingUp, ArrowLeft } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import axios from 'axios'
 
-// Категории для мраморных изделий
-const marbleCategories = [
-  { slug: 'marble-monuments', name: 'Памятники из мрамора', icon: Package, count: 32, material: 'marble' },
-  { slug: 'marble-popular', name: 'Популярные модели', icon: Sparkles, count: 28, material: 'marble' },
-  { slug: 'marble-slabs', name: 'Плита из мрамора', icon: Package, count: 24, material: 'marble' },
-  { slug: 'marble-vases', name: 'Вазы', icon: Star, count: 15, material: 'marble' },
-  { slug: 'marble-chips', name: 'Крошка', icon: TrendingUp, count: 12, material: 'marble' },
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+
+// Категории для мраморных изделий (структура, без count)
+const marbleCategoriesConfig = [
+  { slug: 'marble-monuments', name: 'Памятники из мрамора', icon: Package, material: 'marble' },
+  { slug: 'marble-popular', name: 'Популярные модели', icon: Sparkles, material: 'marble' },
+  { slug: 'marble-slabs', name: 'Плита из мрамора', icon: Package, material: 'marble' },
+  { slug: 'marble-vases', name: 'Вазы', icon: Star, material: 'marble' },
+  { slug: 'marble-chips', name: 'Крошка', icon: TrendingUp, material: 'marble' },
 ]
 
-// Категории для гранитных изделий
-const graniteCategories = [
-  { slug: 'granite-monuments', name: 'Памятники из гранита', icon: Package, count: 45, material: 'granite' },
-  { slug: 'granite-popular', name: 'Популярные модели', icon: Sparkles, count: 35, material: 'granite' },
-  { slug: 'granite-slabs', name: 'Плита из гранита', icon: Package, count: 38, material: 'granite' },
-  { slug: 'granite-vases', name: 'Вазы', icon: Star, count: 22, material: 'granite' },
-  { slug: 'granite-chips', name: 'Крошка', icon: TrendingUp, count: 23, material: 'granite' },
+// Категории для гранитных изделий (структура, без count)
+const graniteCategoriesConfig = [
+  { slug: 'granite-monuments', name: 'Памятники из гранита', icon: Package, material: 'granite' },
+  { slug: 'granite-popular', name: 'Популярные модели', icon: Sparkles, material: 'granite' },
+  { slug: 'granite-slabs', name: 'Плита из гранита', icon: Package, material: 'granite' },
+  { slug: 'granite-vases', name: 'Вазы', icon: Star, material: 'granite' },
+  { slug: 'granite-chips', name: 'Крошка', icon: TrendingUp, material: 'granite' },
 ]
 
 const materialInfo = {
   marble: {
     name: 'Мраморные изделия',
     description: 'Элегантные изделия из натурального мрамора',
-    categories: marbleCategories,
     color: 'from-blue-50 to-blue-100',
     textColor: 'text-blue-900',
   },
   granite: {
     name: 'Гранитные изделия',
     description: 'Прочные и долговечные изделия из гранита',
-    categories: graniteCategories,
     color: 'from-gray-50 to-gray-100',
     textColor: 'text-gray-900',
   },
@@ -45,15 +47,39 @@ export default function MaterialCategories() {
   const navigate = useNavigate()
   const { BackButton } = useTelegram()
 
+  // Загрузка категорий с количеством товаров, фильтрованных по материалу
+  const { data: categoriesData, isLoading: isLoadingCategories } = useQuery({
+    queryKey: ['categories', material],
+    queryFn: async () => {
+      const { data } = await axios.get(
+        `${API_URL}/catalog/categories?activeOnly=true&material=${material}`
+      )
+      return data
+    },
+    staleTime: 5 * 60 * 1000, // Кэш на 5 минут
+  })
+
   useEffect(() => {
-    BackButton.show()
-    BackButton.onClick(() => {
-      navigate(-1)
-    })
+    if (BackButton && typeof BackButton.show === 'function') {
+      try {
+        BackButton.show()
+        BackButton.onClick(() => {
+          navigate(-1)
+        })
+      } catch (error) {
+        console.debug('BackButton not supported:', error)
+      }
+    }
 
     return () => {
-      BackButton.hide()
-      BackButton.offClick(() => {})
+      if (BackButton && typeof BackButton.hide === 'function') {
+        try {
+          BackButton.hide()
+          BackButton.offClick(() => {})
+        } catch (error) {
+          // Игнорируем ошибки при очистке
+        }
+      }
     }
   }, [BackButton, navigate])
 
@@ -71,7 +97,16 @@ export default function MaterialCategories() {
   }
 
   const info = materialInfo[material]
-  const categories = info.categories
+  const categoriesConfig = material === 'marble' ? marbleCategoriesConfig : graniteCategoriesConfig
+  
+  // Объединяем конфигурацию категорий с реальными данными из API
+  const categories = categoriesConfig.map(config => {
+    const categoryData = categoriesData?.find((cat: any) => cat.slug === config.slug)
+    return {
+      ...config,
+      count: categoryData?._count?.products || 0,
+    }
+  })
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -138,7 +173,7 @@ export default function MaterialCategories() {
                             {category.name}
                           </h3>
                           <p className="text-xs font-body text-gray-600 mt-2">
-                            {category.count} товаров
+                            {category.count} {category.count === 1 ? 'товар' : category.count < 5 ? 'товара' : 'товаров'}
                           </p>
                         </div>
                       </div>

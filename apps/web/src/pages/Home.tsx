@@ -5,11 +5,30 @@ import { useTelegram } from '../hooks/useTelegram'
 import { MapPin, Phone, Mail, Info, Sparkles } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useState, useRef } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import axios from 'axios'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
 export default function Home() {
   const { user } = useTelegram()
-  const [isLoading] = useState(false)
   const contactRef = useRef<HTMLDivElement>(null)
+
+  // Загрузка статистики по материалам
+  const { data: materialStats, isLoading: isLoadingStats } = useQuery({
+    queryKey: ['material-stats'],
+    queryFn: async () => {
+      const { data } = await axios.get(`${API_URL}/products/stats/by-material`)
+      return data
+    },
+    staleTime: 5 * 60 * 1000, // Кэш на 5 минут
+  })
+
+  const marbleCount = materialStats?.marble?.products || 0
+  const graniteCount = materialStats?.granite?.products || 0
+  const marbleCategoriesCount = materialStats?.marble?.categories || 5
+  const graniteCategoriesCount = materialStats?.granite?.categories || 5
+  const isLoading = isLoadingStats
 
   const scrollToContacts = () => {
     contactRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -117,8 +136,8 @@ export default function Home() {
                           Элегантные изделия из натурального мрамора
                         </p>
                         <div className="flex flex-col gap-1 text-xs font-body text-gray-700">
-                          <span>5 категорий</span>
-                          <span>111 товаров</span>
+                          <span>{marbleCategoriesCount} категорий</span>
+                          <span>{marbleCount} {marbleCount === 1 ? 'товар' : marbleCount < 5 ? 'товара' : 'товаров'}</span>
                         </div>
                       </div>
                       <div className="mt-3 flex items-center gap-1 text-bronze-600">
@@ -166,8 +185,8 @@ export default function Home() {
                           Прочные и долговечные изделия из гранита
                         </p>
                         <div className="flex flex-col gap-1 text-xs font-body text-gray-700">
-                          <span>5 категорий</span>
-                          <span>163 товара</span>
+                          <span>{graniteCategoriesCount} категорий</span>
+                          <span>{graniteCount} {graniteCount === 1 ? 'товар' : graniteCount < 5 ? 'товара' : 'товаров'}</span>
                         </div>
                       </div>
                       <div className="mt-3 flex items-center gap-1 text-bronze-600">

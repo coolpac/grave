@@ -2,6 +2,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { Skeleton } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
+import { useCart } from '../hooks/useCart'
 import { Search, ShoppingCart, Package } from 'lucide-react'
 import { useEffect, useState, useRef } from 'react'
 import ProductCard from '../components/ProductCard'
@@ -31,140 +32,105 @@ const mockFilters = {
   ],
 }
 
-// Моковая функция для получения товаров
-const fetchProducts = async ({ pageParam = 1, categorySlug, filters, sort }: any) => {
-  // В реальном приложении здесь будет запрос к API
-  await new Promise((resolve) => setTimeout(resolve, 500)) // Имитация задержки
-
-  // Моковые данные для ритуальных товаров
-  const productNames = [
-    'Памятник из гранита',
-    'Резной памятник с орнаментом',
-    'Плита мраморная',
-    'Ваза гранитная',
-    'Мраморная крошка',
-    'Гранитная плита',
-    'Памятник классический',
-    'Резной памятник элит',
-    'Плита с гравировкой',
-    'Ваза мраморная',
-    'Крошка мраморная цветная',
-    'Гранит полированный',
-    'Памятник двойной',
-    'Резной памятник премиум',
-    'Плита гранитная',
-    'Ваза с орнаментом',
-    'Крошка декоративная',
-    'Гранит габбро',
-    'Памятник семейный',
-    'Резной памятник эксклюзив',
-    'Плита мемориальная',
-    'Ваза классическая',
-    'Крошка мраморная белая',
-    'Гранит красный',
-    'Памятник одиночный',
-    'Резной памятник стандарт',
-    'Плита с фото',
-    'Ваза современная',
-    'Крошка разноцветная',
-    'Гранит черный',
-  ]
-
-  // Функция для получения изображений по типу товара
-  const getProductImage = (productName: string, index: number) => {
-    // Красивые изображения для разных категорий товаров
-    const imageUrls: Record<string, string[]> = {
-      'Памятник': [
-        'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=800&fit=crop&q=80', // Камень/гранит
-        'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=800&h=800&fit=crop&q=80', // Мрамор
-        'https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=800&h=800&fit=crop&q=80', // Каменная текстура
-        'https://images.unsplash.com/photo-1519682337058-a94d519337bc?w=800&h=800&fit=crop&q=80', // Камень
-        'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=800&h=800&fit=crop&q=80', // Мраморная текстура
-      ],
-      'Резной': [
-        'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1519682337058-a94d519337bc?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=800&h=800&fit=crop&q=80',
-      ],
-      'Плита': [
-        'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1519682337058-a94d519337bc?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=800&h=800&fit=crop&q=80',
-      ],
-      'Ваза': [
-        'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1519682337058-a94d519337bc?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=800&h=800&fit=crop&q=80',
-      ],
-      'Крошка': [
-        'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1519682337058-a94d519337bc?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=800&h=800&fit=crop&q=80',
-      ],
-      'Гранит': [
-        'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1578662996442-48f60103fc96?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1581833971358-2c8b550f87b3?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1519682337058-a94d519337bc?w=800&h=800&fit=crop&q=80',
-        'https://images.unsplash.com/photo-1513475382585-d06e58bcb0e0?w=800&h=800&fit=crop&q=80',
-      ],
+// Реальная функция для получения товаров из API с серверной пагинацией
+const fetchProducts = async ({ pageParam = 1, categorySlug }: any) => {
+  try {
+    // Сначала получаем категорию по slug для получения categoryId
+    const categoryResponse = await axios.get(`${API_URL}/catalog/categories/${categorySlug}`)
+    const category = categoryResponse.data
+    
+    if (!category) {
+      return {
+        products: [],
+        nextPage: undefined,
+        hasMore: false,
+      }
     }
 
-    // Определяем категорию по названию
-    let category = 'Памятник'
-    if (productName.includes('Резной')) category = 'Резной'
-    else if (productName.includes('Плита')) category = 'Плита'
-    else if (productName.includes('Ваза')) category = 'Ваза'
-    else if (productName.includes('Крошка')) category = 'Крошка'
-    else if (productName.includes('Гранит')) category = 'Гранит'
+    // Используем серверную пагинацию через /catalog/products
+    const pageSize = 12
+    const productsResponse = await axios.get(`${API_URL}/catalog/products`, {
+      params: {
+        categoryId: category.id,
+        activeOnly: 'true',
+        page: pageParam || 1,
+        limit: pageSize,
+      },
+      timeout: 10000, // 10 секунд таймаут
+      validateStatus: (status) => status < 500, // Не выбрасывать ошибку для 4xx
+    })
 
-    const urls = imageUrls[category] || imageUrls['Памятник']
-    return urls[index % urls.length]
-  }
+    // Проверяем, есть ли пагинация в ответе
+    const responseData = productsResponse.data
+    let products: any[] = []
+    let hasMore = false
+    let nextPage: number | undefined = undefined
 
-  const allProducts = Array.from({ length: 30 }, (_, i) => {
-    const productName = productNames[i] || `Товар ${i + 1}`
-    const mainImage = getProductImage(productName, i)
+    if (responseData.data && responseData.meta) {
+      // Ответ с пагинацией
+      products = responseData.data
+      hasMore = responseData.meta.hasNextPage
+      nextPage = hasMore ? pageParam + 1 : undefined
+    } else if (Array.isArray(responseData)) {
+      // Обратная совместимость - массив без пагинации
+      products = responseData
+      hasMore = products.length === pageSize
+      nextPage = hasMore ? pageParam + 1 : undefined
+    }
+
+    // Преобразуем товары в нужный формат
+    const formattedProducts = products.map((product: any) => {
+      // Определяем цену (базовая цена или минимальная цена варианта)
+      let price = product.basePrice || 0
+      if (product.variants && product.variants.length > 0) {
+        const activeVariants = product.variants.filter((v: any) => v.isActive)
+        if (activeVariants.length > 0) {
+          price = Math.min(...activeVariants.map((v: any) => v.price))
+        }
+      }
+
+      // Получаем изображение
+      const image = product.media && product.media.length > 0 
+        ? product.media[0].url 
+        : 'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=800&h=800&fit=crop&q=80'
+
+      return {
+        id: product.id,
+        slug: product.slug,
+        name: product.name,
+        price: price,
+        image: image,
+        images: product.media?.map((m: any) => m.url) || [image],
+        productType: product.productType,
+        variants: product.variants || [],
+        attributes: product.attributes || [],
+        material: product.material,
+      }
+    })
+
     return {
-      id: i + 1,
-      slug: `product-${i + 1}`,
-      name: productName,
-      price: Math.floor(Math.random() * 40000) + 15000, // Цены от 15000 до 55000
-      image: mainImage,
-      images: [
-        mainImage,
-        getProductImage(productName, i + 1),
-        getProductImage(productName, i + 2),
-      ],
+      products: formattedProducts,
+      nextPage,
+      hasMore,
     }
-  })
-
-  const pageSize = 12
-  const start = (pageParam - 1) * pageSize
-  const end = start + pageSize
-
-  return {
-    products: allProducts.slice(start, end),
-    nextPage: end < allProducts.length ? pageParam + 1 : undefined,
-    hasMore: end < allProducts.length,
+  } catch (error: any) {
+    console.error('Ошибка загрузки товаров:', error)
+    // Возвращаем пустой массив при ошибке
+    return {
+      products: [],
+      nextPage: undefined,
+      hasMore: false,
+    }
   }
 }
 
 export default function Category() {
   const { slug } = useParams<{ slug: string }>()
   const { BackButton } = useTelegram()
+  const { addToCart, itemsCount } = useCart()
   const [searchQuery, setSearchQuery] = useState('')
   const [flyingTrigger, setFlyingTrigger] = useState(false)
   const [flyingPosition, setFlyingPosition] = useState({ from: { x: 0, y: 0 }, to: { x: 0, y: 0 } })
-  const [cartCount, setCartCount] = useState(0)
 
   const {
     data,
@@ -180,21 +146,7 @@ export default function Category() {
     initialPageParam: 1,
   })
 
-  // Загрузка количества товаров в корзине
-  useEffect(() => {
-    const loadCartCount = async () => {
-      try {
-        const response = await axios.get(`${API_URL}/cart`)
-        const items = response.data?.items || []
-        const count = items.reduce((sum: number, item: any) => sum + (item.quantity || 0), 0)
-        setCartCount(count)
-      } catch (error) {
-        // Игнорируем ошибки, используем 0
-        setCartCount(0)
-      }
-    }
-    loadCartCount()
-  }, [])
+  // Используем itemsCount из хука useCart вместо локального состояния
 
   const observerTarget = useRef<HTMLDivElement>(null)
 
@@ -220,14 +172,26 @@ export default function Category() {
   }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   useEffect(() => {
-    BackButton.show()
-    BackButton.onClick(() => {
-      window.history.back()
-    })
+    if (BackButton && typeof BackButton.show === 'function') {
+      try {
+        BackButton.show()
+        BackButton.onClick(() => {
+          window.history.back()
+        })
+      } catch (error) {
+        console.debug('BackButton not supported:', error)
+      }
+    }
 
     return () => {
-      BackButton.hide()
-      BackButton.offClick(() => {})
+      if (BackButton && typeof BackButton.hide === 'function') {
+        try {
+          BackButton.hide()
+          BackButton.offClick(() => {})
+        } catch (error) {
+          // Игнорируем ошибки при очистке
+        }
+      }
     }
   }, [BackButton])
 
@@ -244,8 +208,17 @@ export default function Category() {
         },
       })
       setFlyingTrigger(true)
-      // Обновляем счетчик корзины
-      setCartCount((prev) => prev + 1)
+    }
+    
+    // Добавляем товар в корзину через хук
+    if (product.id) {
+      addToCart(product.id, {
+        quantity: 1,
+        productSlug: product.slug,
+        productName: product.name,
+        productPrice: product.price,
+        imageUrl: product.image || product.images?.[0],
+      })
     }
   }
 

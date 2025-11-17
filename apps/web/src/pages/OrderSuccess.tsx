@@ -13,12 +13,28 @@ export default function OrderSuccess() {
 
   useEffect(() => {
     // Скрываем кнопки Telegram, так как это финальный экран
-    BackButton.hide()
-    MainButton.hide()
+    if (BackButton && typeof BackButton.hide === 'function') {
+      try {
+        BackButton.hide()
+      } catch (error) {
+        // Игнорируем ошибки
+      }
+    }
+    if (MainButton && typeof MainButton.hide === 'function') {
+      MainButton.hide()
+    }
 
     return () => {
-      BackButton.hide()
-      MainButton.hide()
+      if (BackButton && typeof BackButton.hide === 'function') {
+        try {
+          BackButton.hide()
+        } catch (error) {
+          // Игнорируем ошибки
+        }
+      }
+      if (MainButton && typeof MainButton.hide === 'function') {
+        MainButton.hide()
+      }
     }
   }, [BackButton, MainButton])
 

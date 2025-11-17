@@ -23,7 +23,10 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "ts-node prisma/seed.ts",
     "prisma:studio": "prisma studio",
-    "tunnel": "cloudflared tunnel --url http://localhost:3000"
+    "tunnel": "cloudflared tunnel --url http://localhost:3000",
+    "create:categories": "ts-node scripts/create-categories.ts",
+    "create:products": "ts-node scripts/create-test-products.ts",
+    "cleanup:test-data": "ts-node scripts/cleanup-test-data.ts"
   },
   "dependencies": {
     "@nestjs/cache-manager": "^2.1.1",
@@ -34,6 +37,7 @@
     "@nestjs/mapped-types": "^2.1.0",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.3.0",
+    "@nestjs/schedule": "^6.0.1",
     "@nestjs/throttler": "^5.1.1",
     "@prisma/client": "^5.9.1",
     "@types/multer": "^1.4.11",

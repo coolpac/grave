@@ -15,6 +15,7 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { PaginationDto } from '../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 
@@ -26,8 +27,14 @@ export class CatalogController {
   @Get('categories')
   @CacheKey('categories')
   @CacheTTL(300) // 5 minutes
-  findAllCategories(@Query('activeOnly') activeOnly?: string) {
-    return this.catalogService.findAllCategories(activeOnly === 'true');
+  findAllCategories(
+    @Query('activeOnly') activeOnly?: string,
+    @Query('material') material?: string,
+  ) {
+    return this.catalogService.findAllCategories(
+      activeOnly === 'true',
+      material,
+    );
   }
 
   @Get('categories/:slug')
@@ -57,15 +64,27 @@ export class CatalogController {
 
   // Products
   @Get('products')
-  @CacheKey('products')
-  @CacheTTL(300)
+  @CacheKey('catalog-products')
+  @CacheTTL(300) // 5 minutes
   findAllProducts(
     @Query('categoryId') categoryId?: string,
     @Query('activeOnly') activeOnly?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
   ) {
+    // Создаем объект пагинации вручную, чтобы избежать проблем с валидацией
+    const pagination: PaginationDto | undefined = 
+      (page || limit) 
+        ? {
+            page: page ? +page : undefined,
+            limit: limit ? +limit : undefined,
+          }
+        : undefined;
+
     return this.catalogService.findAllProducts(
       categoryId ? +categoryId : undefined,
       activeOnly === 'true',
+      pagination,
     );
   }
 

@@ -3,21 +3,19 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto, OrderStatus, PaymentStatus } from './dto/update-order-status.dto';
 import { ConfigService } from '@nestjs/config';
-import axios from 'axios';
+import { TelegramBotClientService } from '../telegram/telegram-bot-client.service';
+import { CartAbandonedService } from '../cart/cart-abandoned.service';
 
 @Injectable()
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
-  private readonly telegramBotToken: string;
-  private readonly managerChatId: string;
 
   constructor(
     private prisma: PrismaService,
     private configService: ConfigService,
-  ) {
-    this.telegramBotToken = this.configService.get<string>('TELEGRAM_BOT_TOKEN') || '';
-    this.managerChatId = this.configService.get<string>('TELEGRAM_MANAGER_CHAT_ID') || '';
-  }
+    private telegramBotClient: TelegramBotClientService,
+    private cartAbandonedService: CartAbandonedService,
+  ) {}
 
   async createOrder(userId: number, createDto: CreateOrderDto) {
     // Получение корзины пользователя
@@ -89,11 +87,13 @@ export class OrdersService {
       return newOrder;
     });
 
+    // Отмечаем корзину как восстановленную (если была брошенной)
+    this.cartAbandonedService.markAsRecovered(cart.id).catch((error) => {
+      this.logger.warn(`Failed to mark cart as recovered: ${error.message}`);
+    });
+
     // Отправка уведомлений (не блокируем создание заказа при ошибках)
-    Promise.all([
-      this.notifyCustomer(order),
-      this.notifyAdmin(order),
-    ]).catch((error) => {
+    this.sendOrderNotifications(order).catch((error) => {
       this.logger.error(`Failed to send notifications: ${error.message}`);
     });
 
@@ -109,65 +109,56 @@ export class OrdersService {
     return order;
   }
 
-  // Отправка уведомления клиенту через Python бота
-  private async notifyCustomer(order: any) {
-    const botApiUrl = this.configService.get<string>('CUSTOMER_BOT_API_URL') || 'http://localhost:8001';
-    
-    try {
-      // Получаем telegramId пользователя
-      const user = await this.prisma.user.findUnique({
-        where: { id: order.userId },
-        select: { telegramId: true },
-      });
+  /**
+   * Отправка уведомлений о новом заказе
+   */
+  private async sendOrderNotifications(order: any) {
+    // Получаем данные пользователя для уведомления клиенту
+    const user = await this.prisma.user.findUnique({
+      where: { id: order.userId },
+      select: { telegramId: true },
+    });
 
-      if (!user?.telegramId) {
-        this.logger.warn(`User ${order.userId} has no telegramId`);
-        return;
-      }
+    // Формируем данные для уведомлений
+    const orderNotificationData = {
+      orderNumber: order.orderNumber,
+      orderId: order.id,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      customerEmail: order.customerEmail || undefined,
+      customerAddress: order.customerAddress || undefined,
+      comment: order.comment || undefined,
+      items: order.items.map((item: any) => ({
+        productName: item.productName,
+        variantName: item.variantName || undefined,
+        quantity: item.quantity,
+        price: Number(item.price),
+      })),
+      total: Number(order.total),
+      createdAt: order.createdAt,
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+    };
 
-      await axios.post(`${botApiUrl}/notify/customer`, {
-        telegramId: user.telegramId.toString(),
-        orderNumber: order.orderNumber,
-        orderId: order.id,
-        customerName: order.customerName,
-        total: Number(order.total),
-      });
+    // Отправляем уведомления параллельно
+    const promises: Promise<boolean>[] = [
+      // Уведомление администратору через Python бота
+      this.telegramBotClient.notifyAdminNewOrder(orderNotificationData),
+    ];
 
-      this.logger.log(`Customer notification sent for order #${order.orderNumber}`);
-    } catch (error: any) {
-      this.logger.error(`Failed to send customer notification: ${error.message}`);
+    // Уведомление клиенту (если есть telegramId) через Python бота
+    if (user?.telegramId) {
+      promises.push(
+        this.telegramBotClient.notifyCustomerNewOrder(
+          user.telegramId.toString(),
+          orderNotificationData,
+        ),
+      );
+    } else {
+      this.logger.warn(`User ${order.userId} has no telegramId, skipping customer notification`);
     }
-  }
 
-  // Отправка уведомления админу через Python бота
-  private async notifyAdmin(order: any) {
-    const botApiUrl = this.configService.get<string>('ADMIN_BOT_API_URL') || 'http://localhost:8002';
-    
-    try {
-      const itemsText = order.items
-        .map(
-          (item: any) =>
-            `${item.productName}${item.variantName ? ` (${item.variantName})` : ''} - ${item.quantity} шт. × ${Number(item.price).toLocaleString('ru-RU')} ₽`,
-        )
-        .join('\n');
-
-      await axios.post(`${botApiUrl}/notify/admin`, {
-        orderNumber: order.orderNumber,
-        orderId: order.id,
-        customerName: order.customerName,
-        customerPhone: order.customerPhone,
-        customerEmail: order.customerEmail,
-        customerAddress: order.customerAddress,
-        comment: order.comment,
-        items: itemsText,
-        total: Number(order.total),
-        createdAt: order.createdAt,
-      });
-
-      this.logger.log(`Admin notification sent for order #${order.orderNumber}`);
-    } catch (error: any) {
-      this.logger.error(`Failed to send admin notification: ${error.message}`);
-    }
+    await Promise.allSettled(promises);
   }
 
   private async createInvoice(order: any) {
@@ -286,13 +277,77 @@ export class OrdersService {
   }
 
   async updateOrderStatus(id: number, updateDto: UpdateOrderStatusDto) {
-    return this.prisma.order.update({
+    // Получаем текущий заказ для сравнения статусов
+    const currentOrder = await this.prisma.order.findUnique({
+      where: { id },
+      include: {
+        user: {
+          select: { telegramId: true },
+        },
+      },
+    });
+
+    if (!currentOrder) {
+      throw new NotFoundException(`Order with ID "${id}" not found`);
+    }
+
+    const oldStatus = currentOrder.status;
+    const oldPaymentStatus = currentOrder.paymentStatus;
+
+    // Обновляем заказ
+    const updatedOrder = await this.prisma.order.update({
       where: { id },
       data: updateDto,
       include: {
         items: true,
+        user: {
+          select: { telegramId: true },
+        },
       },
     });
+
+    // Отправляем уведомления об изменении статуса через Python ботов
+    if (updateDto.status && updateDto.status !== oldStatus) {
+      this.telegramBotClient
+        .notifyAdminOrderStatusChange(
+          updatedOrder.orderNumber,
+          oldStatus,
+          updateDto.status,
+          updatedOrder.customerName,
+        )
+        .catch((error) => {
+          this.logger.error(`Failed to send status change notification: ${error.message}`);
+        });
+
+      // Уведомление клиенту через Python бота
+      if (updatedOrder.user?.telegramId) {
+        this.telegramBotClient
+          .notifyCustomerOrderStatusChange(
+            updatedOrder.user.telegramId.toString(),
+            updatedOrder.orderNumber,
+            updateDto.status,
+          )
+          .catch((error) => {
+            this.logger.error(`Failed to send customer status notification: ${error.message}`);
+          });
+      }
+    }
+
+    if (updateDto.paymentStatus && updateDto.paymentStatus !== oldPaymentStatus) {
+      // Уведомление об изменении статуса оплаты через админ бота
+      this.telegramBotClient
+        .notifyAdminOrderStatusChange(
+          updatedOrder.orderNumber,
+          `Оплата: ${oldPaymentStatus}`,
+          `Оплата: ${updateDto.paymentStatus}`,
+          updatedOrder.customerName,
+        )
+        .catch((error) => {
+          this.logger.error(`Failed to send payment status notification: ${error.message}`);
+        });
+    }
+
+    return updatedOrder;
   }
 
   async handlePaymentWebhook(paymentData: any) {
@@ -327,7 +382,7 @@ export class OrdersService {
         paymentData: paymentData as any,
         status:
           paymentStatus === PaymentStatus.PAID
-            ? OrderStatus.CONFIRMED
+            ? OrderStatus.PROCESSING
             : order.status,
       },
       include: {

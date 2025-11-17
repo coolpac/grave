@@ -35,9 +35,10 @@ interface MatrixSelectorProps {
     variants: Variant[]
   }
   onAddToCart: (variantId: number, selectedAttributes: Record<string, string>) => void
+  onPriceChange?: (price: number | null) => void
 }
 
-export default function MatrixSelector({ product, onAddToCart }: MatrixSelectorProps) {
+export default function MatrixSelector({ product, onAddToCart, onPriceChange }: MatrixSelectorProps) {
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({})
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null)
   const [price, setPrice] = useState<number | null>(null)
@@ -46,28 +47,58 @@ export default function MatrixSelector({ product, onAddToCart }: MatrixSelectorP
   // Поиск варианта при изменении выбранных атрибутов
   useEffect(() => {
     const allSelected = product.attributes.every(
-      (attr) => selectedAttributes[attr.slug] !== undefined,
+      (attr) => selectedAttributes[attr.slug] !== undefined && selectedAttributes[attr.slug] !== '',
     )
 
-    if (allSelected) {
+    if (allSelected && Object.keys(selectedAttributes).length > 0) {
+      // Сначала пытаемся найти вариант локально
+      const localVariant = product.variants.find((v) => {
+        const variantAttrs = typeof v.attributes === 'string' 
+          ? JSON.parse(v.attributes) 
+          : v.attributes as Record<string, string>
+        return Object.keys(selectedAttributes).every(
+          (key) => variantAttrs[key] === selectedAttributes[key],
+        )
+      })
+
+      if (localVariant) {
+        // Если вариант найден локально, используем его цену
+        setPrice(localVariant.price)
+        setSelectedVariant(localVariant)
+        onPriceChange?.(localVariant.price)
+        setIsCalculating(false)
+        return
+      }
+
+      // Если вариант не найден локально, запрашиваем через API
       setIsCalculating(true)
       
-      // Расчет цены через API
+      // Фильтруем пустые значения перед отправкой
+      const validAttributes = Object.fromEntries(
+        Object.entries(selectedAttributes).filter(([_, value]) => value !== undefined && value !== '')
+      )
+      
       axios
         .post(`${API_URL}/products/${product.slug}/calculate-price`, {
-          attributes: selectedAttributes,
+          attributes: validAttributes,
         })
         .then((response) => {
-          setPrice(response.data.price)
+          const calculatedPrice = response.data.price
+          setPrice(calculatedPrice)
+          onPriceChange?.(calculatedPrice)
           if (response.data.variant) {
             const variant = product.variants.find((v) => v.id === response.data.variant.id)
             setSelectedVariant(variant || null)
           }
         })
         .catch((error) => {
-          console.error('Error calculating price:', error)
+          // Тихо обрабатываем ошибку, не логируем в консоль если это 400
+          if (error.response?.status !== 400) {
+            console.error('Error calculating price:', error)
+          }
           setPrice(null)
           setSelectedVariant(null)
+          onPriceChange?.(null)
         })
         .finally(() => {
           setIsCalculating(false)
@@ -75,8 +106,10 @@ export default function MatrixSelector({ product, onAddToCart }: MatrixSelectorP
     } else {
       setPrice(null)
       setSelectedVariant(null)
+      onPriceChange?.(null)
+      setIsCalculating(false)
     }
-  }, [selectedAttributes, product.slug, product.variants, product.attributes])
+  }, [selectedAttributes, product.slug, product.variants, product.attributes, onPriceChange])
 
   const handleAttributeSelect = (attrSlug: string, value: string) => {
     setSelectedAttributes((prev) => ({

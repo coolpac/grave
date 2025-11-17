@@ -4,6 +4,10 @@ import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import * as fs from 'fs';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
+import { AuthExceptionFilter } from './common/filters/auth-exception.filter';
+import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
+import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -50,6 +54,18 @@ async function bootstrap() {
     prefix: '/uploads/',
   });
 
+  // Global exception filters
+  app.useGlobalFilters(
+    new AuthExceptionFilter(), // Сначала обрабатываем ошибки авторизации
+    new HttpExceptionFilter(), // Затем все остальные ошибки
+  );
+
+  // Global interceptors
+  app.useGlobalInterceptors(
+    new LoggingInterceptor(), // Логирование запросов
+    new TransformInterceptor(), // Трансформация ответов
+  );
+
   // Global validation pipe
   app.useGlobalPipes(
     new ValidationPipe({
@@ -58,6 +74,13 @@ async function bootstrap() {
       transform: true,
       transformOptions: {
         enableImplicitConversion: true,
+      },
+      exceptionFactory: (errors) => {
+        // Кастомная обработка ошибок валидации
+        const messages = errors.map((error) => {
+          return Object.values(error.constraints || {}).join(', ');
+        });
+        return new Error(messages.join('; '));
       },
     }),
   );

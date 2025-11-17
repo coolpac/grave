@@ -142,5 +142,57 @@ export class AuthService {
 
     return user;
   }
+
+  /**
+   * Генерация dev токена для разработки
+   * Создает или находит пользователя с ADMIN ролью
+   */
+  async generateDevToken(telegramId: string): Promise<{ token: string; message: string }> {
+    // Проверяем whitelist
+    const adminWhitelist = process.env.ADMIN_WHITELIST?.split(',').map(Number) || [];
+    const isInWhitelist = adminWhitelist.includes(Number(telegramId));
+
+    // Ищем или создаем пользователя
+    let user = await this.prisma.user.findUnique({
+      where: { telegramId: String(telegramId) },
+    });
+
+    if (!user) {
+      // Создаем нового пользователя с ролью ADMIN (если в whitelist) или USER
+      user = await this.prisma.user.create({
+        data: {
+          telegramId: String(telegramId),
+          firstName: 'Dev',
+          lastName: 'User',
+          username: `dev_${telegramId}`,
+          role: isInWhitelist ? 'ADMIN' : 'ADMIN', // В dev режиме всегда ADMIN
+        },
+      });
+    } else {
+      // Обновляем роль на ADMIN для dev режима
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          role: 'ADMIN',
+        },
+      });
+    }
+
+    // Генерация JWT токена
+    const payload = {
+      sub: user.id,
+      telegramId: user.telegramId.toString(),
+      role: user.role,
+    };
+
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: '30d', // Долгий срок для dev токена
+    });
+
+    return {
+      token: accessToken,
+      message: `Dev token generated for telegramId: ${telegramId}. Role: ${user.role}`,
+    };
+  }
 }
 

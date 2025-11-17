@@ -49,6 +49,8 @@ model Category {
 
   @@index([slug])
   @@index([isActive])
+  @@index([isActive, order])
+  @@index([order])
   @@map("categories")
 }
 
@@ -61,6 +63,7 @@ model Product {
   productType    String   @default("SIMPLE") // SIMPLE, SINGLE_VARIANT, MATRIX, RANGE, CONFIGURABLE
   basePrice      Float?   // Decimal заменен на Float для SQLite
   unit           String   @default("PIECE") // PIECE, SQUARE_METER, TON, SET
+  material       String?  // MARBLE, GRANITE - тип материала (мрамор/гранит)
   isActive       Boolean  @default(true)
   specifications String?  @default("{}") // JSON хранится как String: { "Производитель": "Россия", "Вес (кг)": "25", ... }
   createdAt      DateTime @default(now())
@@ -76,6 +79,11 @@ model Product {
   @@index([categoryId])
   @@index([isActive])
   @@index([productType])
+  @@index([material])
+  @@index([categoryId, isActive])
+  @@index([categoryId, isActive, createdAt])
+  @@index([material, isActive])
+  @@index([isActive, createdAt])
   @@map("products")
 }
 
@@ -132,6 +140,8 @@ model ProductVariant {
 
   @@index([productId])
   @@index([sku])
+  @@index([productId, isActive])
+  @@index([isActive])
   @@map("product_variants")
 }
 
@@ -157,6 +167,7 @@ model Cart {
 
   user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   items CartItem[]
+  abandonedCart AbandonedCart?
 
   @@unique([userId])
   @@index([userId])
@@ -179,6 +190,8 @@ model CartItem {
 
   @@index([cartId])
   @@index([productId])
+  @@index([cartId, productId])
+  @@index([cartId, productId, variantId])
   @@map("cart_items")
 }
 
@@ -206,6 +219,10 @@ model Order {
   @@index([orderNumber])
   @@index([status])
   @@index([paymentStatus])
+  @@index([userId, status])
+  @@index([userId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([createdAt])
   @@map("orders")
 }
 
@@ -226,6 +243,7 @@ model OrderItem {
 
   @@index([orderId])
   @@index([productId])
+  @@index([orderId, productId])
   @@map("order_items")
 }
 
@@ -282,11 +300,23 @@ model AbandonedCart {
   updatedAt   DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
 
   @@unique([cartId])
   @@index([userId])
   @@index([recovered])
   @@index([createdAt])
   @@map("abandoned_carts")
+}
+
+model AbandonedCartSettings {
+  id                    Int      @id @default(autoincrement())
+  autoRemindersEnabled  Boolean  @default(false)
+  reminderIntervalHours Int      @default(24) // Интервал между напоминаниями
+  maxReminders          Int      @default(3)  // Максимальное количество напоминаний
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("abandoned_cart_settings")
 }
 

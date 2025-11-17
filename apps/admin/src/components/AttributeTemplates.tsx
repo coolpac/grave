@@ -206,38 +206,41 @@ export default function AttributeTemplates({ onSelectTemplate, productType }: At
   }
 
   return (
-    <Card className="glass-strong border-blue-500/50 shadow-xl bg-gradient-to-r from-blue-500/20 to-purple-500/20 backdrop-blur-xl">
-      <CardHeader>
-        <CardTitle className="text-white font-bold text-lg flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-blue-300" />
-          Шаблоны атрибутов
-        </CardTitle>
-        <p className="text-sm text-white/90 mt-2 font-medium">
+    <Card className="glass-strong border-blue-500/30 shadow-xl bg-gradient-to-r from-blue-500/10 to-purple-500/10 animate-fade-in">
+      <CardHeader className="pb-4">
+        <div className="flex items-center gap-2">
+          <div className="p-2 rounded-lg bg-blue-500/20 border border-blue-500/30">
+            <Sparkles className="h-5 w-5 text-blue-400" />
+          </div>
+          <CardTitle className="text-white font-semibold text-lg">Шаблоны атрибутов</CardTitle>
+        </div>
+        <p className="text-sm text-white/70 font-medium mt-2 ml-10">
           Выберите готовый шаблон для быстрого создания атрибутов на основе ваших прайс-листов
         </p>
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredTemplates.map((template) => {
+          {filteredTemplates.map((template, index) => {
             const Icon = template.icon;
             return (
               <button
                 key={template.id}
                 onClick={() => onSelectTemplate(template)}
-                className="text-left p-4 rounded-lg border-2 border-white/20 bg-white/15 hover:bg-white/25 hover:border-blue-400/60 transition-all group shadow-lg hover:shadow-xl"
+                className="text-left p-5 rounded-xl border border-white/20 bg-white/10 hover:bg-white/15 hover:border-blue-400/50 transition-all group shadow-lg hover:shadow-xl animate-fade-in"
+                style={{ animationDelay: `${index * 50}ms` }}
               >
                 <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-lg bg-blue-500/30 border-2 border-blue-400/50 group-hover:bg-blue-500/40 transition-colors shadow-md">
+                  <div className="p-3 rounded-lg bg-gradient-to-br from-blue-500/30 to-purple-500/30 border border-blue-400/50 group-hover:from-blue-500/40 group-hover:to-purple-500/40 transition-all shadow-md">
                     <Icon className="h-5 w-5 text-blue-200" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="font-bold text-white mb-1.5 text-sm leading-tight">{template.name}</h4>
-                    <p className="text-xs text-white/85 mb-2.5 font-medium leading-relaxed">{template.description}</p>
+                    <h4 className="font-bold text-white mb-1.5 text-base leading-tight">{template.name}</h4>
+                    <p className="text-xs text-white/80 mb-3 font-medium leading-relaxed">{template.description}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {template.attributes.map((attr) => (
                         <span
                           key={attr.slug}
-                          className="text-xs px-2.5 py-1 rounded-md bg-white/20 text-white font-semibold border border-white/30 shadow-sm"
+                          className="badge-premium bg-blue-500/20 border-blue-500/30 text-blue-300"
                         >
                           {attr.name}
                         </span>
@@ -253,4 +256,3 @@ export default function AttributeTemplates({ onSelectTemplate, productType }: At
     </Card>
   );
 }
-

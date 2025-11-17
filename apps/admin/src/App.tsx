@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Layout from './components/Layout';
+import Login from './pages/Login';
 import AdminHome from './pages/AdminHome';
 import Products from './pages/Products';
 import ProductForm from './pages/ProductForm';
@@ -8,7 +9,14 @@ import Banners from './pages/Banners';
 import Newsletters from './pages/Newsletters';
 import AbandonedCarts from './pages/AbandonedCarts';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+    },
+  },
+});
 
 function App() {
   return (
@@ -19,17 +27,25 @@ function App() {
           v7_relativeSplatPath: true,
         }}
       >
-        <Layout>
-          <Routes>
-            <Route path="/" element={<AdminHome />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/products/new" element={<ProductForm />} />
-            <Route path="/products/:id/edit" element={<ProductForm />} />
-            <Route path="/banners" element={<Banners />} />
-            <Route path="/newsletters" element={<Newsletters />} />
-            <Route path="/abandoned-carts" element={<AbandonedCarts />} />
-          </Routes>
-        </Layout>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/*"
+            element={
+              <Layout>
+                <Routes>
+                  <Route path="/" element={<AdminHome />} />
+                  <Route path="/products" element={<Products />} />
+                  <Route path="/products/new" element={<ProductForm />} />
+                  <Route path="/products/:id/edit" element={<ProductForm />} />
+                  <Route path="/banners" element={<Banners />} />
+                  <Route path="/newsletters" element={<Newsletters />} />
+                  <Route path="/abandoned-carts" element={<AbandonedCarts />} />
+                </Routes>
+              </Layout>
+            }
+          />
+        </Routes>
       </BrowserRouter>
     </QueryClientProvider>
   );

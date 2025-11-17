@@ -1,18 +1,24 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
 import { ProductsModule } from './products/products.module';
 import { CartModule } from './cart/cart.module';
+import { CartAbandonedModule } from './cart/cart-abandoned.module';
 import { OrdersModule } from './orders/orders.module';
 import { AdminModule } from './admin/admin.module';
 import { UploadModule } from './upload/upload.module';
 import { BannersModule } from './banners/banners.module';
 import { NewslettersModule } from './newsletters/newsletters.module';
+import { CacheConfigService } from './config/cache.config';
+import { MetricsModule } from './common/metrics/metrics.module';
+import { MetricsController } from './common/metrics/metrics.controller';
+import { TelegramModule } from './telegram/telegram.module';
 
 @Module({
   imports: [
@@ -20,10 +26,11 @@ import { NewslettersModule } from './newsletters/newsletters.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    CacheModule.register({
+    ScheduleModule.forRoot(),
+    CacheModule.registerAsync({
       isGlobal: true,
-      // Используем in-memory кэш вместо Redis для упрощения (можно вернуть Redis позже)
-      ttl: 300, // 5 minutes default
+      imports: [ConfigModule],
+      useClass: CacheConfigService,
     }),
     ThrottlerModule.forRoot([
       {
@@ -36,12 +43,16 @@ import { NewslettersModule } from './newsletters/newsletters.module';
     CatalogModule,
     ProductsModule,
     CartModule,
+    CartAbandonedModule,
     OrdersModule,
     AdminModule,
     UploadModule,
     BannersModule,
     NewslettersModule,
+    MetricsModule,
+    TelegramModule,
   ],
+  controllers: [MetricsController],
   providers: [
     {
       provide: APP_GUARD,

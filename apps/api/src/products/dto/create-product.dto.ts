@@ -127,6 +127,10 @@ export class CreateProductDto {
   @IsOptional()
   unit?: UnitType
 
+  @IsString()
+  @IsOptional()
+  material?: string // MARBLE, GRANITE
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => CreateProductAttributeDto)

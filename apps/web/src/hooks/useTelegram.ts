@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import WebApp from '@twa-dev/sdk'
+import { safeBackButton, safeMainButton } from '../utils/telegramSafe'
 
 export interface TelegramUser {
   id: number
@@ -190,8 +191,8 @@ export const useTelegram = (): UseTelegramReturn => {
     themeParams,
     user,
     isReady,
-    MainButton: WebApp.MainButton,
-    BackButton: WebApp.BackButton,
+    MainButton: safeMainButton(),
+    BackButton: safeBackButton(),
     sendDataToServer,
     expand,
     close,

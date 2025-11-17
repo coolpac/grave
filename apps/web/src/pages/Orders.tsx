@@ -59,10 +59,16 @@ export default function Orders() {
   const [orders, setOrders] = useState(mockOrders)
 
   useEffect(() => {
-    BackButton.show()
-    BackButton.onClick(() => {
-      navigate(-1)
-    })
+    if (BackButton && typeof BackButton.show === 'function') {
+      try {
+        BackButton.show()
+        BackButton.onClick(() => {
+          navigate(-1)
+        })
+      } catch (error) {
+        console.debug('BackButton not supported:', error)
+      }
+    }
 
     // Загрузка заказов с сервера
     const loadOrders = async () => {
@@ -82,8 +88,14 @@ export default function Orders() {
     loadOrders()
 
     return () => {
-      BackButton.hide()
-      BackButton.offClick(() => {})
+      if (BackButton && typeof BackButton.hide === 'function') {
+        try {
+          BackButton.hide()
+          BackButton.offClick(() => {})
+        } catch (error) {
+          // Игнорируем ошибки при очистке
+        }
+      }
     }
   }, [BackButton, navigate])
 

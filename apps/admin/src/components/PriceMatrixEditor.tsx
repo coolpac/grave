@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Edit2, Save, X } from 'lucide-react';
+import { Edit2, Save, X, Grid } from 'lucide-react';
 import { Button } from '@ui/components/button';
-import { Card, CardContent } from '@ui/components/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@ui/components/card';
 
 interface Attribute {
   name: string;
@@ -80,25 +80,140 @@ export default function PriceMatrixEditor({
   };
 
   return (
-    <Card className="bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-500/30">
-      <CardContent className="p-4">
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold text-white mb-2">Табличный редактор цен</h3>
-          <p className="text-sm text-white/70">
-            Кликните на ячейку для редактирования. Используйте Tab для перехода к следующей ячейке.
-          </p>
+    <Card className="glass-strong border-purple-500/30 shadow-xl bg-gradient-to-r from-purple-500/10 to-blue-500/10 animate-fade-in">
+      <CardHeader className="pb-4">
+        <div className="flex items-center gap-2">
+          <div className="p-2 rounded-lg bg-purple-500/20 border border-purple-500/30">
+            <Grid className="h-5 w-5 text-purple-400" />
+          </div>
+          <CardTitle className="text-white font-semibold text-lg">Табличный редактор цен</CardTitle>
+        </div>
+        <p className="text-sm text-white/70 font-medium mt-2 ml-10">
+          Кликните на ячейку для редактирования. Используйте Tab для перехода к следующей ячейке.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Таблица цен */}
+        <div>
+          <h4 className="text-sm font-semibold text-white/90 mb-3 flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-400"></span>
+            Цены (₽)
+          </h4>
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="inline-block min-w-full">
+              <table className="w-full text-sm border-collapse min-w-[400px]">
+                <thead>
+                  <tr>
+                    <th className="text-left py-3 px-3 text-white/90 font-semibold border-b border-white/20 sticky left-0 bg-gradient-to-r from-purple-500/15 to-blue-500/15 z-10 min-w-[150px] backdrop-blur-sm">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1">
+                        <span>{firstAttr.name}</span>
+                        <span className="text-white/50 text-xs">\</span>
+                        <span>{secondAttr.name}</span>
+                      </div>
+                    </th>
+                    {secondAttrValues.map((val) => (
+                      <th
+                        key={val.value}
+                        className="text-center py-3 px-3 text-white/90 font-semibold border-b border-white/20 min-w-[100px] whitespace-nowrap bg-white/5"
+                      >
+                        <div className="text-sm">{val.displayName}</div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {firstAttrValues.map((firstVal) => (
+                    <tr key={firstVal.value} className="border-b border-white/10 hover:bg-white/5 transition-colors">
+                      <td className="py-3 px-3 text-white/80 font-semibold sticky left-0 bg-gradient-to-r from-purple-500/15 to-blue-500/15 z-10 border-r border-white/10 min-w-[150px] backdrop-blur-sm">
+                        <div className="text-sm whitespace-nowrap">{firstVal.displayName}</div>
+                      </td>
+                      {secondAttrValues.map((secondVal) => {
+                        const variant = getVariant(firstVal.value, secondVal.value);
+                        const variantIndex = variant ? variants.indexOf(variant) : -1;
+                        const isEditing = editingCell?.variantIndex === variantIndex && editingCell?.field === 'price';
+
+                        return (
+                          <td
+                            key={secondVal.value}
+                            className={`py-3 px-3 text-center border-r border-white/5 min-w-[100px] transition-all ${
+                              isEditing 
+                                ? 'bg-blue-500/30 border-blue-400/50' 
+                                : 'hover:bg-white/10 cursor-pointer'
+                            }`}
+                            onClick={() => variant && handleCellClick(variantIndex, 'price', variant.price || 0)}
+                          >
+                            {isEditing ? (
+                              <div className="flex items-center justify-center gap-2">
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  value={editValue}
+                                  onChange={(e) => setEditValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') handleSave();
+                                    if (e.key === 'Escape') handleCancel();
+                                    if (e.key === 'Tab') {
+                                      e.preventDefault();
+                                      handleSave();
+                                    }
+                                  }}
+                                  className="w-24 px-2 py-1.5 text-sm border border-blue-400/50 rounded-lg bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-blue-400/50 font-medium"
+                                  autoFocus
+                                />
+                                <div className="flex gap-1">
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleSave();
+                                    }}
+                                    className="h-6 w-6 p-0 text-green-400 hover:text-green-300 hover:bg-green-500/20"
+                                  >
+                                    <Save className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleCancel();
+                                    }}
+                                    className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/20"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <span className="text-white font-bold text-sm whitespace-nowrap">
+                                {variant ? `${variant.price || 0} ₽` : '-'}
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
-        <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-          <div className="inline-block min-w-full">
-            {/* Таблица цен */}
-            <div className="mb-6">
-              <h4 className="text-sm font-medium text-white/80 mb-2">Цены (₽)</h4>
-              <div className="overflow-x-auto">
+        {/* Таблица остатков (если нужно) */}
+        {onStockChange && (
+          <div>
+            <h4 className="text-sm font-semibold text-white/90 mb-3 flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+              Остатки
+            </h4>
+            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+              <div className="inline-block min-w-full">
                 <table className="w-full text-sm border-collapse min-w-[400px]">
                   <thead>
                     <tr>
-                      <th className="text-left py-2 px-2 sm:px-3 text-white/80 font-medium border-b border-white/10 sticky left-0 bg-gradient-to-r from-purple-500/10 to-blue-500/10 z-10 min-w-[120px] sm:min-w-[150px]">
+                      <th className="text-left py-3 px-3 text-white/90 font-semibold border-b border-white/20 sticky left-0 bg-gradient-to-r from-purple-500/15 to-blue-500/15 z-10 min-w-[150px] backdrop-blur-sm">
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1">
                           <span>{firstAttr.name}</span>
                           <span className="text-white/50 text-xs">\</span>
@@ -108,37 +223,38 @@ export default function PriceMatrixEditor({
                       {secondAttrValues.map((val) => (
                         <th
                           key={val.value}
-                          className="text-center py-2 px-2 sm:px-3 text-white/80 font-medium border-b border-white/10 min-w-[90px] sm:min-w-[100px] whitespace-nowrap"
+                          className="text-center py-3 px-3 text-white/90 font-semibold border-b border-white/20 min-w-[100px] whitespace-nowrap bg-white/5"
                         >
-                          <div className="text-xs sm:text-sm">{val.displayName}</div>
+                          <div className="text-sm">{val.displayName}</div>
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {firstAttrValues.map((firstVal) => (
-                      <tr key={firstVal.value} className="border-b border-white/5">
-                        <td className="py-2 px-2 sm:px-3 text-white/70 font-medium sticky left-0 bg-gradient-to-r from-purple-500/10 to-blue-500/10 z-10 border-r border-white/10 min-w-[120px] sm:min-w-[150px]">
-                          <div className="text-xs sm:text-sm whitespace-nowrap">{firstVal.displayName}</div>
+                      <tr key={firstVal.value} className="border-b border-white/10 hover:bg-white/5 transition-colors">
+                        <td className="py-3 px-3 text-white/80 font-semibold sticky left-0 bg-gradient-to-r from-purple-500/15 to-blue-500/15 z-10 border-r border-white/10 min-w-[150px] backdrop-blur-sm">
+                          <div className="text-sm whitespace-nowrap">{firstVal.displayName}</div>
                         </td>
                         {secondAttrValues.map((secondVal) => {
                           const variant = getVariant(firstVal.value, secondVal.value);
                           const variantIndex = variant ? variants.indexOf(variant) : -1;
-                          const isEditing = editingCell?.variantIndex === variantIndex && editingCell?.field === 'price';
+                          const isEditing = editingCell?.variantIndex === variantIndex && editingCell?.field === 'stock';
 
                           return (
                             <td
                               key={secondVal.value}
-                              className={`py-2 px-1 sm:px-2 sm:px-3 text-center border-r border-white/5 min-w-[90px] sm:min-w-[100px] ${
-                                isEditing ? 'bg-blue-500/20' : 'hover:bg-white/5 cursor-pointer'
+                              className={`py-3 px-3 text-center border-r border-white/5 min-w-[100px] transition-all ${
+                                isEditing 
+                                  ? 'bg-blue-500/30 border-blue-400/50' 
+                                  : 'hover:bg-white/10 cursor-pointer'
                               }`}
-                              onClick={() => variant && handleCellClick(variantIndex, 'price', variant.price || 0)}
+                              onClick={() => variant && handleCellClick(variantIndex, 'stock', variant.stock || 0)}
                             >
                               {isEditing ? (
-                                <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-1 justify-center">
+                                <div className="flex items-center justify-center gap-2">
                                   <input
                                     type="number"
-                                    step="0.01"
                                     value={editValue}
                                     onChange={(e) => setEditValue(e.target.value)}
                                     onKeyDown={(e) => {
@@ -149,7 +265,7 @@ export default function PriceMatrixEditor({
                                         handleSave();
                                       }
                                     }}
-                                    className="w-full sm:w-20 px-2 py-1 text-xs sm:text-sm border border-blue-400/50 rounded bg-white/10 text-white focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                    className="w-24 px-2 py-1.5 text-sm border border-blue-400/50 rounded-lg bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-blue-400/50 font-medium"
                                     autoFocus
                                   />
                                   <div className="flex gap-1">
@@ -160,9 +276,9 @@ export default function PriceMatrixEditor({
                                         e.stopPropagation();
                                         handleSave();
                                       }}
-                                      className="h-5 w-5 sm:h-6 sm:w-6 p-0"
+                                      className="h-6 w-6 p-0 text-green-400 hover:text-green-300 hover:bg-green-500/20"
                                     >
-                                      <Save className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                                      <Save className="h-3 w-3" />
                                     </Button>
                                     <Button
                                       size="sm"
@@ -171,15 +287,15 @@ export default function PriceMatrixEditor({
                                         e.stopPropagation();
                                         handleCancel();
                                       }}
-                                      className="h-5 w-5 sm:h-6 sm:w-6 p-0"
+                                      className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-500/20"
                                     >
-                                      <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                                      <X className="h-3 w-3" />
                                     </Button>
                                   </div>
                                 </div>
                               ) : (
-                                <span className="text-white font-semibold text-xs sm:text-sm whitespace-nowrap">
-                                  {variant ? `${variant.price || 0} ₽` : '-'}
+                                <span className="text-white/80 font-semibold text-sm whitespace-nowrap">
+                                  {variant ? variant.stock || 0 : '-'}
                                 </span>
                               )}
                             </td>
@@ -191,110 +307,9 @@ export default function PriceMatrixEditor({
                 </table>
               </div>
             </div>
-
-            {/* Таблица остатков (если нужно) */}
-            {onStockChange && (
-              <div className="mb-6">
-                <h4 className="text-sm font-medium text-white/80 mb-2">Остатки</h4>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm border-collapse min-w-[400px]">
-                    <thead>
-                      <tr>
-                        <th className="text-left py-2 px-2 sm:px-3 text-white/80 font-medium border-b border-white/10 sticky left-0 bg-gradient-to-r from-purple-500/10 to-blue-500/10 z-10 min-w-[120px] sm:min-w-[150px]">
-                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-1">
-                            <span>{firstAttr.name}</span>
-                            <span className="text-white/50 text-xs">\</span>
-                            <span>{secondAttr.name}</span>
-                          </div>
-                        </th>
-                        {secondAttrValues.map((val) => (
-                          <th
-                            key={val.value}
-                            className="text-center py-2 px-2 sm:px-3 text-white/80 font-medium border-b border-white/10 min-w-[90px] sm:min-w-[100px] whitespace-nowrap"
-                          >
-                            <div className="text-xs sm:text-sm">{val.displayName}</div>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {firstAttrValues.map((firstVal) => (
-                        <tr key={firstVal.value} className="border-b border-white/5">
-                          <td className="py-2 px-2 sm:px-3 text-white/70 font-medium sticky left-0 bg-gradient-to-r from-purple-500/10 to-blue-500/10 z-10 border-r border-white/10 min-w-[120px] sm:min-w-[150px]">
-                            <div className="text-xs sm:text-sm whitespace-nowrap">{firstVal.displayName}</div>
-                          </td>
-                          {secondAttrValues.map((secondVal) => {
-                            const variant = getVariant(firstVal.value, secondVal.value);
-                            const variantIndex = variant ? variants.indexOf(variant) : -1;
-                            const isEditing = editingCell?.variantIndex === variantIndex && editingCell?.field === 'stock';
-
-                            return (
-                              <td
-                                key={secondVal.value}
-                                className={`py-2 px-1 sm:px-2 sm:px-3 text-center border-r border-white/5 min-w-[90px] sm:min-w-[100px] ${
-                                  isEditing ? 'bg-blue-500/20' : 'hover:bg-white/5 cursor-pointer'
-                                }`}
-                                onClick={() => variant && handleCellClick(variantIndex, 'stock', variant.stock || 0)}
-                              >
-                                {isEditing ? (
-                                  <div className="flex flex-col sm:flex-row items-center gap-1 sm:gap-1 justify-center">
-                                    <input
-                                      type="number"
-                                      value={editValue}
-                                      onChange={(e) => setEditValue(e.target.value)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') handleSave();
-                                        if (e.key === 'Escape') handleCancel();
-                                        if (e.key === 'Tab') {
-                                          e.preventDefault();
-                                          handleSave();
-                                        }
-                                      }}
-                                      className="w-full sm:w-20 px-2 py-1 text-xs sm:text-sm border border-blue-400/50 rounded bg-white/10 text-white focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                      autoFocus
-                                    />
-                                    <div className="flex gap-1">
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleSave();
-                                        }}
-                                        className="h-5 w-5 sm:h-6 sm:w-6 p-0"
-                                      >
-                                        <Save className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleCancel();
-                                        }}
-                                        className="h-5 w-5 sm:h-6 sm:w-6 p-0"
-                                      >
-                                        <X className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <span className="text-white/70 text-xs sm:text-sm whitespace-nowrap">{variant ? variant.stock || 0 : '-'}</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
           </div>
-        </div>
+        )}
       </CardContent>
     </Card>
   );
 }
-

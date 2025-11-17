@@ -31,9 +31,10 @@ interface VariantSelectorProps {
     variants: Variant[]
   }
   onAddToCart: (variantId: number, selectedAttributes: Record<string, string>) => void
+  onPriceChange?: (price: number | null) => void
 }
 
-export default function VariantSelector({ product, onAddToCart }: VariantSelectorProps) {
+export default function VariantSelector({ product, onAddToCart, onPriceChange }: VariantSelectorProps) {
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({})
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null)
   const [price, setPrice] = useState<number | null>(null)
@@ -60,16 +61,21 @@ export default function VariantSelector({ product, onAddToCart }: VariantSelecto
       })
       if (variant) {
         setSelectedVariant(variant)
-        setPrice(variant.price)
+        const variantPrice = variant.price || 0
+        setPrice(variantPrice)
+        // Всегда вызываем onPriceChange с актуальной ценой
+        onPriceChange?.(variantPrice)
       } else {
         setSelectedVariant(null)
         setPrice(null)
+        onPriceChange?.(null)
       }
     } else {
       setSelectedVariant(null)
       setPrice(null)
+      onPriceChange?.(null)
     }
-  }, [selectedAttributes, product.variants, product.attributes.length])
+  }, [selectedAttributes, product.variants, product.attributes.length, onPriceChange])
 
   const handleAttributeSelect = (attrSlug: string, value: string) => {
     setSelectedAttributes((prev) => ({

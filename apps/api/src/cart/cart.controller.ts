@@ -11,6 +11,7 @@ import {
 import { CartService } from './cart.service';
 import { AddToCartDto } from './dto/add-to-cart.dto';
 import { UpdateCartItemDto } from './dto/update-cart-item.dto';
+import { RemoveFromCartDto } from './dto/remove-from-cart.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
@@ -36,6 +37,11 @@ export class CartController {
     @Body() updateDto: UpdateCartItemDto,
   ) {
     return this.cartService.updateCartItem(user.id, +id, updateDto);
+  }
+
+  @Post('remove')
+  removeFromCartByProduct(@CurrentUser() user: any, @Body() removeDto: RemoveFromCartDto) {
+    return this.cartService.removeFromCartByProduct(user.id, removeDto);
   }
 
   @Delete('items/:id')
