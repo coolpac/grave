@@ -1,4 +1,4 @@
-import { useContext, useMemo, useRef, useEffect, createElement } from 'react'
+import { useContext, useMemo, useRef, createElement } from 'react'
 import type { Context } from 'react'
 
 /**

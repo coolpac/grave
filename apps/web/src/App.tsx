@@ -18,28 +18,6 @@ const Checkout = lazy(() => import('./pages/Checkout'))
 const OrderSuccess = lazy(() => import('./pages/OrderSuccess'))
 const Orders = lazy(() => import('./pages/Orders'))
 
-// Prefetch pages on hover (for better UX)
-const prefetchPage = (importFn: () => Promise<any>) => {
-  // Use requestIdleCallback if available, otherwise setTimeout
-  if ('requestIdleCallback' in window) {
-    requestIdleCallback(() => importFn(), { timeout: 2000 })
-  } else {
-    setTimeout(() => importFn(), 100)
-  }
-}
-
-// Prefetch component wrapper
-const PrefetchLink = ({ children, prefetch }: { children: React.ReactNode; prefetch: () => void }) => {
-  return (
-    <div
-      onMouseEnter={prefetch}
-      onTouchStart={prefetch}
-    >
-      {children}
-    </div>
-  )
-}
-
 // Page loading fallback component
 const PageLoadingFallback = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -49,8 +27,6 @@ const PageLoadingFallback = () => (
     </div>
   </div>
 )
-
-const queryClient = new QueryClient()
 
 function AppContent() {
   const [isLoading, setIsLoading] = useState(true)

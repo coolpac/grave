@@ -16,7 +16,7 @@ import axios from 'axios'
 import ProductVariantSelector from '../components/product/ProductVariantSelector'
 import { PLACEHOLDER_IMAGE } from '../utils/constants'
 import { useReducedMotion } from '../hooks/useReducedMotion'
-import { getTransition } from '../utils/animation-variants'
+import { getTransition, getAnimationVariants } from '../utils/animation-variants'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
@@ -202,6 +202,7 @@ export default function Product() {
   const { BackButton, MainButton } = useTelegram()
   const { addToCart, updateQuantity, items: cartItems } = useCart()
   const analytics = useTelegramAnalytics()
+  const { shouldReduceMotion } = useReducedMotion()
   const [showGallery, setShowGallery] = useState(false)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [selectedVariant, setSelectedVariant] = useState<number | null>(null)
@@ -232,6 +233,31 @@ export default function Product() {
 
   // Используем данные из API или fallback на моковые данные
   const product = productData || (slug ? getMockProduct(slug) : null)
+
+  // Мемоизированное вычисление текущей цены (должно быть определено до использования)
+  const currentPrice = useMemo(() => {
+    if (!product) return 0
+    
+    // Если есть выбранная цена из селектора вариантов, используем её
+    if (selectedPrice !== null) return selectedPrice
+    
+    // Если есть выбранный вариант, используем его цену
+    if (selectedVariant && product.variants) {
+      const variant = product.variants.find((v: any) => v.id === selectedVariant)
+      if (variant) return variant.price
+    }
+    
+    // Если есть варианты, берем минимальную цену
+    if (product.variants && product.variants.length > 0) {
+      const activeVariants = product.variants.filter((v: any) => v.isActive !== false)
+      if (activeVariants.length > 0) {
+        return Math.min(...activeVariants.map((v: any) => v.price))
+      }
+    }
+    
+    // Используем базовую цену или цену из продукта
+    return product.basePrice || product.price || 0
+  }, [product, selectedPrice, selectedVariant])
 
   // Вычисляем количество товара в корзине из хука useCart
   const cartQuantity = useMemo(() => {
@@ -304,31 +330,6 @@ export default function Product() {
       }
     }
   }, [BackButton, MainButton, navigate])
-
-  // Мемоизированное вычисление текущей цены (должно быть определено до использования)
-  const currentPrice = useMemo(() => {
-    if (!product) return 0
-    
-    // Если есть выбранная цена из селектора вариантов, используем её
-    if (selectedPrice !== null) return selectedPrice
-    
-    // Если есть выбранный вариант, используем его цену
-    if (selectedVariant && product.variants) {
-      const variant = product.variants.find((v: any) => v.id === selectedVariant)
-      if (variant) return variant.price
-    }
-    
-    // Если есть варианты, берем минимальную цену
-    if (product.variants && product.variants.length > 0) {
-      const activeVariants = product.variants.filter((v: any) => v.isActive !== false)
-      if (activeVariants.length > 0) {
-        return Math.min(...activeVariants.map((v: any) => v.price))
-      }
-    }
-    
-    // Используем базовую цену или цену из продукта
-    return product.basePrice || product.price || 0
-  }, [product, selectedPrice, selectedVariant])
 
   // Оптимизированный обработчик добавления в корзину с useCallback
   const handleAddToCart = useCallback(() => {
