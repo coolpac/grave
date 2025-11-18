@@ -155,7 +155,7 @@ export default function AbandonedCarts() {
                             reminderIntervalHours: parseInt(e.target.value) || 24,
                           });
                         }}
-                        className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 [color-scheme:dark]"
                       />
                     </div>
                     <div>
@@ -172,7 +172,7 @@ export default function AbandonedCarts() {
                             maxReminders: parseInt(e.target.value) || 3,
                           });
                         }}
-                        className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="w-full px-4 py-2 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-purple-500 [color-scheme:dark]"
                       />
                     </div>
                     <div className="text-sm text-white/60">

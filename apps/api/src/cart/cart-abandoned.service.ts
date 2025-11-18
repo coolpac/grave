@@ -79,6 +79,10 @@ export class CartAbandonedService {
         }, 0);
 
         // Создаем или обновляем брошенную корзину
+        const existing = await this.prisma.abandonedCart.findUnique({
+          where: { cartId: cart.id },
+        });
+
         await this.prisma.abandonedCart.upsert({
           where: { cartId: cart.id },
           create: {
@@ -95,6 +99,11 @@ export class CartAbandonedService {
             recoveredAt: null,
           },
         });
+
+        // Record abandonment metric only for new abandonments
+        if (!existing) {
+          this.businessMetrics.recordCartAbandonment('timeout');
+        }
 
         createdCount++;
       }

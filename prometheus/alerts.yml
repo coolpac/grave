@@ -1,0 +1,111 @@
+# Prometheus Alert Rules
+# 
+# Define alerting rules for monitoring
+
+groups:
+  - name: ritual_api_alerts
+    interval: 30s
+    rules:
+      # High Error Rate Alert
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status_code=~"5.."}[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} req/s for route {{ $labels.route }}"
+
+      # High Latency Alert
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "High latency detected"
+          description: "P95 latency is {{ $value }}s for route {{ $labels.route }}"
+
+      # Database Slow Queries Alert
+      - alert: DatabaseSlowQueries
+        expr: histogram_quantile(0.95, rate(db_query_duration_seconds_bucket[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "Slow database queries"
+          description: "P95 query duration is {{ $value }}s for {{ $labels.table }}"
+
+      # Database Error Rate Alert
+      - alert: DatabaseErrorRate
+        expr: rate(db_queries_total{status="error"}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "High database error rate"
+          description: "Database error rate is {{ $value }} errors/s"
+
+      # Low Cache Hit Ratio Alert
+      - alert: LowCacheHitRatio
+        expr: |
+          (
+            rate(cache_hits_total[5m]) /
+            (rate(cache_hits_total[5m]) + rate(cache_misses_total[5m]))
+          ) < 0.5
+        for: 10m
+        labels:
+          severity: warning
+          service: cache
+        annotations:
+          summary: "Low cache hit ratio"
+          description: "Cache hit ratio is {{ $value | humanizePercentage }}"
+
+      # High Memory Usage Alert
+      - alert: HighMemoryUsage
+        expr: (nodejs_heap_size_used_bytes / nodejs_heap_size_total_bytes) > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanizePercentage }}"
+
+      # High Event Loop Lag Alert
+      - alert: HighEventLoopLag
+        expr: rate(nodejs_eventloop_lag_seconds[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          service: api
+        annotations:
+          summary: "High event loop lag"
+          description: "Event loop lag is {{ $value }}s"
+
+      # No Metrics Received Alert
+      - alert: NoMetricsReceived
+        expr: up{job="ritual-api"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          service: api
+        annotations:
+          summary: "No metrics received from API"
+          description: "Prometheus has not received metrics from API for 5 minutes"
+
+      # High Order Creation Rate Alert (optional - for monitoring business)
+      - alert: HighOrderCreationRate
+        expr: rate(orders_created_total[5m]) > 10
+        for: 1m
+        labels:
+          severity: info
+          service: business
+        annotations:
+          summary: "High order creation rate"
+          description: "Order creation rate is {{ $value }} orders/s"
+

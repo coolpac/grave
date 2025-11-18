@@ -49,7 +49,10 @@ export default function ProductVariantSelector({ product, onAddToCart, onPriceCh
   const simplePrice = product.basePrice || product.price || 0
   useEffect(() => {
     if (isSimple && onPriceChange) {
-      onPriceChange(simplePrice)
+      // Откладываем onPriceChange, чтобы избежать обновления состояния во время рендера
+      setTimeout(() => {
+        onPriceChange(simplePrice)
+      }, 0)
     }
   }, [isSimple, simplePrice, onPriceChange])
 
@@ -118,7 +121,10 @@ export default function ProductVariantSelector({ product, onAddToCart, onPriceCh
   const defaultPrice = product.basePrice || product.price || 0
   useEffect(() => {
     if (onPriceChange) {
-      onPriceChange(defaultPrice)
+      // Откладываем onPriceChange, чтобы избежать обновления состояния во время рендера
+      setTimeout(() => {
+        onPriceChange(defaultPrice)
+      }, 0)
     }
   }, [defaultPrice, onPriceChange])
   

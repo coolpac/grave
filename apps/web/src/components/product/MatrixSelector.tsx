@@ -65,7 +65,10 @@ export default function MatrixSelector({ product, onAddToCart, onPriceChange }: 
         // Если вариант найден локально, используем его цену
         setPrice(localVariant.price)
         setSelectedVariant(localVariant)
-        onPriceChange?.(localVariant.price)
+        // Откладываем onPriceChange, чтобы избежать обновления состояния во время рендера
+        setTimeout(() => {
+          onPriceChange?.(localVariant.price)
+        }, 0)
         setIsCalculating(false)
         return
       }
@@ -85,7 +88,10 @@ export default function MatrixSelector({ product, onAddToCart, onPriceChange }: 
         .then((response) => {
           const calculatedPrice = response.data.price
           setPrice(calculatedPrice)
-          onPriceChange?.(calculatedPrice)
+          // Откладываем onPriceChange, чтобы избежать обновления состояния во время рендера
+          setTimeout(() => {
+            onPriceChange?.(calculatedPrice)
+          }, 0)
           if (response.data.variant) {
             const variant = product.variants.find((v) => v.id === response.data.variant.id)
             setSelectedVariant(variant || null)
@@ -98,7 +104,9 @@ export default function MatrixSelector({ product, onAddToCart, onPriceChange }: 
           }
           setPrice(null)
           setSelectedVariant(null)
-          onPriceChange?.(null)
+          setTimeout(() => {
+            onPriceChange?.(null)
+          }, 0)
         })
         .finally(() => {
           setIsCalculating(false)
@@ -106,7 +114,10 @@ export default function MatrixSelector({ product, onAddToCart, onPriceChange }: 
     } else {
       setPrice(null)
       setSelectedVariant(null)
-      onPriceChange?.(null)
+      // Откладываем onPriceChange, чтобы избежать обновления состояния во время рендера
+      setTimeout(() => {
+        onPriceChange?.(null)
+      }, 0)
       setIsCalculating(false)
     }
   }, [selectedAttributes, product.slug, product.variants, product.attributes, onPriceChange])

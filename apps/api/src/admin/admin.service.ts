@@ -1,4 +1,5 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, LoggerService, Inject } from '@nestjs/common';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { PrismaService } from '../prisma/prisma.service';
 import { DashboardAnalyticsDto, PeriodType } from './dto/dashboard-analytics.dto';
 
@@ -24,6 +25,8 @@ const PaymentStatus = {
 export class AdminService {
   constructor(
     private prisma: PrismaService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER)
+    private readonly logger: LoggerService,
   ) {}
 
   async getMetrics() {
@@ -449,7 +452,13 @@ export class AdminService {
         });
       } catch (error) {
         // Логируем ошибку, но не блокируем обновление счетчика
-        console.error('Failed to send abandoned cart reminder via Python bot:', error);
+        this.logger.error({
+          message: 'Failed to send abandoned cart reminder via Python bot',
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          cartId: abandonedCart.id,
+          userId: abandonedCart.userId,
+        });
       }
     }
 

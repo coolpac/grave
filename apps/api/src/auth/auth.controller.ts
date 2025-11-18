@@ -1,9 +1,11 @@
 import { Controller, Post, Body, HttpCode, HttpStatus, Get, Query } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { ValidateInitDataDto } from './dto/validate-init-data.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 
 @Controller('auth')
+@Throttle({ default: { limit: 5, ttl: 60000 } }) // 5 requests per minute for all auth endpoints
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 

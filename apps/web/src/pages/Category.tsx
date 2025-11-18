@@ -3,10 +3,12 @@ import { useInfiniteQuery } from '@tanstack/react-query'
 import { Skeleton } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
 import { useCart } from '../hooks/useCart'
+import { useDebounce } from '../hooks/useDebounce'
 import { Search, ShoppingCart, Package } from 'lucide-react'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import ProductCard from '../components/ProductCard'
 import FlyingElement from '../components/FlyingElement'
+import toast from 'react-hot-toast'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
@@ -92,7 +94,7 @@ const fetchProducts = async ({ pageParam = 1, categorySlug }: any) => {
       // Получаем изображение
       const image = product.media && product.media.length > 0 
         ? product.media[0].url 
-        : 'https://images.unsplash.com/photo-1606216794074-735e91aa2c92?w=800&h=800&fit=crop&q=80'
+        : '/placeholder-image.svg'
 
       return {
         id: product.id,
@@ -132,6 +134,9 @@ export default function Category() {
   const [flyingTrigger, setFlyingTrigger] = useState(false)
   const [flyingPosition, setFlyingPosition] = useState({ from: { x: 0, y: 0 }, to: { x: 0, y: 0 } })
 
+  // Debounce поискового запроса для оптимизации производительности
+  const debouncedSearchQuery = useDebounce(searchQuery, 300)
+
   const {
     data,
     fetchNextPage,
@@ -140,7 +145,7 @@ export default function Category() {
     isLoading,
     isError,
   } = useInfiniteQuery({
-    queryKey: ['products', slug, searchQuery],
+    queryKey: ['products', slug, debouncedSearchQuery], // Используем debounced значение
     queryFn: ({ pageParam }) => fetchProducts({ pageParam, categorySlug: slug, filters: {}, sort: 'newest' }),
     getNextPageParam: (lastPage) => lastPage.nextPage,
     initialPageParam: 1,
@@ -195,7 +200,8 @@ export default function Category() {
     }
   }, [BackButton])
 
-  const handleAddToCart = (product: any, position: { x: number; y: number }) => {
+  // Оптимизированный обработчик добавления в корзину с useCallback
+  const handleAddToCart = useCallback((product: any, position: { x: number; y: number }) => {
     // Анимация летит к нижней кнопке корзины
     const cartButton = document.querySelector('a[href="/cart"]')
     if (cartButton) {
@@ -219,14 +225,21 @@ export default function Category() {
         productPrice: product.price,
         imageUrl: product.image || product.images?.[0],
       })
+      // Уведомление показывается в хуке useCart, не нужно дублировать здесь
     }
-  }
+  }, [addToCart])
 
-  const categoryName = slug
-    ? slug.charAt(0).toUpperCase() + slug.slice(1)
-    : 'Категория'
+  // Мемоизированное вычисление названия категории
+  const categoryName = useMemo(() => {
+    return slug
+      ? slug.charAt(0).toUpperCase() + slug.slice(1)
+      : 'Категория'
+  }, [slug])
 
-  const products = data?.pages.flatMap((page) => page.products) || []
+  // Мемоизированное вычисление списка товаров
+  const products = useMemo(() => {
+    return data?.pages.flatMap((page) => page.products) || []
+  }, [data])
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pb-24">

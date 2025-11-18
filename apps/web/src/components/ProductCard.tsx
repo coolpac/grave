@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { ShoppingCart } from 'lucide-react'
 import { useRef } from 'react'
+import { PLACEHOLDER_IMAGE } from '../utils/constants'
 
 interface ProductCardProps {
   product: {
@@ -36,7 +37,7 @@ export default function ProductCard({ product, index = 0, onAddToCart }: Product
     }
   }
 
-  const imageUrl = product.images?.[0] || product.image
+  const imageUrl = product.images?.[0] || product.image || PLACEHOLDER_IMAGE
 
   return (
     <div 
@@ -48,23 +49,17 @@ export default function ProductCard({ product, index = 0, onAddToCart }: Product
     >
       <Link to={`/p/${product.slug}`} className="block">
         <div className="relative aspect-square bg-gray-100 overflow-hidden">
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt={product.name}
-              className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-              loading="lazy"
-              onError={(e) => {
-                // Fallback на placeholder при ошибке загрузки
-                const target = e.target as HTMLImageElement
-                target.src = `https://via.placeholder.com/400/cccccc/666666?text=${encodeURIComponent(product.name)}`
-              }}
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-4xl bg-gray-100">
-              📦
-            </div>
-          )}
+          <img
+            src={imageUrl}
+            alt={product.name}
+            className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
+            loading="lazy"
+            onError={(e) => {
+              // Fallback на placeholder при ошибке загрузки
+              const target = e.target as HTMLImageElement
+              target.src = PLACEHOLDER_IMAGE
+            }}
+          />
             {/* Add to Cart Button - темный гранитный стиль с мраморной текстурой */}
             <button
               ref={buttonRef}

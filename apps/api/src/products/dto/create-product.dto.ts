@@ -96,6 +96,10 @@ export class CreateProductVariantDto {
 
   @IsOptional()
   metadata?: any
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean
 }
 
 export class CreateProductDto {
@@ -145,5 +149,9 @@ export class CreateProductDto {
 
   @IsOptional()
   specifications?: Record<string, string> // { "Производитель": "Россия", "Вес (кг)": "25", ... }
+
+  @IsBoolean()
+  @IsOptional()
+  isActive?: boolean
 }
 

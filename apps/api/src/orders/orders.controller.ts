@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderStatusDto, OrderStatus } from './dto/update-order-status.dto';
@@ -16,6 +17,7 @@ import { AdminGuard } from '../auth/guards/admin.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('orders')
+@Throttle({ default: { limit: 10, ttl: 60000 } }) // 10 requests per minute for orders endpoints
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
 

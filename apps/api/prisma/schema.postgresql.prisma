@@ -1,0 +1,368 @@
+// PostgreSQL версия схемы для продакшена
+// Используйте этот файл для production окружения
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums для PostgreSQL
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum ProductType {
+  SIMPLE
+  SINGLE_VARIANT
+  MATRIX
+  RANGE
+  CONFIGURABLE
+}
+
+enum UnitType {
+  PIECE
+  SQUARE_METER
+  TON
+  SET
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  telegramId   BigInt   @unique
+  firstName    String
+  lastName     String?
+  username     String?
+  languageCode String?
+  isPremium    Boolean  @default(false)
+  photoUrl     String?
+  role         UserRole @default(USER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  carts          Cart[]
+  orders         Order[]
+  abandonedCarts AbandonedCart[]
+
+  @@index([telegramId])
+  @@map("users")
+}
+
+model Category {
+  id          Int      @id @default(autoincrement())
+  slug        String   @unique
+  name        String
+  description String?
+  image       String?
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@index([isActive, order])
+  @@index([order])
+  @@map("categories")
+}
+
+model Product {
+  id             Int         @id @default(autoincrement())
+  slug           String      @unique
+  name           String
+  description    String?     @db.Text
+  categoryId     Int
+  productType    ProductType @default(SIMPLE)
+  basePrice      Decimal?    @db.Decimal(10, 2)
+  unit           UnitType    @default(PIECE)
+  material       String?     // MARBLE, GRANITE - тип материала
+  isActive       Boolean     @default(true)
+  specifications Json?       @default("{}")
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  category   Category           @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  attributes ProductAttribute[]
+  variants   ProductVariant[]
+  media      ProductMedia[]
+  cartItems  CartItem[]
+
+  @@index([slug])
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([productType])
+  @@index([material])
+  @@index([categoryId, isActive])
+  @@index([categoryId, isActive, createdAt])
+  @@index([material, isActive])
+  @@index([isActive, createdAt])
+  @@map("products")
+}
+
+model ProductAttribute {
+  id         Int     @id @default(autoincrement())
+  productId  Int
+  name       String
+  slug       String
+  type       String  @default("select")
+  order      Int     @default(0)
+  isRequired Boolean @default(true)
+  unit       String?
+
+  product Product                 @relation(fields: [productId], references: [id], onDelete: Cascade)
+  values  ProductAttributeValue[]
+
+  @@index([productId])
+  @@map("product_attributes")
+}
+
+model ProductAttributeValue {
+  id          Int     @id @default(autoincrement())
+  attributeId Int
+  value       String
+  displayName String
+  order       Int     @default(0)
+  metadata    Json?
+
+  attribute ProductAttribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+
+  @@index([attributeId])
+  @@map("product_attribute_values")
+}
+
+model ProductVariant {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  name      String?
+  sku       String?  @unique
+  price     Decimal  @db.Decimal(10, 2)
+  stock     Int      @default(0)
+  weight    Decimal? @db.Decimal(10, 2)
+  unit      UnitType @default(PIECE)
+  isActive  Boolean  @default(true)
+  metadata  Json?
+  attributes Json    @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  cartItems  CartItem[]
+  orderItems OrderItem[]
+
+  @@index([productId])
+  @@index([sku])
+  @@index([productId, isActive])
+  @@index([isActive])
+  @@index([productId, isActive, price]) // For product variant queries with price filtering
+  @@index([stock]) // For low stock alerts (WHERE stock < threshold)
+  @@map("product_variants")
+}
+
+model ProductMedia {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  url       String
+  type      String   @default("image")
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_media")
+}
+
+model Cart {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+  abandonedCart AbandonedCart?
+
+  @@unique([userId])
+  @@index([userId])
+  @@index([updatedAt]) // For abandoned cart detection: WHERE updatedAt < ...
+  @@map("carts")
+}
+
+model CartItem {
+  id                 Int      @id @default(autoincrement())
+  cartId             Int
+  productId          Int
+  variantId          Int?
+  quantity           Int      @default(1)
+  selectedAttributes Json?    @default("{}")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  cart    Cart            @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([cartId])
+  @@index([productId])
+  @@index([cartId, productId])
+  @@index([cartId, productId, variantId])
+  @@map("cart_items")
+}
+
+model Order {
+  id              Int           @id @default(autoincrement())
+  userId          Int
+  orderNumber     String        @unique
+  status          OrderStatus   @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING)
+  total           Decimal       @db.Decimal(10, 2)
+  customerName    String
+  customerPhone   String
+  customerEmail   String?
+  customerAddress String
+  comment         String?
+  paymentId       String?
+  paymentData     Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  user  User        @relation(fields: [userId], references: [id])
+  items OrderItem[]
+
+  @@index([userId])
+  @@index([orderNumber])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([userId, status])
+  @@index([userId, status, createdAt])
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@index([status, paymentStatus]) // For filtering by both statuses
+  @@index([paymentStatus, createdAt]) // For payment status queries with date range
+  @@index([userId, createdAt]) // For user's orders sorted by date
+  @@map("orders")
+}
+
+model OrderItem {
+  id                 Int      @id @default(autoincrement())
+  orderId            Int
+  productId          Int
+  variantId          Int?
+  productName        String
+  variantName        String?
+  price              Decimal  @db.Decimal(10, 2)
+  quantity           Int
+  selectedAttributes Json?    @default("{}")
+  createdAt          DateTime @default(now())
+
+  order   Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([orderId, productId])
+  @@map("order_items")
+}
+
+model Banner {
+  id          Int       @id @default(autoincrement())
+  title       String
+  description String?
+  imageUrl    String
+  linkUrl     String?
+  position    String    @default("home")
+  order       Int       @default(0)
+  isActive    Boolean   @default(true)
+  startDate   DateTime?
+  endDate     DateTime?
+  clickCount  Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isActive])
+  @@index([position])
+  @@index([isActive, position, order])
+  @@map("banners")
+}
+
+model Newsletter {
+  id             Int       @id @default(autoincrement())
+  subject        String
+  content        String    @db.Text
+  htmlContent    String?   @db.Text
+  status         String    @default("draft")
+  scheduledAt    DateTime?
+  sentAt         DateTime?
+  recipientCount Int       @default(0)
+  openedCount    Int       @default(0)
+  clickedCount   Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([status])
+  @@index([scheduledAt])
+  @@index([status, scheduledAt])
+  @@map("newsletters")
+}
+
+model AbandonedCart {
+  id            Int       @id @default(autoincrement())
+  userId        Int
+  cartId        Int
+  itemsCount    Int
+  totalAmount   Decimal   @db.Decimal(10, 2)
+  reminderSent  Int       @default(0)
+  lastReminderAt DateTime?
+  recovered     Boolean   @default(false)
+  recoveredAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cart Cart @relation(fields: [cartId], references: [id], onDelete: Cascade)
+
+  @@unique([cartId])
+  @@index([userId])
+  @@index([recovered])
+  @@index([createdAt])
+  @@index([userId, recovered])
+  @@index([recovered, createdAt]) // For cron job queries: WHERE recovered = false AND createdAt < ...
+  @@index([userId, recovered, createdAt]) // Composite for user's abandoned carts
+  @@map("abandoned_carts")
+}
+
+model AbandonedCartSettings {
+  id                   Int      @id @default(autoincrement())
+  autoRemindersEnabled Boolean  @default(false)
+  reminderIntervalHours Int     @default(24)
+  maxReminders         Int      @default(3)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  @@map("abandoned_cart_settings")
+}
+

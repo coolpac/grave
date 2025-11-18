@@ -1,16 +1,20 @@
-import { Controller, Get } from '@nestjs/common';
-import { MetricsService } from './metrics.service';
+import { Controller, Get, Header } from '@nestjs/common';
+import { PrometheusService } from './prometheus.service';
 
+/**
+ * Metrics Controller
+ * 
+ * Exposes Prometheus metrics endpoint
+ * GET /metrics - Returns metrics in Prometheus format
+ */
 @Controller('metrics')
 export class MetricsController {
-  constructor(private readonly metricsService: MetricsService) {}
+  constructor(private readonly prometheus: PrometheusService) {}
 
   @Get()
-  getMetrics() {
-    return {
-      metrics: this.metricsService.getMetrics(),
-      timestamp: new Date().toISOString(),
-    };
+  @Header('Content-Type', 'text/plain; version=0.0.4')
+  async getMetrics(): Promise<string> {
+    return this.prometheus.getMetrics();
   }
 }
 

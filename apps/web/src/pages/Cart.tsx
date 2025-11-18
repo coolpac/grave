@@ -3,8 +3,9 @@ import { StoneCard } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
 import { useCart } from '../hooks/useCart'
 import { ArrowLeft, Trash2, Plus, Minus, ShoppingCart, Loader2, WifiOff } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import toast from 'react-hot-toast'
 
 export default function Cart() {
   const navigate = useNavigate()
@@ -19,6 +20,71 @@ export default function Cart() {
     updateQuantity,
     removeItem,
   } = useCart()
+
+  // Оптимизированный обработчик удаления с подтверждением
+  const handleRemoveItem = useCallback((itemId: number, productName: string) => {
+    // Показываем подтверждение удаления
+    const confirmed = window.confirm(`Удалить "${productName}" из корзины?`)
+    if (confirmed) {
+      removeItem(itemId)
+      // Откладываем toast, чтобы избежать обновления состояния во время рендера
+      setTimeout(() => {
+        toast.success('Товар удален из корзины', {
+          icon: '🗑️',
+        })
+      }, 0)
+    }
+  }, [removeItem])
+
+  // Оптимизированный обработчик изменения количества
+  const handleUpdateQuantity = useCallback((itemId: number, delta: number) => {
+    updateQuantity(itemId, delta)
+    if (delta > 0) {
+      // Откладываем toast, чтобы избежать обновления состояния во время рендера
+      setTimeout(() => {
+        toast.success('Количество увеличено', {
+          icon: '➕',
+          duration: 2000,
+        })
+      }, 0)
+    }
+  }, [updateQuantity])
+
+  // Мемоизированная фильтрация валидных товаров
+  const validItems = useMemo(() => {
+    // Логируем для отладки
+    console.log('Cart items:', items)
+    console.log('Items count:', items.length)
+    
+    const filtered = items.filter((item) => {
+      // Проверяем наличие продукта
+      if (!item.product) {
+        console.warn('Cart item without product:', item)
+        return false
+      }
+      
+      // Определяем цену: сначала вариант, потом базовая цена продукта
+      const price = item.variant?.price ?? item.product?.basePrice ?? 0
+      
+      // Логируем элементы с нулевой ценой для отладки
+      if (price === 0 || isNaN(price)) {
+        console.warn('Cart item with invalid price:', {
+          itemId: item.id,
+          productName: item.product?.name,
+          variantPrice: item.variant?.price,
+          basePrice: item.product?.basePrice,
+          calculatedPrice: price,
+        })
+      }
+      
+      // Более мягкая проверка: разрешаем товары даже с нулевой ценой (может быть бесплатный товар)
+      // Но проверяем, что цена не NaN
+      return !isNaN(price) && price >= 0
+    })
+    
+    console.log('Valid items count:', filtered.length)
+    return filtered
+  }, [items])
 
   useEffect(() => {
     // Проверяем поддержку BackButton перед использованием
@@ -78,7 +144,8 @@ export default function Cart() {
   // Показываем индикатор офлайн режима
   const isUpdating = false // Теперь управляется через React Query
 
-  if (items.length === 0) {
+  // Используем items.length вместо validItems.length, чтобы показывать товары даже с проблемами цены
+  if (!isLoading && items.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
         <div className="px-4 pt-4 pb-2">
@@ -129,31 +196,24 @@ export default function Cart() {
             </div>
           </motion.div>
           <h2 className="text-2xl font-inscription text-gray-900 mb-2">Корзина пуста</h2>
-          <p className="text-base font-body text-gray-600 mb-8">
+          <p className="text-base font-body text-gray-600 mb-24">
             Добавьте товары из каталога
           </p>
-          <motion.button
-            onClick={() => navigate('/')}
-            className="px-6 py-3 rounded-lg font-body font-semibold transition-all duration-200"
-            whileHover={{ scale: 1.05, y: -2 }}
-            whileTap={{ scale: 0.95 }}
-            style={{
-              background: 'linear-gradient(135deg, hsl(220 15% 18%) 0%, hsl(220 15% 16%) 25%, hsl(220 15% 14%) 50%, hsl(220 15% 16%) 75%, hsl(220 15% 18%) 100%)',
-              boxShadow: `
-                inset 0 3px 6px rgba(255, 255, 255, 0.1),
-                inset 0 -3px 6px rgba(0, 0, 0, 0.5),
-                inset 3px 0 3px rgba(255, 255, 255, 0.08),
-                inset -3px 0 3px rgba(0, 0, 0, 0.4),
-                0 4px 12px rgba(0, 0, 0, 0.4),
-                0 8px 24px rgba(0, 0, 0, 0.3)
-              `,
-              border: '2px solid rgba(139, 107, 63, 0.3)',
-              color: '#E5E7EB',
-            }}
-          >
-            Перейти в каталог
-          </motion.button>
         </motion.div>
+        
+        {/* Sticky Catalog Button */}
+        <div className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-b from-gray-100/50 via-gray-50 to-white border-t border-gray-200/50 safe-area-bottom">
+          <div className="px-4 py-3">
+            <motion.button
+              onClick={() => navigate('/')}
+              className="granite-button w-full block text-center font-medium py-3 px-4 rounded-lg"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              Перейти в каталог
+            </motion.button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -210,17 +270,10 @@ export default function Cart() {
       {/* Cart Items */}
       <div className="px-4 space-y-4 pb-32">
         <AnimatePresence mode="popLayout">
-          {items
-            .filter((item) => {
-              // Фильтруем элементы без product или с невалидной ценой
-              if (!item.product) return false
-              const price = item.variant?.price ?? item.product?.basePrice ?? 0
-              return price > 0 && !isNaN(price)
-            })
-            .map((item, index) => {
+          {items.map((item, index) => {
             // Правильно определяем цену: сначала вариант, потом базовая цена продукта
             const price = item.variant?.price ?? item.product?.basePrice ?? 0
-            const imageUrl = item.product?.media?.[0]?.url || '/placeholder-image.jpg'
+            const imageUrl = item.product?.media?.[0]?.url || '/placeholder-image.svg'
             
             return (
               <motion.div
@@ -249,7 +302,7 @@ export default function Cart() {
                           border: '1px solid rgba(139, 107, 63, 0.3)',
                         }}
                       >
-                        {imageUrl && imageUrl !== '/placeholder-image.jpg' ? (
+                        {imageUrl && imageUrl !== '/placeholder-image.svg' ? (
                           <img 
                             src={imageUrl} 
                             alt={item.product.name}
@@ -289,9 +342,9 @@ export default function Cart() {
                           <button
                             onClick={() => {
                               if (item.quantity > 1) {
-                                updateQuantity(item.id, -1)
+                                handleUpdateQuantity(item.id, -1)
                               } else {
-                                removeItem(item.id)
+                                handleRemoveItem(item.id, item.product.name)
                               }
                             }}
                             disabled={(item.quantity <= 1 || isLoading)}
@@ -312,7 +365,7 @@ export default function Cart() {
                             {item.quantity}
                           </span>
                           <button
-                            onClick={() => updateQuantity(item.id, 1)}
+                            onClick={() => handleUpdateQuantity(item.id, 1)}
                             disabled={isLoading}
                             className="w-9 h-9 rounded-lg flex items-center justify-center transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80 active:opacity-60"
                             style={{
@@ -329,7 +382,7 @@ export default function Cart() {
                           </button>
                         </div>
                         <button
-                          onClick={() => removeItem(item.id)}
+                          onClick={() => handleRemoveItem(item.id, item.product.name)}
                           className="w-9 h-9 rounded-lg flex items-center justify-center transition-opacity duration-200 disabled:opacity-50 hover:opacity-80 active:opacity-60"
                           style={{
                             background: 'linear-gradient(135deg, hsl(220 15% 18%) 0%, hsl(220 15% 16%) 25%, hsl(220 15% 14%) 50%, hsl(220 15% 16%) 75%, hsl(220 15% 18%) 100%)',

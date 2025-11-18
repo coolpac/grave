@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, LoggerService, Inject } from '@nestjs/common';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
@@ -8,7 +9,11 @@ import { PaginationDto, createPaginatedResponse } from '../common/dto/pagination
 
 @Injectable()
 export class CatalogService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER)
+    private readonly logger: LoggerService,
+  ) {}
 
   // Categories CRUD
   async createCategory(createDto: CreateCategoryDto) {
@@ -292,17 +297,13 @@ export class CatalogService {
       return createPaginatedResponse(data, total, validPagination);
     } catch (error) {
       // Логируем ошибку для отладки
-      console.error('Error in findAllProducts:', error);
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-      // Для других ошибок логируем детали
-      console.error('Error details:', {
+      this.logger.error({
+        message: 'Error in findAllProducts',
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
         categoryId,
         activeOnly,
         pagination,
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
       });
       throw error;
     }

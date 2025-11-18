@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { StoneCard } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
+import { useCart } from '../hooks/useCart'
 import { ArrowLeft, User, Phone, Mail, MessageSquare, CheckCircle, MapPin } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -8,6 +9,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import PaymentMethodSelect, { PaymentMethod } from '../components/PaymentMethod'
 import { motion } from 'framer-motion'
+import toast from 'react-hot-toast'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
@@ -25,9 +27,21 @@ type CheckoutFormData = z.infer<typeof checkoutSchema>
 export default function Checkout() {
   const navigate = useNavigate()
   const { BackButton, MainButton, user, webApp } = useTelegram()
+  const { items, isLoading: isCartLoading } = useCart()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('invoice')
   const [authToken, setAuthToken] = useState<string | null>(null)
+
+  // Проверка пустой корзины при загрузке страницы
+  useEffect(() => {
+    if (!isCartLoading && items.length === 0) {
+      // Откладываем toast и навигацию, чтобы избежать обновления состояния во время рендера
+      setTimeout(() => {
+        toast.error('Ваша корзина пуста. Добавьте товары перед оформлением заказа.')
+        navigate('/')
+      }, 0)
+    }
+  }, [items.length, isCartLoading, navigate])
 
   const {
     register,
@@ -180,6 +194,14 @@ export default function Checkout() {
       localStorage.setItem('customer_data', JSON.stringify(customerData))
 
       setIsSubmitting(false)
+
+      // Показываем успешное уведомление (откладываем, чтобы избежать обновления состояния во время рендера)
+      setTimeout(() => {
+        toast.success('Заказ успешно оформлен!', {
+          icon: '✅',
+          duration: 3000,
+        })
+      }, 0)
 
       // Переход на экран успеха с номером заказа
       const orderNumber = response.data.orderNumber || response.data.id

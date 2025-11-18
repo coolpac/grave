@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
 import axios from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -485,9 +486,22 @@ export function useCart() {
                 ? { ...item, quantity: item.quantity + (newItem.quantity || 1) }
                 : item,
             );
+            // Откладываем toast, чтобы избежать обновления состояния во время рендера
+            setTimeout(() => {
+              toast.success(`Количество "${variables.productName}" увеличено`, {
+                icon: '➕',
+                duration: 2000,
+              });
+            }, 0);
           } else {
             // Добавляем новый товар
             updated = [...prev, newItem];
+            // Откладываем toast, чтобы избежать обновления состояния во время рендера
+            setTimeout(() => {
+              toast.success(`${variables.productName || 'Товар'} добавлен в корзину!`, {
+                icon: '🛒',
+              });
+            }, 0);
           }
           
           saveCartToStorage(updated as any);
@@ -496,12 +510,80 @@ export function useCart() {
       } else {
         // Обновляем серверную корзину
         await refetch();
+        // Откладываем toast, чтобы избежать обновления состояния во время рендера
+        setTimeout(() => {
+          toast.success(`${variables.productName || 'Товар'} добавлен в корзину!`, {
+            icon: '🛒',
+          });
+        }, 0);
       }
+    },
+    onError: (error: any) => {
+      console.error('Failed to add to cart:', error);
+      // Откладываем toast, чтобы избежать обновления состояния во время рендера
+      setTimeout(() => {
+        toast.error('Не удалось добавить товар в корзину. Попробуйте позже.', {
+          icon: '❌',
+        });
+      }, 0);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['cart'] });
     },
   });
+
+  // Обновление изображений для локальных элементов корзины
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    // Обновляем только если пользователь не авторизован и есть локальные элементы
+    if (token || localCart.length === 0 || isOffline) return;
+
+    // Обновляем изображения для локальных элементов, запрашивая актуальные данные товара
+    const updateLocalItemImages = async () => {
+      const updatedItems = await Promise.all(
+        localCart.map(async (item) => {
+          try {
+            // Запрашиваем актуальные данные товара
+            const response = await axios.get(`${API_URL}/products/${item.productId}`, {
+              timeout: 3000,
+            });
+            const product = response.data;
+            
+            // Обновляем imageUrl, если он изменился
+            const newImageUrl = product.media?.[0]?.url;
+            if (newImageUrl && newImageUrl !== item.imageUrl) {
+              return { ...item, imageUrl: newImageUrl };
+            }
+          } catch (error) {
+            // Игнорируем ошибки при обновлении изображений
+            console.debug('Failed to update image for product:', item.productId);
+          }
+          return item;
+        })
+      );
+
+      // Обновляем локальную корзину только если были изменения
+      const hasChanges = updatedItems.some((item, index) => 
+        item.imageUrl !== localCart[index]?.imageUrl
+      );
+      
+      if (hasChanges) {
+        setLocalCart(updatedItems);
+        saveCartToStorage(updatedItems as any);
+      }
+    };
+
+    // Обновляем изображения раз в 5 минут для локальных элементов
+    const updateInterval = setInterval(updateLocalItemImages, 5 * 60 * 1000);
+    
+    // Первое обновление через 30 секунд после загрузки
+    const initialTimeout = setTimeout(updateLocalItemImages, 30000);
+
+    return () => {
+      clearInterval(updateInterval);
+      clearTimeout(initialTimeout);
+    };
+  }, [localCart.length, isOffline]);
 
   // Сохранение корзины в localStorage при изменении
   useEffect(() => {
@@ -531,16 +613,24 @@ export function useCart() {
   }, [serverCart?.items?.length, localCart.length]); // Используем конкретные значения вместо объектов
 
   const cart = mergedCart();
-  const total = cart.items.reduce((sum, item) => {
-    // Правильно определяем цену: сначала вариант, потом базовая цена продукта
-    const price = item.variant?.price ?? item.product?.basePrice ?? 0;
-    // Пропускаем элементы с невалидной ценой
-    if (!price || price === 0 || isNaN(price)) {
-      return sum;
-    }
-    return sum + price * item.quantity;
-  }, 0);
-  const itemsCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+  
+  // Мемоизированное вычисление общей суммы
+  const total = useMemo(() => {
+    return cart.items.reduce((sum, item) => {
+      // Правильно определяем цену: сначала вариант, потом базовая цена продукта
+      const price = item.variant?.price ?? item.product?.basePrice ?? 0;
+      // Пропускаем элементы с невалидной ценой
+      if (!price || price === 0 || isNaN(price)) {
+        return sum;
+      }
+      return sum + price * item.quantity;
+    }, 0);
+  }, [cart.items]);
+  
+  // Мемоизированное вычисление количества товаров
+  const itemsCount = useMemo(() => {
+    return cart.items.reduce((sum, item) => sum + item.quantity, 0);
+  }, [cart.items]);
 
   return {
     cart,

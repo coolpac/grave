@@ -13,8 +13,33 @@ export default function Products() {
   const { data: products, isLoading, error } = useQuery({
     queryKey: ['products-admin'],
     queryFn: async () => {
-      const { data } = await api.get('/products/all');
-      return data;
+      try {
+        const { data } = await api.get('/products/all');
+        console.log('Products API response:', data);
+        
+        // Проверяем формат ответа - может быть массив или объект с data/meta
+        let productsArray: any[] = [];
+        
+        if (Array.isArray(data)) {
+          productsArray = data;
+        } else if (data && Array.isArray(data.data)) {
+          // Пагинированный ответ
+          productsArray = data.data;
+        } else if (data && Array.isArray(data.products)) {
+          productsArray = data.products;
+        } else {
+          console.warn('Unexpected products data format:', data);
+          productsArray = [];
+        }
+        
+        console.log('Products count:', productsArray.length);
+        return productsArray;
+      } catch (err: any) {
+        console.error('Error fetching products:', err);
+        console.error('Error response:', err.response?.data);
+        console.error('Error status:', err.response?.status);
+        throw err;
+      }
     },
     retry: 1,
   });
@@ -37,10 +62,22 @@ export default function Products() {
     },
   });
 
-  const filteredProducts = products?.filter((product: any) =>
-    product.name.toLowerCase().includes(search.toLowerCase()) ||
-    product.slug.toLowerCase().includes(search.toLowerCase())
-  ) || [];
+  // Проверяем, что products является массивом перед использованием filter
+  const filteredProducts = Array.isArray(products) 
+    ? products.filter((product: any) =>
+        product.name?.toLowerCase().includes(search.toLowerCase()) ||
+        product.slug?.toLowerCase().includes(search.toLowerCase())
+      )
+    : [];
+
+  // Логируем для отладки
+  console.log('Products state:', {
+    products,
+    productsIsArray: Array.isArray(products),
+    productsLength: Array.isArray(products) ? products.length : 'N/A',
+    filteredProductsLength: filteredProducts.length,
+    search,
+  });
 
   if (isLoading) {
     return (
@@ -115,19 +152,52 @@ export default function Products() {
               placeholder="Поиск по названию или slug..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-12 pr-4 py-3.5 border border-white/20 rounded-xl bg-white/8 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm"
+              className="w-full pl-12 pr-4 py-3.5 border border-white/20 rounded-xl bg-white/8 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm [color-scheme:dark]"
             />
           </div>
-          {search && (
-            <div className="mt-3 text-sm text-white/60 font-medium">
-              Найдено: <span className="text-white/90 font-semibold">{filteredProducts.length}</span>
-            </div>
-          )}
+          <div className="mt-3 text-sm text-white/60 font-medium">
+            {search ? (
+              <>
+                Найдено: <span className="text-white/90 font-semibold">{filteredProducts.length}</span>
+                {Array.isArray(products) && products.length > 0 && (
+                  <span className="text-white/40 ml-2">
+                    из {products.length} товаров
+                  </span>
+                )}
+              </>
+            ) : (
+              Array.isArray(products) && (
+                <>
+                  Всего товаров: <span className="text-white/90 font-semibold">{products.length}</span>
+                </>
+              )
+            )}
+          </div>
         </CardContent>
       </Card>
 
       {/* Products Grid */}
-      {filteredProducts.length > 0 ? (
+      {!Array.isArray(products) || products.length === 0 ? (
+        <Card className="glass-strong border-white/20 shadow-xl">
+          <CardContent className="p-12 text-center">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+              <Package2 className="h-10 w-10 text-white/40" />
+            </div>
+            <h3 className="text-xl font-bold text-white mb-2">Товары не найдены</h3>
+            <p className="text-white/60 mb-6">
+              {Array.isArray(products) && products.length === 0
+                ? 'В базе данных пока нет товаров. Добавьте первый товар, чтобы начать.'
+                : 'Не удалось загрузить список товаров. Проверьте подключение к серверу и авторизацию.'}
+            </p>
+            <Link to="/products/new">
+              <Button className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg shadow-blue-500/25 border-0">
+                <Plus className="mr-2 h-4 w-4" />
+                Добавить первый товар
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+      ) : filteredProducts.length > 0 ? (
         <div className="grid gap-4">
           {filteredProducts.map((product: any, index: number) => (
             <Card 

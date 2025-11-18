@@ -2,17 +2,113 @@ import { Link } from 'react-router-dom'
 import { StoneCard } from '@monorepo/ui'
 import { Skeleton } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
-import { MapPin, Phone, Mail, Info, Sparkles } from 'lucide-react'
+import { MapPin, Phone, Mail, Info, Sparkles, ShieldCheck, Ruler } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useState, useRef } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
+import { BannerCarousel, type BannerCarouselItem } from '../components/BannerCarousel'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+
+type BannerResponse = {
+  id: number
+  title: string
+  description?: string | null
+  imageUrl: string
+  linkUrl?: string | null
+  position?: string | null
+  order?: number | null
+  isActive: boolean
+  startDate?: string | null
+  endDate?: string | null
+}
 
 export default function Home() {
   const { user } = useTelegram()
   const contactRef = useRef<HTMLDivElement>(null)
+  const { data: bannersData } = useQuery<BannerResponse[]>({
+    queryKey: ['banners-public'],
+    queryFn: async () => {
+      const { data } = await axios.get(`${API_URL}/banners`)
+      return data
+    },
+    staleTime: 60 * 1000,
+  })
+
+  const heroBannerSlides: BannerCarouselItem[] = [
+    {
+      id: 'materials',
+      title: 'Качественные материалы',
+      description: 'Гранит, мрамор и натуральные породы напрямую от карьеров',
+      href: '/materials/granite',
+      icon: Sparkles,
+      cta: 'Перейти в каталог',
+    },
+    {
+      id: 'custom',
+      title: 'Индивидуальные проекты',
+      description: 'Подберём форму, цвет и отделку под ваш запрос',
+      href: 'tel:+79991234567',
+      icon: Ruler,
+      cta: 'Обсудить детали',
+      isExternal: true,
+    },
+    {
+      id: 'quality',
+      title: 'Контроль качества',
+      description: 'Сертифицированное производство и гарантия на каждый заказ',
+      href: '/orders',
+      icon: ShieldCheck,
+      cta: 'Проверить статус заказа',
+    },
+  ]
+  const remoteBannerSlides = useMemo<BannerCarouselItem[]>(() => {
+    if (!bannersData || bannersData.length === 0) return []
+    const now = new Date()
+    return bannersData
+      .filter((banner) => {
+        if (!banner.isActive) return false
+        if (banner.position && banner.position !== 'home') return false
+        if (banner.startDate && new Date(banner.startDate) > now) return false
+        if (banner.endDate && new Date(banner.endDate) < now) return false
+        return Boolean(banner.imageUrl)
+      })
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      .map((banner) => {
+        const link = banner.linkUrl?.trim() || ''
+        const hasLink = Boolean(link)
+        const isExternalLink = hasLink ? /^(https?:\/\/|mailto:|tel:)/i.test(link) : false
+        return {
+          id: `banner-${banner.id}`,
+          bannerId: banner.id,
+          title: banner.title,
+          description: banner.description || '',
+          href: hasLink ? link : undefined,
+          isExternal: isExternalLink,
+          icon: Sparkles,
+          imageUrl: banner.imageUrl,
+          cta: hasLink ? (link.startsWith('tel:') ? 'Позвонить' : 'Подробнее') : undefined,
+        }
+      })
+  }, [bannersData])
+
+  const slidesToShow = remoteBannerSlides.length > 0 ? remoteBannerSlides : heroBannerSlides
+
+  const handleBannerClick = useCallback((item: BannerCarouselItem) => {
+    if (!item.bannerId) return
+    const clickEndpoint = `${API_URL}/banners/${item.bannerId}/click`
+    try {
+      if (navigator.sendBeacon) {
+        const beaconPayload = new Blob([], { type: 'text/plain' })
+        navigator.sendBeacon(clickEndpoint, beaconPayload)
+        return
+      }
+      axios.post(clickEndpoint).catch(() => {})
+    } catch {
+      axios.post(clickEndpoint).catch(() => {})
+    }
+  }, [])
 
   // Загрузка статистики по материалам
   const { data: materialStats, isLoading: isLoadingStats } = useQuery({
@@ -67,38 +163,9 @@ export default function Home() {
         </motion.div>
       </div>
 
-      {/* Special Offers Banner - гранитный стиль с мраморной текстурой */}
+      {/* Highlight Banner Carousel */}
       <div className="px-4 mb-6">
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-          className="granite-banner relative rounded-xl"
-        >
-          <div className="relative z-10 p-6 flex flex-col items-center justify-center text-center min-h-[140px]">
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.3, type: 'spring', stiffness: 200 }}
-              className="mb-3"
-            >
-              <Sparkles className="w-8 h-8 text-bronze-500" />
-            </motion.div>
-            <h2 className="text-2xl font-inscription text-gray-100 mb-2">
-              Качественные материалы
-            </h2>
-            <p className="text-base font-body text-gray-300">
-              Гранит, мрамор и другие материалы
-            </p>
-          </div>
-          {/* Верхний блик */}
-          <div
-            className="absolute inset-0 pointer-events-none z-0"
-            style={{
-              background: 'linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 15%, rgba(255, 255, 255, 0.03) 30%, transparent 50%)',
-            }}
-          />
-        </motion.div>
+        <BannerCarousel items={slidesToShow} autoPlayInterval={8000} onSlideClick={handleBannerClick} />
       </div>
 
       {/* Material Selection - Мрамор и Гранит */}

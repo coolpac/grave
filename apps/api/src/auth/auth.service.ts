@@ -1,5 +1,6 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, LoggerService, Inject } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { PrismaService } from '../prisma/prisma.service';
 import { ValidateInitDataDto } from './dto/validate-init-data.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
@@ -10,6 +11,8 @@ export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER)
+    private readonly logger: LoggerService,
   ) {}
 
   /**
@@ -29,7 +32,11 @@ export class AuthService {
       
       return result.ok;
     } catch (error) {
-      console.error('Error validating initData:', error);
+      this.logger.error({
+        message: 'Error validating initData',
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      });
       return false;
     }
   }

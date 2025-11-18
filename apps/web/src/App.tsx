@@ -1,17 +1,52 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Toaster } from 'react-hot-toast'
 import Layout from './components/Layout'
 import LoadingScreen from './components/LoadingScreen'
 import { useTelegram } from './hooks/useTelegram'
-import Home from './pages/Home'
-import Category from './pages/Category'
-import MaterialCategories from './pages/MaterialCategories'
-import Product from './pages/Product'
-import Cart from './pages/Cart'
-import Checkout from './pages/Checkout'
-import OrderSuccess from './pages/OrderSuccess'
-import Orders from './pages/Orders'
+
+// Lazy load all pages for code splitting
+const Home = lazy(() => import('./pages/Home'))
+const Category = lazy(() => import('./pages/Category'))
+const MaterialCategories = lazy(() => import('./pages/MaterialCategories'))
+const Product = lazy(() => import('./pages/Product'))
+const Cart = lazy(() => import('./pages/Cart'))
+const Checkout = lazy(() => import('./pages/Checkout'))
+const OrderSuccess = lazy(() => import('./pages/OrderSuccess'))
+const Orders = lazy(() => import('./pages/Orders'))
+
+// Prefetch pages on hover (for better UX)
+const prefetchPage = (importFn: () => Promise<any>) => {
+  // Use requestIdleCallback if available, otherwise setTimeout
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(() => importFn(), { timeout: 2000 })
+  } else {
+    setTimeout(() => importFn(), 100)
+  }
+}
+
+// Prefetch component wrapper
+const PrefetchLink = ({ children, prefetch }: { children: React.ReactNode; prefetch: () => void }) => {
+  return (
+    <div
+      onMouseEnter={prefetch}
+      onTouchStart={prefetch}
+    >
+      {children}
+    </div>
+  )
+}
+
+// Page loading fallback component
+const PageLoadingFallback = () => (
+  <div className="flex items-center justify-center min-h-[60vh]">
+    <div className="flex flex-col items-center gap-4">
+      <div className="w-8 h-8 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+      <p className="text-sm text-white/60">Загрузка...</p>
+    </div>
+  </div>
+)
 
 const queryClient = new QueryClient()
 
@@ -20,11 +55,19 @@ function AppContent() {
   const { isReady, sendDataToServer } = useTelegram()
 
   useEffect(() => {
+    // Минимальное время показа экрана загрузки - 2 секунды для красоты
+    const minLoadingTime = 2000
+    const startTime = Date.now()
+
     // Таймаут для гарантированного завершения загрузки (особенно для браузера без Telegram)
     const timeoutTimer = setTimeout(() => {
-      console.log('Loading timeout reached, showing app')
-      setIsLoading(false)
-    }, 2000) // 2 секунды для браузера
+      const elapsed = Date.now() - startTime
+      const remaining = Math.max(0, minLoadingTime - elapsed)
+      setTimeout(() => {
+        console.log('Loading timeout reached, showing app')
+        setIsLoading(false)
+      }, remaining)
+    }, 3000) // 3 секунды максимум
 
     if (isReady) {
       // Валидация initData на сервере (только в Telegram)
@@ -39,17 +82,25 @@ function AppContent() {
           console.error('Error during initData validation:', error)
         })
         .finally(() => {
-          // Завершаем загрузку после валидации (или ошибки)
+          // Завершаем загрузку после валидации, но не раньше минимального времени
+          const elapsed = Date.now() - startTime
+          const remaining = Math.max(0, minLoadingTime - elapsed)
           clearTimeout(timeoutTimer)
-          setIsLoading(false)
+          setTimeout(() => {
+            setIsLoading(false)
+          }, remaining)
         })
     } else {
-      // Если Telegram не готов (браузер без Telegram), завершаем загрузку быстрее
+      // Если Telegram не готов (браузер без Telegram), показываем экран минимум 2 секунды
       const browserTimer = setTimeout(() => {
-        console.log('Running in browser mode (no Telegram), showing app')
+        const elapsed = Date.now() - startTime
+        const remaining = Math.max(0, minLoadingTime - elapsed)
         clearTimeout(timeoutTimer)
-        setIsLoading(false)
-      }, 500)
+        setTimeout(() => {
+          console.log('Running in browser mode (no Telegram), showing app')
+          setIsLoading(false)
+        }, remaining)
+      }, 100)
       
       return () => {
         clearTimeout(timeoutTimer)
@@ -71,18 +122,25 @@ function AppContent() {
   }
 
   return (
-    <BrowserRouter>
+    <BrowserRouter
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true,
+      }}
+    >
       <Layout>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/materials/:material" element={<MaterialCategories />} />
-          <Route path="/c/:slug" element={<Category />} />
-          <Route path="/p/:slug" element={<Product />} />
-          <Route path="/cart" element={<Cart />} />
-          <Route path="/checkout" element={<Checkout />} />
-          <Route path="/order-success/:id" element={<OrderSuccess />} />
-          <Route path="/orders" element={<Orders />} />
-        </Routes>
+        <Suspense fallback={<PageLoadingFallback />}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/materials/:material" element={<MaterialCategories />} />
+            <Route path="/c/:slug" element={<Category />} />
+            <Route path="/p/:slug" element={<Product />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/order-success/:id" element={<OrderSuccess />} />
+            <Route path="/orders" element={<Orders />} />
+          </Routes>
+        </Suspense>
       </Layout>
     </BrowserRouter>
   )
@@ -92,6 +150,32 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AppContent />
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: 'linear-gradient(135deg, hsl(220 15% 18%) 0%, hsl(220 15% 16%) 25%, hsl(220 15% 14%) 50%, hsl(220 15% 16%) 75%, hsl(220 15% 18%) 100%)',
+            color: '#fff',
+            border: '1px solid rgba(139, 107, 63, 0.3)',
+            borderRadius: '12px',
+            padding: '12px 16px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
     </QueryClientProvider>
   )
 }

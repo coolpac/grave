@@ -2,6 +2,7 @@ import { motion } from 'framer-motion'
 import { ShoppingCart } from 'lucide-react'
 import { StoneCard } from '@monorepo/ui'
 import ProductSpecifications from '../ProductSpecifications'
+import { PLACEHOLDER_IMAGE } from '../../utils/constants'
 
 interface SimpleProductCardProps {
   product: {
@@ -19,17 +20,15 @@ export default function SimpleProductCard({ product, onAddToCart }: SimpleProduc
   return (
     <StoneCard className="cursor-pointer overflow-hidden">
       <div className="flex flex-col">
-        {product.image && (
-          <img
-            src={product.image}
-            alt={product.name}
-            className="w-full h-48 object-cover"
-            onError={(e) => {
-              const target = e.target as HTMLImageElement
-              target.src = `https://via.placeholder.com/400/cccccc/666666?text=${encodeURIComponent(product.name)}`
-            }}
-          />
-        )}
+        <img
+          src={product.image || PLACEHOLDER_IMAGE}
+          alt={product.name}
+          className="w-full h-48 object-cover"
+          onError={(e) => {
+            const target = e.target as HTMLImageElement
+            target.src = PLACEHOLDER_IMAGE
+          }}
+        />
         <div className="p-4">
           <h3 className="font-inscription text-lg text-gray-900 mb-2">
             {product.name}

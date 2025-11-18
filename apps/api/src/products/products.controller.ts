@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, ParseIntPipe } from '@nestjs/common'
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, ParseIntPipe, LoggerService, Inject } from '@nestjs/common'
 import { CacheKey, CacheTTL } from '@nestjs/cache-manager'
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston'
 import { ProductsService } from './products.service'
 import { CreateProductDto } from './dto/create-product.dto'
 import { UpdateProductDto } from './dto/update-product.dto'
@@ -10,7 +11,11 @@ import { AdminGuard } from '../auth/guards/admin.guard'
 
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER)
+    private readonly logger: LoggerService,
+  ) {}
 
   @Get()
   @CacheKey('products-list')
@@ -72,9 +77,12 @@ export class ProductsController {
     try {
       return await this.productsService.create(createDto)
     } catch (error: any) {
-      console.error('Error in products controller:', error)
-      console.error('Error stack:', error.stack)
-      console.error('Error message:', error.message)
+      this.logger.error({
+        message: 'Error in products controller',
+        error: error.message,
+        stack: error.stack,
+        productName: createDto.name,
+      })
       // Возвращаем более детальную ошибку
       throw new Error(`Failed to create product: ${error.message || JSON.stringify(error)}`)
     }
@@ -89,9 +97,21 @@ export class ProductsController {
     try {
       return await this.productsService.update(id, updateDto)
     } catch (error: any) {
-      console.error('Error in products controller update:', error)
-      console.error('Update data:', JSON.stringify(updateDto, null, 2))
-      throw error
+      this.logger.error({
+        message: 'Error in products controller update',
+        error: error.message,
+        stack: error.stack,
+        productId: id,
+        updateFields: Object.keys(updateDto),
+      })
+      
+      // Если это уже HTTP исключение, пробрасываем его дальше
+      if (error.status && error.message) {
+        throw error
+      }
+      
+      // Для остальных ошибок создаем более понятное сообщение
+      throw new Error(`Failed to update product #${id}: ${error.message || JSON.stringify(error)}`)
     }
   }
 

@@ -9,14 +9,16 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
   const [isVisible, setIsVisible] = useState(true)
 
   useEffect(() => {
-    // Показываем экран загрузки минимум 1.5 секунды для плавности
     const timer = setTimeout(() => {
       setIsVisible(false)
-      // Даем время на fade-out анимацию перед вызовом onComplete
-      setTimeout(onComplete, 500)
-    }, 1500)
+      setTimeout(() => {
+        onComplete()
+      }, 400)
+    }, 2000)
 
-    return () => clearTimeout(timer)
+    return () => {
+      clearTimeout(timer)
+    }
   }, [onComplete])
 
   return (
@@ -24,64 +26,79 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: isVisible ? 1 : 0 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.5 }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-bg"
+      transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+      className="fixed inset-0 z-50 flex items-center justify-center"
       style={{
-        backgroundColor: 'var(--tg-theme-bg-color, hsl(var(--bg)))',
+        backgroundColor: 'var(--tg-theme-bg-color, #000000)',
       }}
     >
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{
-          duration: 0.6,
-          ease: [0.25, 0.46, 0.45, 0.94],
+      {/* Очень subtle каменная текстура - едва заметная */}
+      <div
+        className="absolute inset-0 opacity-[0.02]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='stoneNoise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23stoneNoise)'/%3E%3C/svg%3E")`,
+          backgroundSize: '300px 300px',
+          backgroundRepeat: 'repeat',
         }}
-        className="flex flex-col items-center gap-4"
+      />
+
+      {/* Минималистичный контент */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
+        className="flex flex-col items-center gap-12"
       >
-        {/* Логотип - можно заменить на реальный */}
+        {/* Простой логотип - только буква, минималистично */}
         <motion.div
-          initial={{ rotate: 0 }}
-          animate={{ rotate: 360 }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: 'linear',
-          }}
-          className="w-20 h-20 rounded-2xl bg-gradient-to-br from-accent to-accent/60 flex items-center justify-center shadow-lg"
-          style={{
-            backgroundColor: 'var(--tg-theme-button-color, hsl(var(--accent)))',
-          }}
-        >
-          <span className="text-3xl font-bold text-white">G</span>
-        </motion.div>
-        
-        {/* Индикатор загрузки */}
-        <motion.div
-          className="flex gap-1"
+          className="relative"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.2, duration: 0.5 }}
         >
-          {[0, 1, 2].map((i) => (
-            <motion.div
-              key={i}
-              className="w-2 h-2 rounded-full bg-accent"
-              style={{
-                backgroundColor: 'var(--tg-theme-button-color, hsl(var(--accent)))',
-              }}
-              animate={{
-                y: [0, -8, 0],
-                opacity: [0.5, 1, 0.5],
-              }}
-              transition={{
-                duration: 0.6,
-                repeat: Infinity,
-                delay: i * 0.2,
-                ease: 'easeInOut',
-              }}
-            />
-          ))}
+          <span
+            className="text-6xl font-light tracking-tight"
+            style={{
+              color: 'rgba(255, 255, 255, 0.95)',
+              fontFamily: 'Cinzel, serif',
+              fontWeight: 300,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            G
+          </span>
+        </motion.div>
+
+        {/* Минималистичный индикатор загрузки в стиле Apple - тонкая линия */}
+        <motion.div
+          className="relative w-32 h-px overflow-hidden"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.4, duration: 0.4 }}
+        >
+          {/* Фон линии - очень темный */}
+          <div
+            className="absolute inset-0"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            }}
+          />
+          
+          {/* Анимированная линия загрузки */}
+          <motion.div
+            className="absolute inset-y-0 left-0"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.4)',
+              width: '100%',
+            }}
+            initial={{ x: '-100%' }}
+            animate={{ x: ['-100%', '200%'] }}
+            transition={{
+              duration: 1.5,
+              repeat: Infinity,
+              ease: [0.4, 0, 0.2, 1],
+            }}
+          />
         </motion.div>
       </motion.div>
     </motion.div>

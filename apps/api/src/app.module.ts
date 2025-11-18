@@ -4,6 +4,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { ScheduleModule } from '@nestjs/schedule';
+import { WinstonModule } from 'nest-winston';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { CatalogModule } from './catalog/catalog.module';
@@ -16,28 +17,40 @@ import { UploadModule } from './upload/upload.module';
 import { BannersModule } from './banners/banners.module';
 import { NewslettersModule } from './newsletters/newsletters.module';
 import { CacheConfigService } from './config/cache.config';
+import { getThrottlerConfig } from './config/throttle.config';
+import { createWinstonConfig } from './common/logger/logger.config';
+import { envValidationSchema } from './config/env.validation';
 import { MetricsModule } from './common/metrics/metrics.module';
-import { MetricsController } from './common/metrics/metrics.controller';
 import { TelegramModule } from './telegram/telegram.module';
+import { HealthModule } from './health/health.module';
+import { QueueModule } from './queue/queue.module';
+import { DatabaseModule } from './database/database.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
+      validationSchema: envValidationSchema,
+      validationOptions: {
+        allowUnknown: false, // Reject unknown environment variables
+        abortEarly: true, // Stop validation on first error
+      },
+      expandVariables: true, // Expand ${VAR} syntax in .env files
+      cache: true, // Cache environment variables
     }),
+    WinstonModule.forRoot(createWinstonConfig()),
     ScheduleModule.forRoot(),
     CacheModule.registerAsync({
       isGlobal: true,
       imports: [ConfigModule],
       useClass: CacheConfigService,
     }),
-    ThrottlerModule.forRoot([
-      {
-        ttl: 60000, // 1 minute
-        limit: 100, // 100 requests per minute
-      },
-    ]),
+    ThrottlerModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: getThrottlerConfig,
+    }),
     PrismaModule,
     AuthModule,
     CatalogModule,
@@ -51,8 +64,11 @@ import { TelegramModule } from './telegram/telegram.module';
     NewslettersModule,
     MetricsModule,
     TelegramModule,
+    HealthModule,
+    QueueModule,
+    DatabaseModule,
   ],
-  controllers: [MetricsController],
+  controllers: [],
   providers: [
     {
       provide: APP_GUARD,

@@ -5,6 +5,8 @@ import { UpdateOrderStatusDto, OrderStatus, PaymentStatus } from './dto/update-o
 import { ConfigService } from '@nestjs/config';
 import { TelegramBotClientService } from '../telegram/telegram-bot-client.service';
 import { CartAbandonedService } from '../cart/cart-abandoned.service';
+import { BusinessMetricsService } from '../common/metrics/business-metrics.service';
+import { TelegramNotificationQueue } from '../queue/queues/telegram-notification.queue';
 
 @Injectable()
 export class OrdersService {
@@ -15,6 +17,8 @@ export class OrdersService {
     private configService: ConfigService,
     private telegramBotClient: TelegramBotClientService,
     private cartAbandonedService: CartAbandonedService,
+    private businessMetrics: BusinessMetricsService,
+    private telegramNotificationQueue: TelegramNotificationQueue,
   ) {}
 
   async createOrder(userId: number, createDto: CreateOrderDto) {
@@ -92,9 +96,9 @@ export class OrdersService {
       this.logger.warn(`Failed to mark cart as recovered: ${error.message}`);
     });
 
-    // Отправка уведомлений (не блокируем создание заказа при ошибках)
-    this.sendOrderNotifications(order).catch((error) => {
-      this.logger.error(`Failed to send notifications: ${error.message}`);
+    // Отправка уведомлений через очередь (не блокируем создание заказа)
+    this.sendOrderNotificationsAsync(order).catch((error) => {
+      this.logger.error(`Failed to queue notifications: ${error.message}`);
     });
 
     // Обработка способа оплаты
@@ -106,11 +110,58 @@ export class OrdersService {
       this.logger.log('Telegram Payments not implemented yet');
     }
 
+    // Record business metric
+    this.businessMetrics.recordOrderCreated(
+      order.status,
+      createDto.paymentMethod || 'unknown',
+    );
+
     return order;
   }
 
   /**
-   * Отправка уведомлений о новом заказе
+   * Отправка уведомлений о новом заказе через очередь
+   */
+  private async sendOrderNotificationsAsync(order: any) {
+    // Получаем данные пользователя для уведомления клиенту
+    const user = await this.prisma.user.findUnique({
+      where: { id: order.userId },
+      select: { telegramId: true },
+    });
+
+    // Формируем данные для уведомлений
+    const orderNotificationData = {
+      orderNumber: order.orderNumber,
+      orderId: order.id,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      customerEmail: order.customerEmail || undefined,
+      customerAddress: order.customerAddress || undefined,
+      comment: order.comment || undefined,
+      items: order.items.map((item: any) => ({
+        productName: item.productName,
+        variantName: item.variantName || undefined,
+        quantity: item.quantity,
+        price: Number(item.price),
+      })),
+      total: Number(order.total),
+      createdAt: order.createdAt,
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+    };
+
+    // Добавляем задачу в очередь Telegram уведомлений
+    await this.telegramNotificationQueue.addNotificationJob({
+      type: 'order_created',
+      recipient: user?.telegramId ? 'both' : 'admin', // Отправляем и админу, и клиенту (если есть telegramId)
+      telegramId: user?.telegramId?.toString(),
+      data: orderNotificationData,
+      priority: 'high',
+    });
+  }
+
+  /**
+   * Отправка уведомлений о новом заказе (синхронная, для обратной совместимости)
    */
   private async sendOrderNotifications(order: any) {
     // Получаем данные пользователя для уведомления клиенту

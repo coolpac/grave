@@ -5,13 +5,19 @@ import {
   UnauthorizedException,
   ForbiddenException,
   HttpStatus,
-  Logger,
+  LoggerService,
+  Inject,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import * as Sentry from '@sentry/node';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 @Catch(UnauthorizedException, ForbiddenException)
 export class AuthExceptionFilter implements ExceptionFilter {
-  private readonly logger = new Logger(AuthExceptionFilter.name);
+  constructor(
+    @Inject(WINSTON_MODULE_NEST_PROVIDER)
+    private readonly logger: LoggerService,
+  ) {}
 
   catch(exception: UnauthorizedException | ForbiddenException, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -29,9 +35,30 @@ export class AuthExceptionFilter implements ExceptionFilter {
         : 'Access denied. You do not have permission to perform this action.';
 
     // Логируем попытки несанкционированного доступа
-    this.logger.warn(
-      `Auth failure: ${exception.message} - ${request.method} ${request.url} - IP: ${request.ip} - User-Agent: ${request.get('user-agent')}`,
-    );
+    const logContext = {
+      message: `Auth failure: ${exception.message}`,
+      method: request.method,
+      url: request.url,
+      ip: request.ip,
+      userAgent: request.get('user-agent'),
+      statusCode: status,
+      errorCode: exception instanceof UnauthorizedException ? 'UNAUTHORIZED' : 'FORBIDDEN',
+      timestamp: new Date().toISOString(),
+    };
+
+    this.logger.warn(logContext);
+
+    // Send to Sentry for security monitoring
+    Sentry.captureMessage(`Auth failure: ${status} ${request.method} ${request.url}`, {
+      level: 'warning',
+      tags: {
+        http_method: request.method,
+        http_status: status,
+        http_url: request.url,
+        error_code: logContext.errorCode,
+      },
+      extra: logContext,
+    });
 
     const errorResponse = {
       statusCode: status,

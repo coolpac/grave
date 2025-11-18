@@ -2,29 +2,11 @@ import { useNavigate } from 'react-router-dom'
 import { StoneCard, StoneButton } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
 import { ArrowLeft, Package, Clock, CheckCircle, XCircle, ShoppingBag } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import axios from 'axios'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
-
-// Моковые данные заказов
-const mockOrders = [
-  {
-    id: 1,
-    status: 'processing',
-    total: 4998,
-    createdAt: '2024-01-15T10:30:00Z',
-    items: [{ name: 'Товар 1', quantity: 2, price: 1999 }],
-  },
-  {
-    id: 2,
-    status: 'completed',
-    total: 2999,
-    createdAt: '2024-01-10T14:20:00Z',
-    items: [{ name: 'Товар 2', quantity: 1, price: 2999 }],
-  },
-]
 
 const statusConfig = {
   processing: { 
@@ -56,7 +38,64 @@ const statusConfig = {
 export default function Orders() {
   const navigate = useNavigate()
   const { BackButton } = useTelegram()
-  const [orders, setOrders] = useState(mockOrders)
+  // Начинаем с пустого массива, заказы загрузятся с сервера
+  const [orders, setOrders] = useState<any[]>([])
+  const hasLoadedRef = useRef(false) // Флаг для предотвращения повторных загрузок
+
+  // Стабильная функция загрузки заказов с useCallback
+  const loadOrders = useCallback(async () => {
+    // Предотвращаем повторные вызовы
+    if (hasLoadedRef.current) {
+      return
+    }
+    
+    hasLoadedRef.current = true // Помечаем сразу, чтобы предотвратить повторные вызовы
+    
+    const token = localStorage.getItem('token')
+    
+    // Если нет токена, не пытаемся загружать заказы
+    if (!token) {
+      // Не вызываем setOrders, если уже пустой массив
+      return
+    }
+    
+    try {
+      const response = await axios.get(`${API_URL}/orders`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        validateStatus: (status) => status < 500, // Не выбрасывать ошибку для 4xx
+      })
+      
+      // Проверяем статус ответа
+      if (response.status === 401 || response.status === 403) {
+        console.log('Unauthorized, clearing token and using empty orders list')
+        localStorage.removeItem('token')
+        return
+      }
+      
+      // Проверяем, что данные - массив
+      let ordersData: any[] = []
+      if (Array.isArray(response.data)) {
+        ordersData = response.data
+      } else if (response.data && Array.isArray(response.data.orders)) {
+        ordersData = response.data.orders
+      }
+      
+      // Обновляем состояние только если есть данные
+      if (ordersData.length > 0) {
+        setOrders(ordersData)
+      }
+    } catch (error: any) {
+      // Обрабатываем только сетевые ошибки, не 401/403
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        console.log('Unauthorized, clearing token and using empty orders list')
+        localStorage.removeItem('token')
+      } else {
+        console.error('Error loading orders:', error)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (BackButton && typeof BackButton.show === 'function') {
@@ -70,21 +109,7 @@ export default function Orders() {
       }
     }
 
-    // Загрузка заказов с сервера
-    const loadOrders = async () => {
-      try {
-        const response = await axios.get(`${API_URL}/orders`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`,
-          },
-        })
-        setOrders(response.data || [])
-      } catch (error) {
-        console.error('Error loading orders:', error)
-        // Используем моковые данные при ошибке
-      }
-    }
-
+    // Загружаем заказы только один раз
     loadOrders()
 
     return () => {
@@ -97,7 +122,7 @@ export default function Orders() {
         }
       }
     }
-  }, [BackButton, navigate])
+  }, [BackButton, navigate, loadOrders])
 
   if (orders.length === 0) {
     return (
@@ -129,24 +154,25 @@ export default function Orders() {
               </div>
             </motion.div>
             <h2 className="text-3xl font-inscription text-gray-900 mb-3">Нет заказов</h2>
-            <p className="text-base font-body text-gray-600 mb-8 max-w-sm">
+            <p className="text-base font-body text-gray-600 mb-24 max-w-sm">
               У вас пока нет оформленных заказов. Начните покупки в нашем каталоге.
             </p>
-            <motion.div
+          </motion.div>
+        </div>
+        
+        {/* Sticky Catalog Button */}
+        <div className="fixed bottom-0 left-0 right-0 z-30 bg-gradient-to-b from-gray-100/50 via-gray-50 to-white border-t border-gray-200/50 safe-area-bottom">
+          <div className="px-4 py-3">
+            <motion.button
+              onClick={() => navigate('/')}
+              className="granite-button w-full block text-center font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >
-              <StoneButton
-                variant="solid"
-                size="lg"
-                onClick={() => navigate('/')}
-                className="px-8"
-              >
-                <ShoppingBag className="w-5 h-5 mr-2" />
-                Перейти в каталог
-              </StoneButton>
-            </motion.div>
-          </motion.div>
+              <ShoppingBag className="w-5 h-5" />
+              Перейти в каталог
+            </motion.button>
+          </div>
         </div>
       </div>
     )

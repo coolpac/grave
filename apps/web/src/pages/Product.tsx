@@ -3,8 +3,9 @@ import { StoneCard } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
 import { useCart } from '../hooks/useCart'
 import { ArrowLeft, ShoppingCart, Plus, Minus, Check, Calculator, Truck, MapPin, User, Phone } from 'lucide-react'
-import { useEffect, useState, useRef, useMemo } from 'react'
-import ProductImageGallery from '../components/ProductImageGallery'
+import { useEffect, useState, useRef, useMemo, useCallback, Suspense, lazy } from 'react'
+// Lazy load ProductImageGallery (heavy component with react-zoom-pan-pinch)
+const ProductImageGallery = lazy(() => import('../components/ProductImageGallery'))
 import ProductSpecifications from '../components/ProductSpecifications'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -12,6 +13,7 @@ import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import ProductVariantSelector from '../components/product/ProductVariantSelector'
+import { PLACEHOLDER_IMAGE } from '../utils/constants'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
@@ -272,8 +274,33 @@ export default function Product() {
     }
   }, [BackButton, MainButton, navigate])
 
-  // Добавление товара в корзину
-  const handleAddToCart = () => {
+  // Мемоизированное вычисление текущей цены (должно быть определено до использования)
+  const currentPrice = useMemo(() => {
+    if (!product) return 0
+    
+    // Если есть выбранная цена из селектора вариантов, используем её
+    if (selectedPrice !== null) return selectedPrice
+    
+    // Если есть выбранный вариант, используем его цену
+    if (selectedVariant && product.variants) {
+      const variant = product.variants.find((v: any) => v.id === selectedVariant)
+      if (variant) return variant.price
+    }
+    
+    // Если есть варианты, берем минимальную цену
+    if (product.variants && product.variants.length > 0) {
+      const activeVariants = product.variants.filter((v: any) => v.isActive !== false)
+      if (activeVariants.length > 0) {
+        return Math.min(...activeVariants.map((v: any) => v.price))
+      }
+    }
+    
+    // Используем базовую цену или цену из продукта
+    return product.basePrice || product.price || 0
+  }, [product, selectedPrice, selectedVariant])
+
+  // Оптимизированный обработчик добавления в корзину с useCallback
+  const handleAddToCart = useCallback(() => {
     if (!product || isUpdatingCart) return
     
     setIsUpdatingCart(true)
@@ -297,7 +324,7 @@ export default function Product() {
     
     // Сбрасываем флаг обновления через небольшую задержку для UX
     setTimeout(() => setIsUpdatingCart(false), 300)
-  }
+  }, [product, isUpdatingCart, selectedVariant, selectedPrice, currentPrice, addToCart])
 
   // Удаление товара из корзины (уменьшение количества на 1)
   const handleRemoveFromCart = () => {
@@ -320,35 +347,14 @@ export default function Product() {
     }
   }
 
-  // Определяем текущую цену (используем selectedPrice если есть, иначе вычисляем)
-  const currentPrice = (() => {
-    if (!product) return 0
-    
-    // Если есть выбранная цена из селектора вариантов, используем её
-    if (selectedPrice !== null) return selectedPrice
-    
-    // Если есть выбранный вариант, используем его цену
-    if (selectedVariant && product.variants) {
-      const variant = product.variants.find((v: any) => v.id === selectedVariant)
-      if (variant) return variant.price
-    }
-    
-    // Если есть варианты, берем минимальную цену
-    if (product.variants && product.variants.length > 0) {
-      const activeVariants = product.variants.filter((v: any) => v.isActive !== false)
-      if (activeVariants.length > 0) {
-        return Math.min(...activeVariants.map((v: any) => v.price))
-      }
-    }
-    
-    // Используем базовую цену или цену из продукта
-    return product.basePrice || product.price || 0
-  })()
-
   // Преобразуем изображения из media
-  const productImages = product?.media?.map((m: any) => m.url) || 
-                        product?.images || 
-                        (product?.image ? [product.image] : [])
+  const productImages = product?.media?.length > 0
+    ? product.media.map((m: any) => m.url)
+    : product?.images?.length > 0
+    ? product.images
+    : product?.image
+    ? [product.image]
+    : [PLACEHOLDER_IMAGE]
 
   if (isLoadingProduct) {
     return (
@@ -415,7 +421,7 @@ export default function Product() {
                   onError={(e) => {
                     // Fallback на placeholder при ошибке загрузки
                     const target = e.target as HTMLImageElement
-                    target.src = `https://via.placeholder.com/400/cccccc/666666?text=${encodeURIComponent(product.name)}`
+                    target.src = PLACEHOLDER_IMAGE
                   }}
                 />
                 {productImages.length > 1 && (

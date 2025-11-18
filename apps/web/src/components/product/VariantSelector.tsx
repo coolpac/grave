@@ -63,17 +63,23 @@ export default function VariantSelector({ product, onAddToCart, onPriceChange }:
         setSelectedVariant(variant)
         const variantPrice = variant.price || 0
         setPrice(variantPrice)
-        // Всегда вызываем onPriceChange с актуальной ценой
-        onPriceChange?.(variantPrice)
+        // Откладываем onPriceChange, чтобы избежать обновления состояния во время рендера
+        setTimeout(() => {
+          onPriceChange?.(variantPrice)
+        }, 0)
       } else {
         setSelectedVariant(null)
         setPrice(null)
-        onPriceChange?.(null)
+        setTimeout(() => {
+          onPriceChange?.(null)
+        }, 0)
       }
     } else {
       setSelectedVariant(null)
       setPrice(null)
-      onPriceChange?.(null)
+      setTimeout(() => {
+        onPriceChange?.(null)
+      }, 0)
     }
   }, [selectedAttributes, product.variants, product.attributes.length, onPriceChange])
 

@@ -71,7 +71,7 @@ export default function Login() {
                 value={initData}
                 onChange={(e) => setInitData(e.target.value)}
                 placeholder="Вставьте initData из Telegram..."
-                className="w-full px-4 py-3 border border-white/20 rounded-xl bg-white/8 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm resize-none min-h-[120px] font-mono text-sm"
+                className="w-full px-4 py-3 border border-white/20 rounded-xl bg-white/8 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm resize-none min-h-[120px] font-mono text-sm [color-scheme:dark]"
                 required
               />
               <p className="text-xs text-white/50">

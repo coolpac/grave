@@ -94,8 +94,7 @@ export default function SpecificationsEditor({ specifications, onChange }: Speci
                     value={spec.key}
                     onChange={(e) => updateSpec(index, 'key', e.target.value)}
                     placeholder="Название характеристики"
-                    className="flex-1 w-full sm:w-auto px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 font-medium focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all shadow-inner backdrop-blur-sm min-w-[150px]"
-                    style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
+                    className="flex-1 w-full sm:w-auto px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 font-medium focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all shadow-inner backdrop-blur-sm min-w-[150px] [color-scheme:dark]"
                   />
                   <div className="flex items-center gap-2 text-white/50 font-bold px-2">—</div>
                   <input
@@ -103,8 +102,7 @@ export default function SpecificationsEditor({ specifications, onChange }: Speci
                     value={spec.value}
                     onChange={(e) => updateSpec(index, 'value', e.target.value)}
                     placeholder="Значение"
-                    className="flex-1 w-full sm:w-auto px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 font-medium focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all shadow-inner backdrop-blur-sm min-w-[150px]"
-                    style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
+                    className="flex-1 w-full sm:w-auto px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 font-medium focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all shadow-inner backdrop-blur-sm min-w-[150px] [color-scheme:dark]"
                   />
                   <Button
                     type="button"

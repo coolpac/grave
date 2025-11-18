@@ -1,3 +1,8 @@
+
+installHook.js:1 Warning: Cannot update a component (`Fe`) while rendering a different component (`Product`). To locate the bad setState() call inside `Product`, follow the stack trace as described in https://reactjs.org/link/setstate-in-render Error Component Stack
+    at Product (Product.tsx:195:20)
+    at Layout (Layout.tsx:10:34)
+    at AppContent (App.tsx:20:37)
 # ✅ Брошенные корзины - Полная реализация через Python боты
 
 ## 🎯 Выполнено

@@ -3,11 +3,16 @@ import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { DashboardAnalyticsDto } from './dto/dashboard-analytics.dto';
+import { ReportsQueue } from '../queue/queues/reports.queue';
+import { Request } from 'express';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, AdminGuard)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly reportsQueue: ReportsQueue,
+  ) {}
 
   @Get('metrics')
   getMetrics() {
@@ -39,6 +44,35 @@ export class AdminController {
       startDate ? new Date(startDate) : undefined,
       endDate ? new Date(endDate) : undefined,
     );
+  }
+
+  @Post('reports/generate')
+  async generateReport(
+    @Body() body: {
+      type: 'sales' | 'orders' | 'products' | 'customers';
+      format: 'pdf' | 'excel' | 'csv' | 'json';
+      startDate?: string;
+      endDate?: string;
+    },
+    @Request() req: any,
+  ) {
+    const job = await this.reportsQueue.addReportJob({
+      type: body.type,
+      format: body.format,
+      period: body.startDate && body.endDate
+        ? {
+            start: new Date(body.startDate),
+            end: new Date(body.endDate),
+          }
+        : undefined,
+      userId: req.user?.id,
+    });
+
+    return {
+      jobId: job.id,
+      message: 'Report generation queued',
+      status: 'pending',
+    };
   }
 
   // Брошенные корзины

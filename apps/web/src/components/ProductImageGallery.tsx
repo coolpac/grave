@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { PLACEHOLDER_IMAGE } from '../utils/constants'
 
 interface ProductImageGalleryProps {
   images: string[]
@@ -73,7 +74,7 @@ export default function ProductImageGallery({ images, onClose }: ProductImageGal
                   onError={(e) => {
                     // Fallback на placeholder при ошибке загрузки
                     const target = e.target as HTMLImageElement
-                    target.src = `https://via.placeholder.com/800/cccccc/666666?text=Изображение+${currentIndex + 1}`
+                    target.src = PLACEHOLDER_IMAGE
                   }}
                 />
               </TransformComponent>

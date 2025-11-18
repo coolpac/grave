@@ -1,5 +1,7 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, LoggerService, Inject } from '@nestjs/common';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { PrismaService } from '../prisma/prisma.service';
+import { ImageQueue } from '../queue/queues/image.queue';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -8,7 +10,12 @@ export class UploadService {
   private readonly uploadDir = path.join(process.cwd(), 'uploads');
   private readonly publicUrl = process.env.PUBLIC_URL || 'http://localhost:3000';
 
-  constructor(private prisma: PrismaService) {
+  constructor(
+    private prisma: PrismaService,
+    @Inject(WINSTON_MODULE_NEST_PROVIDER)
+    private readonly logger: LoggerService,
+    private readonly imageQueue: ImageQueue,
+  ) {
     // Создание директории для загрузок, если её нет
     if (!fs.existsSync(this.uploadDir)) {
       fs.mkdirSync(this.uploadDir, { recursive: true });
@@ -39,8 +46,26 @@ export class UploadService {
     // Сохранение файла
     fs.writeFileSync(filePath, file.buffer);
 
-    // Возврат публичного URL
-    return `${this.publicUrl}/uploads/${uniqueName}`;
+    const publicUrl = `${this.publicUrl}/uploads/${uniqueName}`;
+
+    // Queue thumbnail generation in background
+    this.imageQueue.addImageJob({
+      type: 'thumbnail',
+      filePath: filePath,
+      fileUrl: publicUrl,
+      options: {
+        width: 300,
+        height: 300,
+        quality: 80,
+      },
+    }).catch((error) => {
+      this.logger.warn({
+        message: 'Failed to queue thumbnail generation',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    });
+
+    return publicUrl;
   }
 
   async deleteFile(url: string): Promise<void> {
@@ -53,12 +78,17 @@ export class UploadService {
         }
       }
     } catch (error) {
-      console.error('Error deleting file:', error);
+      this.logger.error({
+        message: 'Error deleting file',
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        fileName,
+      });
     }
   }
 
   async saveProductMedia(productId: number, url: string, order: number, type = 'image') {
-    return this.prisma.productMedia.create({
+    const media = await this.prisma.productMedia.create({
       data: {
         productId,
         url,
@@ -66,6 +96,33 @@ export class UploadService {
         order,
       },
     });
+
+    // Queue image processing if it's an image
+    if (type === 'image') {
+      // Extract filename from URL
+      const fileName = url.split('/').pop();
+      const filePath = fileName ? path.join(this.uploadDir, fileName) : '';
+
+      this.imageQueue.addImageJob({
+        type: 'thumbnail',
+        filePath: filePath,
+        fileUrl: url,
+        productId,
+        mediaId: media.id,
+        options: {
+          width: 300,
+          height: 300,
+          quality: 80,
+        },
+      }).catch((error) => {
+        this.logger.warn({
+          message: 'Failed to queue image processing',
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
+    }
+
+    return media;
   }
 
   async updateMediaOrder(mediaId: number, order: number) {

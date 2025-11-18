@@ -253,11 +253,19 @@ export default function ProductForm() {
 
   const removeMedia = async (index: number) => {
     const item = mediaItems[index];
+    if (!item) return;
+    
+    // Подтверждение удаления
+    const confirmed = window.confirm('Вы уверены, что хотите удалить это изображение?');
+    if (!confirmed) return;
+    
     if (item.id) {
       try {
         await api.delete(`/upload/media/${item.id}`);
       } catch (error) {
         console.error('Delete error:', error);
+        alert('Не удалось удалить изображение. Попробуйте ещё раз.');
+        return;
       }
     }
     setMediaItems((prev) => prev.filter((_, i) => i !== index).map((item, i) => ({ ...item, order: i })));
@@ -342,8 +350,127 @@ export default function ProductForm() {
 
   const updateMutation = useMutation({
     mutationFn: async (data: ProductFormData) => {
-      const { data: result } = await api.put(`/products/${id}`, data);
-      return result;
+      try {
+        // Убеждаемся, что categoryId - число
+        // Формируем payload только с нужными полями
+        let categoryId: number | undefined;
+        if (data.categoryId !== undefined && data.categoryId !== null) {
+          const parsed = typeof data.categoryId === 'string' ? parseInt(data.categoryId, 10) : Number(data.categoryId);
+          if (!isNaN(parsed) && parsed > 0) {
+            categoryId = parsed;
+          }
+        }
+        
+        const payload: any = {
+          slug: data.slug,
+          name: data.name,
+          description: data.description || undefined,
+          categoryId: categoryId,
+          productType: data.productType,
+          basePrice: data.basePrice !== undefined && data.basePrice !== null ? Number(data.basePrice) : undefined,
+          unit: data.unit,
+          material: data.material && data.material.trim() !== '' ? data.material : undefined,
+          isActive: data.isActive !== undefined ? Boolean(data.isActive) : true,
+        };
+        
+        // Очищаем атрибуты от служебных полей (id, productId, attributeId)
+        if (data.attributes && data.attributes.length > 0) {
+          payload.attributes = data.attributes.map((attr: any) => {
+            const { id, productId, attributeId, createdAt, updatedAt, ...cleanAttr } = attr;
+            return {
+              name: cleanAttr.name,
+              slug: cleanAttr.slug,
+              type: cleanAttr.type || 'select',
+              order: cleanAttr.order ?? 0,
+              isRequired: cleanAttr.isRequired !== undefined ? Boolean(cleanAttr.isRequired) : true,
+              unit: cleanAttr.unit || undefined,
+              values: (attr.values || []).map((val: any) => {
+                const { id: valId, attributeId: valAttrId, createdAt: valCreatedAt, updatedAt: valUpdatedAt, ...cleanVal } = val;
+                return {
+                  value: cleanVal.value,
+                  displayName: cleanVal.displayName,
+                  order: cleanVal.order ?? 0,
+                  metadata: cleanVal.metadata || undefined,
+                };
+              }),
+            };
+          });
+        }
+        
+        // Очищаем варианты от служебных полей (id, productId, createdAt, updatedAt)
+        if (data.variants && data.variants.length > 0) {
+          payload.variants = data.variants.map((variant: any) => {
+            const { id, productId, createdAt, updatedAt, ...cleanVariant } = variant;
+            return {
+              name: cleanVariant.name || undefined,
+              sku: cleanVariant.sku || undefined,
+              price: Number(cleanVariant.price) || 0,
+              stock: cleanVariant.stock !== undefined ? Number(cleanVariant.stock) : 0,
+              weight: cleanVariant.weight !== undefined && cleanVariant.weight !== null ? Number(cleanVariant.weight) : undefined,
+              unit: cleanVariant.unit || undefined,
+              attributes: cleanVariant.attributes || {},
+              metadata: cleanVariant.metadata || undefined,
+              isActive: cleanVariant.isActive !== undefined ? Boolean(cleanVariant.isActive) : true,
+            };
+          });
+        }
+        
+        if (data.specifications && Object.keys(data.specifications).length > 0) {
+          payload.specifications = data.specifications;
+        }
+        
+        // Удаляем undefined значения из payload, но сохраняем обязательные поля
+        const cleanPayload: any = {};
+        Object.entries(payload).forEach(([key, value]) => {
+          // Сохраняем обязательные поля даже если они undefined (валидация сама проверит)
+          if (key === 'categoryId' || key === 'slug' || key === 'name' || key === 'productType') {
+            cleanPayload[key] = value;
+          } else if (value !== undefined) {
+            cleanPayload[key] = value;
+          }
+        });
+        
+        // Для вложенных объектов также удаляем undefined
+        if (cleanPayload.attributes) {
+          cleanPayload.attributes = cleanPayload.attributes.map((attr: any) => {
+            const cleaned = Object.fromEntries(
+              Object.entries(attr).filter(([_, value]) => {
+                if (Array.isArray(value)) {
+                  return value.length > 0;
+                }
+                return value !== undefined;
+              })
+            );
+            if (cleaned.values) {
+              cleaned.values = cleaned.values.map((val: any) => 
+                Object.fromEntries(
+                  Object.entries(val).filter(([_, v]) => v !== undefined)
+                )
+              );
+            }
+            return cleaned;
+          });
+        }
+        
+        if (cleanPayload.variants) {
+          cleanPayload.variants = cleanPayload.variants.map((variant: any) =>
+            Object.fromEntries(
+              Object.entries(variant).filter(([_, value]) => value !== undefined)
+            )
+          );
+        }
+        
+        console.log('Sending update payload:', JSON.stringify(cleanPayload, null, 2));
+        const { data: result } = await api.put(`/products/${id}`, cleanPayload);
+        return result;
+      } catch (error: any) {
+        console.error('Error updating product:', error);
+        console.error('Error response:', error.response?.data);
+        console.error('Error status:', error.response?.status);
+        console.error('Full payload:', data);
+        // Пробрасываем ошибку дальше для обработки в onSubmit
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['products-admin'] });
@@ -396,9 +523,25 @@ export default function ProductForm() {
 
       queryClient.invalidateQueries({ queryKey: ['products-admin'] });
       navigate('/products');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Save error:', error);
-      alert('Ошибка сохранения товара');
+      
+      // Формируем понятное сообщение об ошибке
+      let errorMessage = 'Ошибка сохранения товара';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.status === 400) {
+        errorMessage = 'Некорректные данные. Проверьте все поля формы.';
+      } else if (error.response?.status === 404) {
+        errorMessage = 'Товар или категория не найдены.';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Внутренняя ошибка сервера. Проверьте логи сервера.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      alert(errorMessage);
     }
   };
 
@@ -591,9 +734,8 @@ export default function ProductForm() {
                 </label>
                 <input
                   {...register('slug', { required: 'Slug обязателен' })}
-                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
+                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium [color-scheme:dark]"
                   placeholder="product-slug"
-                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                 />
                 {errors.slug && <p className="text-red-400 text-xs mt-1">{errors.slug.message}</p>}
               </div>
@@ -602,9 +744,8 @@ export default function ProductForm() {
                 <label className="block text-sm font-medium text-white mb-2">Название *</label>
                 <input
                   {...register('name', { required: 'Название обязательно' })}
-                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
+                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium [color-scheme:dark]"
                   placeholder="Название товара"
-                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                 />
                 {errors.name && <p className="text-red-400 text-xs mt-1">{errors.name.message}</p>}
               </div>
@@ -615,9 +756,8 @@ export default function ProductForm() {
                 <textarea
                   {...register('description')}
                   rows={4}
-                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm resize-none font-medium"
+                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm resize-none font-medium [color-scheme:dark]"
                   placeholder="Подробное описание товара..."
-                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                 />
               </div>
 
@@ -629,8 +769,7 @@ export default function ProductForm() {
                 </label>
                 <select
                   {...register('categoryId', { required: 'Категория обязательна', valueAsNumber: true })}
-                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
-                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
+                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium [color-scheme:dark]"
                 >
                   <option value="" className="bg-[#0a0a0a] text-white">Выберите категорию</option>
                   {categories?.map((cat: any) => (
@@ -649,8 +788,7 @@ export default function ProductForm() {
                 </label>
                 <select
                   {...register('productType', { required: true })}
-                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
-                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
+                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium [color-scheme:dark]"
                 >
                   <option value={ProductType.SIMPLE} className="bg-[#0a0a0a] text-white">Простой</option>
                   <option value={ProductType.SINGLE_VARIANT} className="bg-[#0a0a0a] text-white">С одним вариантом</option>
@@ -667,8 +805,7 @@ export default function ProductForm() {
                 </label>
                 <select
                   {...register('unit')}
-                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
-                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
+                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium [color-scheme:dark]"
                 >
                   <option value={UnitType.PIECE} className="bg-[#0a0a0a] text-white">Штука (шт)</option>
                   <option value={UnitType.SQUARE_METER} className="bg-[#0a0a0a] text-white">Квадратный метр (м²)</option>
@@ -683,8 +820,7 @@ export default function ProductForm() {
                 </label>
                 <select
                   {...register('material')}
-                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
-                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
+                  className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium [color-scheme:dark]"
                 >
                   <option value="" className="bg-[#0a0a0a] text-white">Не указан</option>
                   <option value="MARBLE" className="bg-[#0a0a0a] text-white">Мрамор</option>
@@ -703,9 +839,8 @@ export default function ProductForm() {
                     type="number"
                     step="0.01"
                     {...register('basePrice', { valueAsNumber: true })}
-                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
+                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium [color-scheme:dark]"
                     placeholder="0.00"
-                    style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                   />
                 </div>
               )}
@@ -834,9 +969,8 @@ export default function ProductForm() {
                             </label>
                             <input
                               {...register(`attributes.${attrIndex}.name` as const, { required: true })}
-                              className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
+                              className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium [color-scheme:dark]"
                               placeholder="Размер"
-                              style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                             />
                           </div>
                           <div>
@@ -846,17 +980,15 @@ export default function ProductForm() {
                             </label>
                             <input
                               {...register(`attributes.${attrIndex}.slug` as const, { required: true })}
-                              className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium font-mono"
+                              className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium font-mono [color-scheme:dark]"
                               placeholder="size"
-                              style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                             />
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-white mb-2">Тип атрибута</label>
                             <select
                               {...register(`attributes.${attrIndex}.type` as const)}
-                              className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm"
-                              style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
+                              className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm [color-scheme:dark]"
                             >
                               <option value="select" className="bg-[#0a0a0a] text-white">Выбор из списка</option>
                               <option value="text" className="bg-[#0a0a0a] text-white">Текст</option>
@@ -932,14 +1064,12 @@ export default function ProductForm() {
                                 <input
                                   {...register(`attributes.${attrIndex}.values.${valueIndex}.value` as const, { required: true })}
                                   placeholder="Значение (для системы)"
-                                  className="flex-1 px-4 py-2.5 border border-white/25 rounded-lg bg-white/12 text-white placeholder:text-white/50 text-sm min-w-0 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm"
-                                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
+                                  className="flex-1 px-4 py-2.5 border border-white/25 rounded-lg bg-white/12 text-white placeholder:text-white/50 text-sm min-w-0 font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm [color-scheme:dark]"
                                 />
                                 <input
                                   {...register(`attributes.${attrIndex}.values.${valueIndex}.displayName` as const, { required: true })}
                                   placeholder="Отображаемое название"
-                                  className="flex-1 px-4 py-2.5 border border-white/25 rounded-lg bg-white/12 text-white placeholder:text-white/50 text-sm min-w-0 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm"
-                                  style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
+                                  className="flex-1 px-4 py-2.5 border border-white/25 rounded-lg bg-white/12 text-white placeholder:text-white/50 text-sm min-w-0 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm [color-scheme:dark]"
                                 />
                                 <Button
                                   type="button"
@@ -1100,18 +1230,16 @@ export default function ProductForm() {
                                   <label className="block text-sm font-semibold text-white/90 mb-2">Название</label>
                                   <input
                                     {...register(`variants.${variantIndex}.name` as const)}
-                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
+                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium [color-scheme:dark]"
                                     placeholder="Название варианта"
-                                    style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                                   />
                                 </div>
                                 <div>
                                   <label className="block text-sm font-semibold text-white/90 mb-2">SKU</label>
                                   <input
                                     {...register(`variants.${variantIndex}.sku` as const)}
-                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium font-mono"
+                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium font-mono [color-scheme:dark]"
                                     placeholder="SKU"
-                                    style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                                   />
                                 </div>
                                 <div>
@@ -1123,9 +1251,8 @@ export default function ProductForm() {
                                     type="number"
                                     step="0.01"
                                     {...register(`variants.${variantIndex}.price` as const, { valueAsNumber: true, required: true })}
-                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
+                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium [color-scheme:dark]"
                                     placeholder="0.00"
-                                    style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                                   />
                                 </div>
                                 <div>
@@ -1133,9 +1260,8 @@ export default function ProductForm() {
                                   <input
                                     type="number"
                                     {...register(`variants.${variantIndex}.stock` as const, { valueAsNumber: true })}
-                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
+                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium [color-scheme:dark]"
                                     placeholder="0"
-                                    style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                                   />
                                 </div>
                                 <div>
@@ -1144,17 +1270,15 @@ export default function ProductForm() {
                                     type="number"
                                     step="0.01"
                                     {...register(`variants.${variantIndex}.weight` as const, { valueAsNumber: true })}
-                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium"
+                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white placeholder:text-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm font-medium [color-scheme:dark]"
                                     placeholder="0.00"
-                                    style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
                                   />
                                 </div>
                                 <div>
                                   <label className="block text-sm font-semibold text-white/90 mb-2">Единица</label>
                                   <select
                                     {...register(`variants.${variantIndex}.unit` as const)}
-                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm"
-                                    style={{ color: 'rgb(250, 250, 250)', WebkitTextFillColor: 'rgb(250, 250, 250)' }}
+                                    className="w-full px-4 py-3 border border-white/25 rounded-xl bg-white/12 text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all shadow-inner backdrop-blur-sm [color-scheme:dark]"
                                   >
                                     <option value={UnitType.PIECE} className="bg-[#0a0a0a] text-white">Штука</option>
                                     <option value={UnitType.SQUARE_METER} className="bg-[#0a0a0a] text-white">м²</option>

@@ -157,7 +157,7 @@ export default function PriceMatrixEditor({
                                       handleSave();
                                     }
                                   }}
-                                  className="w-24 px-2 py-1.5 text-sm border border-blue-400/50 rounded-lg bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-blue-400/50 font-medium"
+                                  className="w-24 px-2 py-1.5 text-sm border border-blue-400/50 rounded-lg bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-blue-400/50 font-medium [color-scheme:dark]"
                                   autoFocus
                                 />
                                 <div className="flex gap-1">
@@ -265,7 +265,7 @@ export default function PriceMatrixEditor({
                                         handleSave();
                                       }
                                     }}
-                                    className="w-24 px-2 py-1.5 text-sm border border-blue-400/50 rounded-lg bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-blue-400/50 font-medium"
+                                    className="w-24 px-2 py-1.5 text-sm border border-blue-400/50 rounded-lg bg-white/15 text-white focus:outline-none focus:ring-2 focus:ring-blue-400/50 font-medium [color-scheme:dark]"
                                     autoFocus
                                   />
                                   <div className="flex gap-1">
