@@ -1,4 +1,4 @@
-import { useContext, useMemo, useRef, useEffect } from 'react'
+import { useContext, useMemo, useRef, useEffect, createElement } from 'react'
 import type { Context } from 'react'
 
 /**
@@ -90,15 +90,15 @@ export function createSplitContext<T extends Record<string, any>>(
 ) {
   return {
     Provider: ({ children, value }: { children: React.ReactNode; value: T }) => {
-      let result: React.ReactElement = children as React.ReactElement
+      let result: React.ReactNode = children
       
       for (const [key, Context] of Object.entries(contexts)) {
         const ContextValue = value[key as keyof T]
-        result = (
-          <Context.Provider key={key} value={ContextValue}>
-            {result}
-          </Context.Provider>
-        ) as React.ReactElement
+        result = createElement(
+          Context.Provider,
+          { key, value: ContextValue },
+          result
+        )
       }
       
       return result
