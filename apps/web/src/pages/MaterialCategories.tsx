@@ -214,22 +214,6 @@ export default function MaterialCategories() {
             )
           })}
         </motion.div>
-                        <div className="flex-1 flex flex-col justify-center w-full">
-                          <h3 className="font-inscription text-base text-gray-900 leading-tight min-h-[2.5rem] flex items-center justify-center">
-                            {category.name}
-                          </h3>
-                          <p className="text-xs font-body text-gray-600 mt-2">
-                            {category.count} {category.count === 1 ? 'товар' : category.count < 5 ? 'товара' : 'товаров'}
-                          </p>
-                        </div>
-                      </div>
-                    </StoneCard>
-                  </motion.div>
-                </Link>
-              </motion.div>
-            )
-          })}
-        </div>
       </div>
     </div>
   )

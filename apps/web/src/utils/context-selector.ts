@@ -94,7 +94,7 @@ export function createSplitContext<T extends Record<string, any>>(
         (acc, [key, Context]) => {
           const ContextProvider = Context.Provider as React.Provider<T[keyof T]>
           return (
-            <ContextProvider key={key} value={value[key]}>
+            <ContextProvider key={key} value={value[key as keyof T]}>
               {acc}
             </ContextProvider>
           )
