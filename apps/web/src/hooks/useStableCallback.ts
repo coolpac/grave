@@ -60,3 +60,4 @@ export function useStableCallbackAuto<T extends (...args: any[]) => any>(
   return useCallback(callback, deps)
 }
 
+

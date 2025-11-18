@@ -222,3 +222,4 @@ if (shouldReduceMotion) {
 5. Избегайте spring анимаций на мобильных
 
 
+
