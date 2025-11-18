@@ -82,10 +82,9 @@ export function getHelmetConfig(configService: ConfigService): HelmetOptions {
     baseUri: ["'self'"],
     formAction: ["'self'"],
     upgradeInsecureRequests: isDevelopment ? null : [],
-    blockAllMixedContent: !isDevelopment,
   };
 
-  return {
+  const helmetConfig: HelmetOptions = {
     // Content Security Policy
     contentSecurityPolicy: {
       directives: cspDirectives,
@@ -147,5 +146,12 @@ export function getHelmetConfig(configService: ConfigService): HelmetOptions {
     // Hide powered-by header (handled by NestJS, but added for completeness)
     hidePoweredBy: true,
   };
+
+  // Add blockAllMixedContent at top level if not in development
+  if (!isDevelopment) {
+    (helmetConfig as any).blockAllMixedContent = true;
+  }
+
+  return helmetConfig;
 }
 

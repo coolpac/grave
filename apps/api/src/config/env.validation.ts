@@ -82,11 +82,14 @@ export const envValidationSchema = Joi.object({
   // Telegram Bot Configuration
   // ============================================
   BOT_TOKEN: Joi.string()
-    .required()
-    .description('Telegram bot token')
-    .messages({
-      'any.required': 'BOT_TOKEN is required',
-    }),
+    .when('NODE_ENV', {
+      is: Joi.string().valid('production'),
+      then: Joi.required().messages({
+        'any.required': 'BOT_TOKEN is required in production',
+      }),
+      otherwise: Joi.optional().allow('').default(''),
+    })
+    .description('Telegram bot token'),
 
   CUSTOMER_BOT_TOKEN: Joi.string()
     .optional()

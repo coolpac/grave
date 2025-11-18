@@ -13,8 +13,8 @@ export function getQueueConfig(configService: ConfigService): BullModuleOptions 
   const redisPassword = configService.get<string>('REDIS_PASSWORD');
 
   // Use Redis URL if provided, otherwise use host/port
-  const redisConfig = redisUrl
-    ? { url: redisUrl }
+  const redisConfig: string | { host: string; port: number; password?: string } = redisUrl
+    ? redisUrl
     : {
         host: redisHost,
         port: redisPort,
@@ -22,7 +22,7 @@ export function getQueueConfig(configService: ConfigService): BullModuleOptions 
       };
 
   return {
-    redis: redisConfig,
+    redis: redisConfig as any,
     defaultJobOptions: {
       removeOnComplete: {
         age: 3600, // Keep completed jobs for 1 hour

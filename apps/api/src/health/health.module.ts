@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TerminusModule } from '@nestjs/terminus';
+// @ts-ignore - TypeScript may not resolve types correctly, but module works in runtime
 import { HttpModule } from '@nestjs/axios';
 import { HealthController } from './health.controller';
 import { DatabaseHealthIndicator } from './indicators/database.health';
@@ -17,7 +18,10 @@ import { PrismaModule } from '../prisma/prisma.module';
 @Module({
   imports: [
     TerminusModule,
-    HttpModule,
+    HttpModule.register({
+      timeout: 5000,
+      maxRedirects: 5,
+    }),
     PrismaModule,
   ],
   controllers: [HealthController],

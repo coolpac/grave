@@ -1,10 +1,12 @@
 import { useState, useEffect, Suspense, lazy } from 'react'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Toaster } from 'react-hot-toast'
 import Layout from './components/Layout'
 import LoadingScreen from './components/LoadingScreen'
 import { useTelegram } from './hooks/useTelegram'
+import { queryClient } from './config/queryClient'
 
 // Lazy load all pages for code splitting
 const Home = lazy(() => import('./pages/Home'))
@@ -150,6 +152,8 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AppContent />
+      {/* React Query Devtools - только в development */}
+      {import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
       <Toaster
         position="top-center"
         toastOptions={{

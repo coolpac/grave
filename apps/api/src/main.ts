@@ -102,8 +102,8 @@ async function bootstrap() {
 
   // Global exception filters
   app.useGlobalFilters(
-    new AuthExceptionFilter(), // Сначала обрабатываем ошибки авторизации
-    new HttpExceptionFilter(), // Затем все остальные ошибки
+    new AuthExceptionFilter(logger), // Сначала обрабатываем ошибки авторизации
+    new HttpExceptionFilter(logger), // Затем все остальные ошибки
   );
 
   // Global interceptors

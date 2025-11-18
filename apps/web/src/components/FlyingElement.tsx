@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useReducedMotion } from '../hooks/useReducedMotion'
+import { getTransition } from '../utils/animation-variants'
 
 interface FlyingElementProps {
   trigger: boolean
@@ -17,19 +19,26 @@ export default function FlyingElement({
   children,
 }: FlyingElementProps) {
   const [isAnimating, setIsAnimating] = useState(false)
+  const { shouldReduceMotion } = useReducedMotion()
 
   useEffect(() => {
     if (trigger) {
       setIsAnimating(true)
       // Сброс через небольшую задержку для повторного использования
+      const duration = shouldReduceMotion ? 300 : 700
       setTimeout(() => {
         setIsAnimating(false)
-      }, 700)
+      }, duration)
     }
-  }, [trigger])
+  }, [trigger, shouldReduceMotion])
+
+  // На слабых устройствах упрощаем анимацию
+  if (shouldReduceMotion) {
+    return null // Полностью отключаем анимацию на слабых устройствах
+  }
 
   return (
-    <AnimatePresence>
+    <AnimatePresence mode="wait">
       {isAnimating && (
         <motion.div
           initial={{
@@ -48,10 +57,7 @@ export default function FlyingElement({
             scale: 0,
             opacity: 0,
           }}
-          transition={{
-            duration: 0.6,
-            ease: [0.25, 0.46, 0.45, 0.94],
-          }}
+          transition={getTransition(shouldReduceMotion, 'normal')}
           onAnimationComplete={() => {
             setIsAnimating(false)
             onComplete?.()
@@ -60,6 +66,8 @@ export default function FlyingElement({
           style={{
             left: 0,
             top: 0,
+            // Используем transform для GPU acceleration
+            willChange: 'transform',
           }}
         >
           {children}

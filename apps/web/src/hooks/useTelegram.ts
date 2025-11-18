@@ -1,6 +1,9 @@
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import WebApp from '@twa-dev/sdk'
-import { safeBackButton, safeMainButton } from '../utils/telegramSafe'
+import { OptimizedMainButton, OptimizedBackButton } from '../utils/telegram-buttons'
+import { getCloudStorage, CloudStorageAPI } from '../utils/telegram-storage'
+import { getHapticFeedback, HapticFeedbackAPI } from '../utils/telegram-haptic'
+import { applyThemeColors, getTelegramTheme, subscribeToThemeChanges, TelegramThemeParams } from '../utils/telegram-theme'
 
 export interface TelegramUser {
   id: number
@@ -12,18 +15,8 @@ export interface TelegramUser {
   photo_url?: string
 }
 
-export interface TelegramThemeParams {
-  bg_color?: string
-  text_color?: string
-  hint_color?: string
-  link_color?: string
-  button_color?: string
-  button_text_color?: string
-  secondary_bg_color?: string
-}
-
 export interface UseTelegramReturn {
-  webApp: typeof WebApp
+  webApp: typeof WebApp | null
   initDataUnsafe: {
     user?: TelegramUser
     auth_date?: number
@@ -33,27 +26,73 @@ export interface UseTelegramReturn {
     [key: string]: any
   } | null
   themeParams: TelegramThemeParams | null
+  colorScheme: 'light' | 'dark' | 'auto'
   user: TelegramUser | null
   isReady: boolean
-  MainButton: typeof WebApp.MainButton
-  BackButton: typeof WebApp.BackButton
+  MainButton: OptimizedMainButton
+  BackButton: OptimizedBackButton
+  CloudStorage: CloudStorageAPI
+  HapticFeedback: HapticFeedbackAPI
   sendDataToServer: () => Promise<boolean>
   expand: () => void
   close: () => void
+  enableClosingConfirmation: () => void
+  disableClosingConfirmation: () => void
+  isExpanded: boolean
+  version: string
 }
 
+/**
+ * Throttle function for frequent calls
+ */
+function throttle<T extends (...args: any[]) => void>(
+  func: T,
+  limit: number
+): (...args: Parameters<T>) => void {
+  let inThrottle: boolean
+  return function (this: any, ...args: Parameters<T>) {
+    if (!inThrottle) {
+      func.apply(this, args)
+      inThrottle = true
+      setTimeout(() => (inThrottle = false), limit)
+    }
+  }
+}
+
+/**
+ * Optimized Telegram WebApp Hook
+ * 
+ * Features:
+ * - Memoized methods
+ * - Throttled frequent calls
+ * - Lazy initialization
+ * - CloudStorage, HapticFeedback, enableClosingConfirmation support
+ * - Optimized button lifecycle management
+ * - Theme adaptation (dark/light mode)
+ */
 export const useTelegram = (): UseTelegramReturn => {
   const [initDataUnsafe, setInitDataUnsafe] = useState<UseTelegramReturn['initDataUnsafe']>(null)
   const [themeParams, setThemeParams] = useState<TelegramThemeParams | null>(null)
+  const [colorScheme, setColorScheme] = useState<'light' | 'dark' | 'auto'>('auto')
   const [user, setUser] = useState<TelegramUser | null>(null)
   const [isReady, setIsReady] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
+  const [version, setVersion] = useState('')
   const isInitialized = useRef(false)
+  const themeUnsubscribeRef = useRef<(() => void) | null>(null)
 
+  // Create optimized button instances (memoized)
+  const mainButtonRef = useRef<OptimizedMainButton | null>(null)
+  const backButtonRef = useRef<OptimizedBackButton | null>(null)
+  const cloudStorageRef = useRef<CloudStorageAPI | null>(null)
+  const hapticFeedbackRef = useRef<HapticFeedbackAPI | null>(null)
+
+  // Lazy initialization
   useEffect(() => {
     if (isInitialized.current) return
     isInitialized.current = true
 
-    // Проверяем, доступен ли Telegram WebApp SDK (в браузере может быть недоступен)
+    // Check if Telegram WebApp SDK is available
     if (typeof WebApp === 'undefined' || !WebApp) {
       console.log('Telegram WebApp SDK not available, running in browser mode')
       setIsReady(true)
@@ -61,141 +100,240 @@ export const useTelegram = (): UseTelegramReturn => {
     }
 
     try {
-      // Инициализация SDK
+      // Initialize SDK
       WebApp.ready()
-      
-      // Получение данных
+
+      // Get version
+      const webAppVersion = (WebApp as any).version || 'unknown'
+      setVersion(webAppVersion)
+
+      // Get initial data
       const unsafe = WebApp.initDataUnsafe
       const theme = WebApp.themeParams
-      
+
       setInitDataUnsafe(unsafe)
       setThemeParams(theme)
-      
+
       if (unsafe?.user) {
         setUser(unsafe.user)
       }
 
-      // Настройка темы
-      if (theme?.bg_color) {
-        document.documentElement.style.setProperty('--tg-theme-bg-color', theme.bg_color)
-      }
-      if (theme?.text_color) {
-        document.documentElement.style.setProperty('--tg-theme-text-color', theme.text_color)
-      }
-      if (theme?.hint_color) {
-        document.documentElement.style.setProperty('--tg-theme-hint-color', theme.hint_color)
-      }
-      if (theme?.link_color) {
-        document.documentElement.style.setProperty('--tg-theme-link-color', theme.link_color)
-      }
-      if (theme?.button_color) {
-        document.documentElement.style.setProperty('--tg-theme-button-color', theme.button_color)
-      }
-      if (theme?.button_text_color) {
-        document.documentElement.style.setProperty('--tg-theme-button-text-color', theme.button_text_color)
-      }
-      if (theme?.secondary_bg_color) {
-        document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', theme.secondary_bg_color)
+      // Apply theme colors
+      if (theme) {
+        applyThemeColors(theme)
+        const scheme = theme.bg_color
+          ? (parseInt(theme.bg_color.replace('#', '').substring(0, 2), 16) +
+             parseInt(theme.bg_color.replace('#', '').substring(2, 4), 16) +
+             parseInt(theme.bg_color.replace('#', '').substring(4, 6), 16)) / 3 > 127.5
+            ? 'light'
+            : 'dark'
+          : 'auto'
+        setColorScheme(scheme)
       }
 
-      // Расширяем приложение на весь экран
-      WebApp.expand()
+      // Expand app to fullscreen (throttled to prevent multiple calls)
+      const expandApp = throttle(() => {
+        try {
+          WebApp.expand()
+          setIsExpanded(true)
+        } catch (error) {
+          console.warn('Failed to expand WebApp:', error)
+        }
+      }, 100)
 
-      // Обработчик изменения темы
-      const handleThemeChange = () => {
-        const newTheme = WebApp.themeParams
+      expandApp()
+
+      // Enable closing confirmation (if supported)
+      if (typeof (WebApp as any).enableClosingConfirmation === 'function') {
+        try {
+          ;(WebApp as any).enableClosingConfirmation()
+        } catch (error) {
+          console.warn('Failed to enable closing confirmation:', error)
+        }
+      }
+
+      // Subscribe to theme changes
+      themeUnsubscribeRef.current = subscribeToThemeChanges((newTheme) => {
         setThemeParams(newTheme)
-        
-        if (newTheme?.bg_color) {
-          document.documentElement.style.setProperty('--tg-theme-bg-color', newTheme.bg_color)
-        }
-        if (newTheme?.text_color) {
-          document.documentElement.style.setProperty('--tg-theme-text-color', newTheme.text_color)
-        }
-      }
-
-      WebApp.onEvent('themeChanged', handleThemeChange)
-
-      setIsReady(true)
-
-      return () => {
-        WebApp.offEvent('themeChanged', handleThemeChange)
-      }
-    } catch (error) {
-      console.error('Error initializing Telegram WebApp:', error)
-      setIsReady(true) // Устанавливаем ready даже при ошибке, чтобы не блокировать приложение
-    }
-  }, [])
-
-  const sendDataToServer = useCallback(async (): Promise<boolean> => {
-    try {
-      // Проверяем доступность WebApp SDK
-      if (typeof WebApp === 'undefined' || !WebApp) {
-        console.log('WebApp SDK not available, skipping validation (browser mode)')
-        return true
-      }
-
-      const initData = WebApp.initData
-      if (!initData) {
-        console.warn('No initData available - running in development mode?')
-        // В режиме разработки (без Telegram) возвращаем true
-        return true
-      }
-
-      // В режиме разработки можно использовать dev эндпоинт
-      const endpoint = import.meta.env.DEV 
-        ? '/api/validate-init-data-dev' 
-        : '/api/validate-init-data'
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ initData }),
+        applyThemeColors(newTheme)
+        const scheme = newTheme.bg_color
+          ? (parseInt(newTheme.bg_color.replace('#', '').substring(0, 2), 16) +
+             parseInt(newTheme.bg_color.replace('#', '').substring(2, 4), 16) +
+             parseInt(newTheme.bg_color.replace('#', '').substring(4, 6), 16)) / 3 > 127.5
+            ? 'light'
+            : 'dark'
+          : 'auto'
+        setColorScheme(scheme)
       })
 
-      if (!response.ok) {
-        // Если сервер недоступен, логируем предупреждение но продолжаем работу
-        if (import.meta.env.DEV) {
-          console.warn('Validation server unavailable, continuing in dev mode')
-          return true
+      // Subscribe to viewport changes
+      if (typeof WebApp.onEvent === 'function') {
+        const handleViewportChange = () => {
+          setIsExpanded(WebApp.isExpanded || false)
         }
-        throw new Error(`HTTP error! status: ${response.status}`)
+        WebApp.onEvent('viewportChanged', handleViewportChange)
       }
 
-      const result = await response.json()
-      return result.success === true
+      setIsReady(true)
     } catch (error) {
-      console.error('Error sending initData to server:', error)
-      // В режиме разработки возвращаем true для продолжения работы
-      if (import.meta.env.DEV) {
-        console.warn('Continuing in development mode despite validation error')
-        return true
+      console.error('Error initializing Telegram WebApp:', error)
+      setIsReady(true) // Set ready even on error to not block the app
+    }
+
+    return () => {
+      // Cleanup
+      if (themeUnsubscribeRef.current) {
+        themeUnsubscribeRef.current()
+        themeUnsubscribeRef.current = null
       }
-      return false
     }
   }, [])
 
-  const expand = useCallback(() => {
-    WebApp.expand()
+  // Memoized sendDataToServer with throttling
+  const sendDataToServer = useCallback(
+    throttle(async (): Promise<boolean> => {
+      try {
+        if (typeof WebApp === 'undefined' || !WebApp) {
+          console.log('WebApp SDK not available, skipping validation (browser mode)')
+          return true
+        }
+
+        const initData = WebApp.initData
+        if (!initData) {
+          console.warn('No initData available - running in development mode?')
+          return true
+        }
+
+        const endpoint = import.meta.env.DEV
+          ? '/api/validate-init-data-dev'
+          : '/api/validate-init-data'
+
+        const response = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ initData }),
+        })
+
+        if (!response.ok) {
+          if (import.meta.env.DEV) {
+            console.warn('Validation server unavailable, continuing in dev mode')
+            return true
+          }
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
+
+        const result = await response.json()
+        return result.success === true
+      } catch (error) {
+        console.error('Error sending initData to server:', error)
+        if (import.meta.env.DEV) {
+          console.warn('Continuing in development mode despite validation error')
+          return true
+        }
+        return false
+      }
+    }, 1000), // Throttle to max 1 call per second
+    []
+  )
+
+  // Memoized expand (throttled)
+  const expand = useCallback(
+    throttle(() => {
+      if (typeof WebApp === 'undefined' || !WebApp) return
+      try {
+        WebApp.expand()
+        setIsExpanded(true)
+      } catch (error) {
+        console.warn('Failed to expand WebApp:', error)
+      }
+    }, 100),
+    []
+  )
+
+  // Memoized close
+  const close = useCallback(() => {
+    if (typeof WebApp === 'undefined' || !WebApp) return
+    try {
+      WebApp.close()
+    } catch (error) {
+      console.warn('Failed to close WebApp:', error)
+    }
   }, [])
 
-  const close = useCallback(() => {
-    WebApp.close()
+  // Enable closing confirmation
+  const enableClosingConfirmation = useCallback(() => {
+    if (typeof WebApp === 'undefined' || !WebApp) return
+    try {
+      if (typeof (WebApp as any).enableClosingConfirmation === 'function') {
+        ;(WebApp as any).enableClosingConfirmation()
+      }
+    } catch (error) {
+      console.warn('Failed to enable closing confirmation:', error)
+    }
+  }, [])
+
+  // Disable closing confirmation
+  const disableClosingConfirmation = useCallback(() => {
+    if (typeof WebApp === 'undefined' || !WebApp) return
+    try {
+      if (typeof (WebApp as any).disableClosingConfirmation === 'function') {
+        ;(WebApp as any).disableClosingConfirmation()
+      }
+    } catch (error) {
+      console.warn('Failed to disable closing confirmation:', error)
+    }
+  }, [])
+
+  // Memoized button instances
+  const MainButton = useMemo(() => {
+    if (!mainButtonRef.current) {
+      mainButtonRef.current = new OptimizedMainButton()
+    }
+    return mainButtonRef.current
+  }, [])
+
+  const BackButton = useMemo(() => {
+    if (!backButtonRef.current) {
+      backButtonRef.current = new OptimizedBackButton()
+    }
+    return backButtonRef.current
+  }, [])
+
+  // Memoized CloudStorage
+  const CloudStorage = useMemo(() => {
+    if (!cloudStorageRef.current) {
+      cloudStorageRef.current = getCloudStorage()
+    }
+    return cloudStorageRef.current
+  }, [])
+
+  // Memoized HapticFeedback
+  const HapticFeedback = useMemo(() => {
+    if (!hapticFeedbackRef.current) {
+      hapticFeedbackRef.current = getHapticFeedback()
+    }
+    return hapticFeedbackRef.current
   }, [])
 
   return {
-    webApp: WebApp,
+    webApp: typeof WebApp !== 'undefined' ? WebApp : null,
     initDataUnsafe,
     themeParams,
+    colorScheme,
     user,
     isReady,
-    MainButton: safeMainButton(),
-    BackButton: safeBackButton(),
+    MainButton,
+    BackButton,
+    CloudStorage,
+    HapticFeedback,
     sendDataToServer,
     expand,
     close,
+    enableClosingConfirmation,
+    disableClosingConfirmation,
+    isExpanded,
+    version,
   }
 }
-

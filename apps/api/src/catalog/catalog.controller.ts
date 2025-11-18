@@ -75,10 +75,12 @@ export class CatalogController {
     // Создаем объект пагинации вручную, чтобы избежать проблем с валидацией
     const pagination: PaginationDto | undefined = 
       (page || limit) 
-        ? {
-            page: page ? +page : undefined,
-            limit: limit ? +limit : undefined,
-          }
+        ? (() => {
+            const dto = new PaginationDto();
+            dto.page = page ? +page : undefined;
+            dto.limit = limit ? +limit : undefined;
+            return dto;
+          })()
         : undefined;
 
     return this.catalogService.findAllProducts(

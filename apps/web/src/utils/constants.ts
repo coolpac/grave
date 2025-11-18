@@ -13,3 +13,4 @@ export const PLACEHOLDER_IMAGE = '/placeholder-image.svg'
  */
 export const PLACEHOLDER_BANNER = '/placeholder-image.svg'
 
+

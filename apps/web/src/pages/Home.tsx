@@ -8,6 +8,9 @@ import { useCallback, useMemo, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { BannerCarousel, type BannerCarouselItem } from '../components/BannerCarousel'
+import { usePrefetch } from '../hooks/usePrefetch'
+import { useReducedMotion } from '../hooks/useReducedMotion'
+import { getAnimationVariants, getTransition, hoverLift } from '../utils/animation-variants'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
@@ -27,6 +30,9 @@ type BannerResponse = {
 export default function Home() {
   const { user } = useTelegram()
   const contactRef = useRef<HTMLDivElement>(null)
+  const { prefetchCategory } = usePrefetch()
+  const { shouldReduceMotion } = useReducedMotion()
+  
   const { data: bannersData } = useQuery<BannerResponse[]>({
     queryKey: ['banners-public'],
     queryFn: async () => {
@@ -132,14 +138,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      {/* Hero Section */}
+      {/* Hero Section - без анимации на критическом пути */}
       <div className="px-4 pt-6 pb-4">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="space-y-2"
-        >
+        <div className="space-y-2">
           <div className="flex items-center justify-between gap-3">
             <h1 className="text-3xl font-inscription text-gray-900 mb-1 flex-1">
               Ритуальные товары
@@ -147,11 +148,10 @@ export default function Home() {
             <motion.button
               onClick={scrollToContacts}
               className="granite-button px-3 py-2 rounded-lg font-body font-medium flex items-center justify-center gap-1.5 shrink-0"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.3, delay: 0.2 }}
+              whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
+              whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+              initial={false}
+              transition={getTransition(shouldReduceMotion, 'fast')}
             >
               <Info className="w-4 h-4" />
               <span className="text-sm">О нас</span>
@@ -160,7 +160,7 @@ export default function Home() {
           <p className="text-base font-body text-gray-600">
             Оптовые продажи изделий из мрамора и гранита
           </p>
-        </motion.div>
+        </div>
       </div>
 
       {/* Highlight Banner Carousel */}
@@ -183,15 +183,19 @@ export default function Home() {
           <div className="grid grid-cols-2 gap-3">
             {/* Мраморные изделия */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1, duration: 0.4 }}
+              variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
+              initial="hidden"
+              animate="visible"
+              custom={0}
+              onMouseEnter={() => prefetchCategory('marble')}
+              onTouchStart={() => prefetchCategory('marble')}
             >
               <Link to="/materials/marble">
                 <motion.div
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  transition={{ duration: 0.2 }}
+                  variants={shouldReduceMotion ? undefined : hoverLift}
+                  initial="rest"
+                  whileHover="hover"
+                  whileTap="tap"
                 >
                   <StoneCard className="cursor-pointer overflow-hidden relative min-h-[200px]">
                     <div className="relative z-10 p-4 flex flex-col justify-between h-full">
@@ -232,15 +236,19 @@ export default function Home() {
 
             {/* Гранитные изделия */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2, duration: 0.4 }}
+              variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
+              initial="hidden"
+              animate="visible"
+              custom={1}
+              onMouseEnter={() => prefetchCategory('granite')}
+              onTouchStart={() => prefetchCategory('granite')}
             >
               <Link to="/materials/granite">
                 <motion.div
-                  whileHover={{ scale: 1.02, y: -2 }}
-                  whileTap={{ scale: 0.98 }}
-                  transition={{ duration: 0.2 }}
+                  variants={shouldReduceMotion ? undefined : hoverLift}
+                  initial="rest"
+                  whileHover="hover"
+                  whileTap="tap"
                 >
                   <StoneCard className="cursor-pointer overflow-hidden relative min-h-[200px]">
                     <div className="relative z-10 p-4 flex flex-col justify-between h-full">
@@ -285,9 +293,9 @@ export default function Home() {
       {/* Contact Information - кликабельные контакты */}
       <div ref={contactRef} className="px-4 pb-8 scroll-mt-4">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
+          variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
+          initial="hidden"
+          animate="visible"
         >
           <StoneCard>
             <div className="space-y-3">
@@ -297,8 +305,9 @@ export default function Home() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-3 text-gray-900 hover:text-bronze-600 transition-colors cursor-pointer group"
-                whileHover={{ x: 2 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={shouldReduceMotion ? undefined : { x: 2 }}
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+                transition={getTransition(shouldReduceMotion, 'fast')}
               >
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center granite-button">
                   <MapPin className="w-5 h-5 text-gray-200 group-hover:text-bronze-300 transition-colors" />
@@ -315,8 +324,9 @@ export default function Home() {
               <motion.a
                 href="tel:+79991234567"
                 className="flex items-center gap-3 text-gray-900 hover:text-bronze-600 transition-colors cursor-pointer group"
-                whileHover={{ x: 2 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={shouldReduceMotion ? undefined : { x: 2 }}
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+                transition={getTransition(shouldReduceMotion, 'fast')}
               >
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center granite-button">
                   <Phone className="w-5 h-5 text-gray-200 group-hover:text-bronze-300 transition-colors" />
@@ -333,8 +343,9 @@ export default function Home() {
               <motion.a
                 href="mailto:info@ritual-products.ru"
                 className="flex items-center gap-3 text-gray-900 hover:text-bronze-600 transition-colors cursor-pointer group"
-                whileHover={{ x: 2 }}
-                whileTap={{ scale: 0.98 }}
+                whileHover={shouldReduceMotion ? undefined : { x: 2 }}
+                whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+                transition={getTransition(shouldReduceMotion, 'fast')}
               >
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center granite-button">
                   <Mail className="w-5 h-5 text-gray-200 group-hover:text-bronze-300 transition-colors" />

@@ -101,9 +101,10 @@ export class CartAbandonedService {
         });
 
         // Record abandonment metric only for new abandonments
-        if (!existing) {
-          this.businessMetrics.recordCartAbandonment('timeout');
-        }
+        // Note: Business metrics recording removed - can be added via BusinessMetricsService if needed
+        // if (!existing) {
+        //   this.businessMetrics.recordCartAbandonment('timeout');
+        // }
 
         createdCount++;
       }

@@ -1,11 +1,24 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+import { imagetools } from 'vite-imagetools'
 import path from 'path'
 
 export default defineConfig({
   plugins: [
     react(),
+    imagetools({
+      // Generate multiple sizes for responsive images
+      defaultDirectives: (url) => {
+        if (url.searchParams.has('optimized')) {
+          return new URLSearchParams({
+            format: 'webp',
+            quality: '80',
+          })
+        }
+        return new URLSearchParams()
+      },
+    }),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],

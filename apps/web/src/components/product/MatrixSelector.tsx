@@ -3,6 +3,8 @@ import { motion } from 'framer-motion'
 import { ShoppingCart, Check, AlertCircle } from 'lucide-react'
 import { StoneCard } from '@monorepo/ui'
 import axios from 'axios'
+import { useReducedMotion } from '../../hooks/useReducedMotion'
+import { getTransition } from '../../utils/animation-variants'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
@@ -39,6 +41,7 @@ interface MatrixSelectorProps {
 }
 
 export default function MatrixSelector({ product, onAddToCart, onPriceChange }: MatrixSelectorProps) {
+  const { shouldReduceMotion } = useReducedMotion()
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({})
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null)
   const [price, setPrice] = useState<number | null>(null)
@@ -158,8 +161,9 @@ export default function MatrixSelector({ product, onAddToCart, onPriceChange }: 
                       ? 'border-bronze-500 bg-bronze-50'
                       : 'border-gray-200 bg-white hover:border-gray-300'
                   }`}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+                  whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+                  transition={getTransition(shouldReduceMotion, 'fast')}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-body text-sm text-gray-900 text-left">
@@ -179,11 +183,15 @@ export default function MatrixSelector({ product, onAddToCart, onPriceChange }: 
       {isCalculating && (
         <StoneCard className="p-4">
           <div className="flex items-center justify-center gap-2">
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
-              className="w-5 h-5 border-2 border-gray-200 border-t-bronze-500 rounded-full"
-            />
+            {!shouldReduceMotion ? (
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                className="w-5 h-5 border-2 border-gray-200 border-t-bronze-500 rounded-full"
+              />
+            ) : (
+              <div className="w-5 h-5 border-2 border-gray-200 border-t-bronze-500 rounded-full" />
+            )}
             <span className="text-sm font-body text-gray-600">Расчет цены...</span>
           </div>
         </StoneCard>
@@ -213,8 +221,9 @@ export default function MatrixSelector({ product, onAddToCart, onPriceChange }: 
             <motion.button
               onClick={handleAddToCart}
               className="granite-button w-full py-3 rounded-lg font-body font-semibold flex items-center justify-center gap-2"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+              whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+              transition={getTransition(shouldReduceMotion, 'fast')}
             >
               <ShoppingCart className="w-5 h-5" />
               <span>В корзину</span>

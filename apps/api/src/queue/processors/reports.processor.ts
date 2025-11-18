@@ -178,11 +178,7 @@ export class ReportsProcessor {
     const orders = await this.prisma.order.findMany({
       where,
       include: {
-        items: {
-          include: {
-            product: true,
-          },
-        },
+        items: true,
         user: {
           select: {
             id: true,
@@ -219,13 +215,22 @@ export class ReportsProcessor {
       include: {
         category: true,
         media: true,
-        _count: {
-          select: {
-            orderItems: true,
-          },
-        },
       },
     });
+
+    // Get order items count for each product
+    const productIds = products.map(p => p.id);
+    const orderItemsCounts = await this.prisma.orderItem.groupBy({
+      by: ['productId'],
+      where: {
+        productId: { in: productIds },
+      },
+      _count: {
+        id: true,
+      },
+    });
+
+    const countsMap = new Map(orderItemsCounts.map(item => [item.productId, item._count.id]));
 
     return {
       total: products.length,
@@ -236,7 +241,7 @@ export class ReportsProcessor {
         category: product.category?.name,
         basePrice: Number(product.basePrice),
         isActive: product.isActive,
-        ordersCount: product._count.orderItems,
+        ordersCount: countsMap.get(product.id) || 0,
       })),
     };
   }

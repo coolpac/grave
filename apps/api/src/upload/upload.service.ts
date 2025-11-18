@@ -69,8 +69,8 @@ export class UploadService {
   }
 
   async deleteFile(url: string): Promise<void> {
+    const fileName = url.split('/').pop();
     try {
-      const fileName = url.split('/').pop();
       if (fileName) {
         const filePath = path.join(this.uploadDir, fileName);
         if (fs.existsSync(filePath)) {
@@ -82,7 +82,7 @@ export class UploadService {
         message: 'Error deleting file',
         error: error instanceof Error ? error.message : String(error),
         stack: error instanceof Error ? error.stack : undefined,
-        fileName,
+        fileName: fileName || 'unknown',
       });
     }
   }

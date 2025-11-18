@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { StoneCard } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
 import { useCart } from '../hooks/useCart'
+import { useTelegramAnalytics } from '../hooks/useTelegramAnalytics'
 import { ArrowLeft, ShoppingCart, Plus, Minus, Check, Calculator, Truck, MapPin, User, Phone } from 'lucide-react'
 import { useEffect, useState, useRef, useMemo, useCallback, Suspense, lazy } from 'react'
 // Lazy load ProductImageGallery (heavy component with react-zoom-pan-pinch)
@@ -14,6 +15,8 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import ProductVariantSelector from '../components/product/ProductVariantSelector'
 import { PLACEHOLDER_IMAGE } from '../utils/constants'
+import { useReducedMotion } from '../hooks/useReducedMotion'
+import { getTransition } from '../utils/animation-variants'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
@@ -198,6 +201,7 @@ export default function Product() {
   const navigate = useNavigate()
   const { BackButton, MainButton } = useTelegram()
   const { addToCart, updateQuantity, items: cartItems } = useCart()
+  const analytics = useTelegramAnalytics()
   const [showGallery, setShowGallery] = useState(false)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [selectedVariant, setSelectedVariant] = useState<number | null>(null)
@@ -244,14 +248,41 @@ export default function Product() {
     return cartItem?.quantity || 0
   }, [cartItems, product, selectedVariant])
 
+  // Track product view
+  useEffect(() => {
+    if (product && product.id) {
+      analytics.trackProductView(product.id, product.slug, {
+        name: product.name,
+        price: currentPrice,
+        material: product.material,
+        category: product.category?.name,
+      })
+    }
+  }, [product, analytics, currentPrice])
+
   useEffect(() => {
     // Проверяем поддержку BackButton перед использованием
     if (BackButton && typeof BackButton.show === 'function') {
       try {
         BackButton.show()
-        BackButton.onClick(() => {
+        const handlerId = BackButton.onClick(() => {
           navigate(-1)
-        })
+        }, 'product-back')
+
+        return () => {
+          if (BackButton && typeof BackButton.hide === 'function') {
+            try {
+              BackButton.hide()
+              BackButton.offClick(handlerId)
+            } catch (error) {
+              // Игнорируем ошибки при очистке
+            }
+          }
+          if (MainButton && typeof MainButton.hide === 'function') {
+            MainButton.hide()
+            MainButton.clearHandlers()
+          }
+        }
       } catch (error) {
         // BackButton не поддерживается в этой версии Telegram
         console.debug('BackButton not supported:', error)
@@ -262,14 +293,14 @@ export default function Product() {
       if (BackButton && typeof BackButton.hide === 'function') {
         try {
           BackButton.hide()
-          BackButton.offClick(() => {})
+          BackButton.clearHandlers()
         } catch (error) {
           // Игнорируем ошибки при очистке
         }
       }
       if (MainButton && typeof MainButton.hide === 'function') {
         MainButton.hide()
-        MainButton.offClick(() => {})
+        MainButton.clearHandlers()
       }
     }
   }, [BackButton, MainButton, navigate])
@@ -309,6 +340,13 @@ export default function Product() {
     const priceToUse = selectedVariant && selectedPrice 
       ? selectedPrice 
       : (product.basePrice || currentPrice || 0)
+    
+    // Track add to cart
+    analytics.trackAddToCart(product.id, 1, {
+      variantId: selectedVariant,
+      price: priceToUse,
+      productSlug: product.slug,
+    })
     
     // Используем хук useCart для добавления
     addToCart(product.id, {
@@ -390,8 +428,9 @@ export default function Product() {
         <motion.button
           onClick={() => navigate(-1)}
           className="p-2.5 rounded-lg transition-all duration-200 shadow-sm"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
+          whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+          transition={getTransition(shouldReduceMotion, 'fast')}
           style={{
             background: 'linear-gradient(135deg, hsl(220 15% 18%) 0%, hsl(220 15% 16%) 25%, hsl(220 15% 14%) 50%, hsl(220 15% 16%) 75%, hsl(220 15% 18%) 100%)',
             boxShadow: `
@@ -414,15 +453,16 @@ export default function Product() {
           <div className="aspect-square bg-gray-100 relative">
             {productImages && productImages.length > 0 ? (
               <>
-                <img
+                <OptimizedImage
                   src={productImages[selectedImageIndex]}
                   alt={product.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    // Fallback на placeholder при ошибке загрузки
-                    const target = e.target as HTMLImageElement
-                    target.src = PLACEHOLDER_IMAGE
-                  }}
+                  aspectRatio={1}
+                  size="medium"
+                  sizes="100vw"
+                  className="w-full h-full"
+                  objectFit="cover"
+                  placeholder="blur"
+                  priority={selectedImageIndex === 0}
                 />
                 {productImages.length > 1 && (
                   <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex gap-2 z-10">
@@ -467,9 +507,9 @@ export default function Product() {
       <div className="px-4 space-y-4 pb-32">
         {/* Product Title & Price */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
+          variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
+          initial="hidden"
+          animate="visible"
           className="space-y-2"
         >
           <h1 className="text-3xl font-inscription text-gray-900">
@@ -486,9 +526,9 @@ export default function Product() {
         {/* Variant Selection - используем ProductVariantSelector для правильного отображения атрибутов */}
         {product.attributes && product.attributes.length > 0 ? (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
+            variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
+            initial="hidden"
+            animate="visible"
           >
             <StoneCard>
               <ProductVariantSelector
@@ -524,6 +564,13 @@ export default function Product() {
                   
                   // Добавляем товар в корзину при выборе варианта
                   if (product) {
+                    // Track add to cart
+                    analytics.trackAddToCart(product.id, 1, {
+                      variantId: variantId,
+                      price: variant?.price || currentPrice,
+                      productSlug: product.slug,
+                    })
+
                     addToCart(product.id, {
                       variantId: variantId || undefined,
                       quantity: 1,
@@ -542,9 +589,9 @@ export default function Product() {
         ) : product.variants && product.variants.length > 0 ? (
           // Fallback для старых товаров без атрибутов
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
+            variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
+            initial="hidden"
+            animate="visible"
           >
             <StoneCard>
               <div className="space-y-4">
@@ -557,8 +604,9 @@ export default function Product() {
                         key={variant.id}
                         onClick={() => setSelectedVariant(variant.id)}
                         className={`relative px-5 py-3 rounded-lg font-body font-medium transition-all duration-200 ${isSelected ? 'granite-button' : ''}`}
-                        whileHover={{ scale: 1.05, y: -2 }}
-                        whileTap={{ scale: 0.95 }}
+                        whileHover={shouldReduceMotion ? undefined : { scale: 1.05, y: -2 }}
+                        whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+                        transition={getTransition(shouldReduceMotion, 'fast')}
                         style={{
                           background: isSelected ? undefined : 'transparent',
                           color: isSelected ? '#E5E7EB' : '#374151',
@@ -595,9 +643,9 @@ export default function Product() {
           }
           return specs && typeof specs === 'object' && Object.keys(specs).length > 0 ? (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.25 }}
+              variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
+              initial="hidden"
+              animate="visible"
             >
               <StoneCard>
                 <div className="p-4">
@@ -611,9 +659,9 @@ export default function Product() {
         {/* Description with Markdown - гранитный стиль */}
         {product.description && (
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.3 }}
+            variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
+            initial="hidden"
+            animate="visible"
           >
             <StoneCard>
               <div className="prose prose-sm max-w-none">
@@ -627,15 +675,16 @@ export default function Product() {
 
         {/* Calculation Form Button */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.4 }}
+          variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
+          initial="hidden"
+          animate="visible"
         >
           <motion.button
             onClick={() => setShowCalculationForm(true)}
             className="granite-button w-full py-4 rounded-lg font-body font-semibold flex items-center justify-center gap-2"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+            transition={getTransition(shouldReduceMotion, 'fast')}
           >
             <Calculator className="w-5 h-5" />
             <span>Сделать расчет</span>
@@ -644,20 +693,22 @@ export default function Product() {
       </div>
 
       {/* Calculation Form Modal */}
-      <AnimatePresence>
+      <AnimatePresence mode="wait" initial={false}>
         {showCalculationForm && (
           <>
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              variants={getAnimationVariants(shouldReduceMotion, 'fadeIn')}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
               onClick={() => setShowCalculationForm(false)}
               className="fixed inset-0 bg-black/50 z-50"
             />
             <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 50 }}
+              variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
               className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl safe-area-bottom"
               style={{ maxHeight: '90vh' }}
             >
@@ -770,8 +821,9 @@ export default function Product() {
                     type="submit"
                     disabled={isSubmittingCalculation}
                     className="granite-button w-full py-4 rounded-lg font-body font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    whileHover={{ scale: isSubmittingCalculation ? 1 : 1.02 }}
-                    whileTap={{ scale: isSubmittingCalculation ? 1 : 0.98 }}
+                    whileHover={shouldReduceMotion || isSubmittingCalculation ? undefined : { scale: 1.02 }}
+                    whileTap={shouldReduceMotion || isSubmittingCalculation ? undefined : { scale: 0.98 }}
+                    transition={getTransition(shouldReduceMotion, 'fast')}
                   >
                     <Calculator className="w-5 h-5" />
                     <span>{isSubmittingCalculation ? 'Отправка...' : 'Отправить запрос'}</span>
@@ -817,28 +869,39 @@ export default function Product() {
                 disabled={isUpdatingCart || cartQuantity <= 0}
                 className="px-3 py-2 flex items-center justify-center transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed border-r"
                 style={{ borderColor: 'rgba(0, 0, 0, 0.1)' }}
-                whileHover={{ scale: cartQuantity > 0 && !isUpdatingCart ? 1.05 : 1 }}
-                whileTap={{ scale: cartQuantity > 0 && !isUpdatingCart ? 0.95 : 1 }}
+                whileHover={shouldReduceMotion || cartQuantity <= 0 || isUpdatingCart ? undefined : { scale: 1.05 }}
+                whileTap={shouldReduceMotion || cartQuantity <= 0 || isUpdatingCart ? undefined : { scale: 0.95 }}
+                transition={getTransition(shouldReduceMotion, 'fast')}
               >
                 <Minus className={`w-4 h-4 ${cartQuantity > 0 ? 'text-gray-900' : 'text-gray-400'}`} />
               </motion.button>
-              <motion.div
-                key={cartQuantity}
-                initial={{ scale: 1.1 }}
-                animate={{ scale: 1 }}
-                className="px-4 py-2 min-w-[40px] text-center border-r"
-                style={{ borderColor: 'rgba(0, 0, 0, 0.1)' }}
-              >
-                <span className={`text-base font-inscription ${cartQuantity > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
-                  {cartQuantity || 0}
-                </span>
-              </motion.div>
+              {!shouldReduceMotion ? (
+                <motion.div
+                  key={cartQuantity}
+                  initial={{ scale: 1.1 }}
+                  animate={{ scale: 1 }}
+                  transition={getTransition(shouldReduceMotion, 'fast')}
+                  className="px-4 py-2 min-w-[40px] text-center border-r"
+                  style={{ borderColor: 'rgba(0, 0, 0, 0.1)' }}
+                >
+                  <span className={`text-base font-inscription ${cartQuantity > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {cartQuantity || 0}
+                  </span>
+                </motion.div>
+              ) : (
+                <div className="px-4 py-2 min-w-[40px] text-center border-r" style={{ borderColor: 'rgba(0, 0, 0, 0.1)' }}>
+                  <span className={`text-base font-inscription ${cartQuantity > 0 ? 'text-gray-900' : 'text-gray-400'}`}>
+                    {cartQuantity || 0}
+                  </span>
+                </div>
+              )}
               <motion.button
                 onClick={handleAddToCart}
                 disabled={isUpdatingCart}
                 className="px-3 py-2 flex items-center justify-center transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                whileHover={{ scale: !isUpdatingCart ? 1.05 : 1 }}
-                whileTap={{ scale: !isUpdatingCart ? 0.95 : 1 }}
+                whileHover={shouldReduceMotion || isUpdatingCart ? undefined : { scale: 1.05 }}
+                whileTap={shouldReduceMotion || isUpdatingCart ? undefined : { scale: 0.95 }}
+                transition={getTransition(shouldReduceMotion, 'fast')}
               >
                 <Plus className="w-4 h-4 text-gray-900" />
               </motion.button>
@@ -854,8 +917,9 @@ export default function Product() {
                 navigate('/cart')
               }}
               className="granite-button w-full py-3 rounded-lg font-body font-semibold flex items-center justify-center gap-2"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+              whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+              transition={getTransition(shouldReduceMotion, 'fast')}
             >
               <ShoppingCart className="w-5 h-5" />
               <span>Перейти в корзину</span>
@@ -869,8 +933,9 @@ export default function Product() {
               }}
               disabled={isUpdatingCart}
               className="granite-button w-full py-3 rounded-lg font-body font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={shouldReduceMotion || isUpdatingCart ? undefined : { scale: 1.02 }}
+              whileTap={shouldReduceMotion || isUpdatingCart ? undefined : { scale: 0.98 }}
+              transition={getTransition(shouldReduceMotion, 'fast')}
             >
               <ShoppingCart className="w-5 h-5" />
               <span>В корзину</span>

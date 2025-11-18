@@ -6,6 +6,8 @@ import { motion } from 'framer-motion'
 import { useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
+import { useReducedMotion } from '../hooks/useReducedMotion'
+import { getAnimationVariants, getTransition, hoverLift, staggerContainer, staggerItem } from '../utils/animation-variants'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
@@ -46,6 +48,7 @@ export default function MaterialCategories() {
   const { material } = useParams<{ material: 'marble' | 'granite' }>()
   const navigate = useNavigate()
   const { BackButton } = useTelegram()
+  const { shouldReduceMotion } = useReducedMotion()
 
   // Загрузка категорий с количеством товаров, фильтрованных по материалу
   const { data: categoriesData, isLoading: isLoadingCategories } = useQuery({
@@ -113,16 +116,17 @@ export default function MaterialCategories() {
       {/* Header */}
       <div className="px-4 pt-4 pb-6">
         <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
+          variants={getAnimationVariants(shouldReduceMotion, 'slideInFromTop')}
+          initial="hidden"
+          animate="visible"
         >
           <div className="flex items-center gap-3 mb-4">
             <motion.button
               onClick={() => navigate(-1)}
               className="granite-button w-10 h-10 rounded-lg flex items-center justify-center"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
+              whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+              transition={getTransition(shouldReduceMotion, 'fast')}
             >
               <ArrowLeft className="w-5 h-5" />
             </motion.button>
@@ -140,34 +144,76 @@ export default function MaterialCategories() {
 
       {/* Categories Grid */}
       <div className="px-4 pb-8">
-        <div className="grid grid-cols-2 gap-4">
+        <motion.div
+          variants={shouldReduceMotion ? undefined : staggerContainer}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-2 gap-4"
+        >
           {categories.map((category, index) => {
             const Icon = category.icon
             return (
               <motion.div
                 key={category.slug}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1, duration: 0.4 }}
+                variants={shouldReduceMotion ? getAnimationVariants(shouldReduceMotion, 'slideIn') : staggerItem}
+                initial="hidden"
+                animate="visible"
                 className="h-full"
               >
                 <Link to={`/c/${category.slug}`} className="h-full block">
-                  <motion.div
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    transition={{ duration: 0.2 }}
-                    className="h-full"
-                  >
-                    <StoneCard className="h-full cursor-pointer flex flex-col" style={{ minHeight: '200px' }}>
-                      <div className="flex flex-col items-center text-center p-4 h-full" style={{ minHeight: '200px' }}>
-                        {/* Icon Container */}
-                        <motion.div
-                          className="granite-button w-20 h-20 rounded-xl flex items-center justify-center relative shrink-0 mb-4"
-                          whileHover={{ rotate: 5, scale: 1.05 }}
-                          transition={{ duration: 0.2 }}
-                        >
-                          <Icon className="w-8 h-8 text-gray-200" />
-                        </motion.div>
+                  {shouldReduceMotion ? (
+                    <div className="h-full">
+                      <StoneCard className="h-full cursor-pointer flex flex-col" style={{ minHeight: '200px' }}>
+                        <div className="flex flex-col items-center text-center p-4 h-full" style={{ minHeight: '200px' }}>
+                          <div className="granite-button w-20 h-20 rounded-xl flex items-center justify-center relative shrink-0 mb-4">
+                            <Icon className="w-8 h-8 text-gray-200" />
+                          </div>
+                          <div className="flex-1 flex flex-col justify-center w-full">
+                            <h3 className="font-inscription text-base text-gray-900 leading-tight min-h-[2.5rem] flex items-center justify-center">
+                              {category.name}
+                            </h3>
+                            <p className="text-xs font-body text-gray-600 mt-2">
+                              {category.count} {category.count === 1 ? 'товар' : category.count < 5 ? 'товара' : 'товаров'}
+                            </p>
+                          </div>
+                        </div>
+                      </StoneCard>
+                    </div>
+                  ) : (
+                    <motion.div
+                      variants={hoverLift}
+                      initial="rest"
+                      whileHover="hover"
+                      whileTap="tap"
+                      className="h-full"
+                    >
+                      <StoneCard className="h-full cursor-pointer flex flex-col" style={{ minHeight: '200px' }}>
+                        <div className="flex flex-col items-center text-center p-4 h-full" style={{ minHeight: '200px' }}>
+                          {/* Icon Container */}
+                          <motion.div
+                            className="granite-button w-20 h-20 rounded-xl flex items-center justify-center relative shrink-0 mb-4"
+                            whileHover={{ rotate: 5, scale: 1.05 }}
+                            transition={getTransition(shouldReduceMotion, 'fast')}
+                          >
+                            <Icon className="w-8 h-8 text-gray-200" />
+                          </motion.div>
+                          <div className="flex-1 flex flex-col justify-center w-full">
+                            <h3 className="font-inscription text-base text-gray-900 leading-tight min-h-[2.5rem] flex items-center justify-center">
+                              {category.name}
+                            </h3>
+                            <p className="text-xs font-body text-gray-600 mt-2">
+                              {category.count} {category.count === 1 ? 'товар' : category.count < 5 ? 'товара' : 'товаров'}
+                            </p>
+                          </div>
+                        </div>
+                      </StoneCard>
+                    </motion.div>
+                  )}
+                </Link>
+              </motion.div>
+            )
+          })}
+        </motion.div>
                         <div className="flex-1 flex flex-col justify-center w-full">
                           <h3 className="font-inscription text-base text-gray-900 leading-tight min-h-[2.5rem] flex items-center justify-center">
                             {category.name}

@@ -6,7 +6,7 @@ import {
   TELEGRAM_NOTIFICATION_QUEUE,
   TelegramNotificationJobData,
 } from '../queues/telegram-notification.queue';
-import { TelegramBotClientService } from '../../telegram/telegram-bot-client.service';
+import { TelegramBotClientService, OrderNotificationData } from '../../telegram/telegram-bot-client.service';
 import { PrismaService } from '../../prisma/prisma.service';
 
 /**
@@ -88,17 +88,28 @@ export class TelegramNotificationProcessor {
   }
 
   private async handleOrderCreated(data: TelegramNotificationJobData) {
-    const orderData = data.data;
+    const orderData = data.data as any;
 
     if (!orderData) {
       throw new Error('Order data is missing');
     }
 
+    // Ensure orderData has all required fields
+    const notificationData: OrderNotificationData = {
+      orderNumber: orderData.orderNumber || '',
+      orderId: orderData.orderId || orderData.id || 0,
+      customerName: orderData.customerName || '',
+      customerPhone: orderData.customerPhone || '',
+      total: orderData.total || 0,
+      items: orderData.items || [],
+      createdAt: orderData.createdAt || new Date(),
+    };
+
     const promises: Promise<boolean>[] = [];
 
     // Send notification to admin
     if (data.recipient === 'admin' || data.recipient === 'both') {
-      promises.push(this.telegramBotClient.notifyAdminNewOrder(orderData));
+      promises.push(this.telegramBotClient.notifyAdminNewOrder(notificationData));
     }
 
     // Send notification to customer if telegramId provided
@@ -109,7 +120,7 @@ export class TelegramNotificationProcessor {
       promises.push(
         this.telegramBotClient.notifyCustomerNewOrder(
           data.telegramId,
-          orderData,
+          notificationData,
         ),
       );
     }

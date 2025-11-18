@@ -1,7 +1,10 @@
-import { type TouchEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type TouchEvent, useCallback, useEffect, useMemo, useRef, useState, memo } from 'react'
 import { Link } from 'react-router-dom'
 import { LucideIcon, Sparkles } from 'lucide-react'
 import { AnimatePresence, motion } from 'framer-motion'
+import { useReducedMotion } from '../hooks/useReducedMotion'
+import { getAnimationVariants, getTransition } from '../utils/animation-variants'
+import { useStableCallback } from '../hooks/useStableCallback'
 
 type BannerItemBase = {
   id: string
@@ -23,12 +26,16 @@ type BannerCarouselProps = {
   onSlideClick?: (item: BannerCarouselItem) => void
 }
 
-export function BannerCarousel({ items, autoPlayInterval = 8000, onSlideClick }: BannerCarouselProps) {
+function BannerCarousel({ items, autoPlayInterval = 8000, onSlideClick }: BannerCarouselProps) {
   const slideCount = items.length
   const [activeIndex, setActiveIndex] = useState(0)
   const touchStartX = useRef(0)
   const touchCurrentX = useRef(0)
   const autoPlayTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  const { shouldReduceMotion } = useReducedMotion()
+
+  // Мемоизированное количество слайдов
+  const memoizedSlideCount = useMemo(() => slideCount, [slideCount])
 
   const pauseAutoPlay = useCallback(() => {
     if (autoPlayTimer.current) {
@@ -39,11 +46,11 @@ export function BannerCarousel({ items, autoPlayInterval = 8000, onSlideClick }:
 
   const restartAutoPlay = useCallback(() => {
     pauseAutoPlay()
-    if (slideCount <= 1) return
+    if (memoizedSlideCount <= 1) return
     autoPlayTimer.current = setInterval(() => {
-      setActiveIndex((prev) => (prev + 1) % slideCount)
+      setActiveIndex((prev) => (prev + 1) % memoizedSlideCount)
     }, autoPlayInterval)
-  }, [autoPlayInterval, pauseAutoPlay, slideCount])
+  }, [autoPlayInterval, pauseAutoPlay, memoizedSlideCount])
 
   useEffect(() => {
     if (slideCount === 0) return
@@ -57,20 +64,28 @@ export function BannerCarousel({ items, autoPlayInterval = 8000, onSlideClick }:
     }
   }, [activeIndex, slideCount])
 
-  const handleNext = useCallback(() => {
-    setActiveIndex((prev) => (prev + 1) % slideCount)
-  }, [slideCount])
+  const handleNext = useStableCallback(() => {
+    setActiveIndex((prev) => (prev + 1) % memoizedSlideCount)
+  }, [memoizedSlideCount])
 
-  const handlePrev = useCallback(() => {
-    setActiveIndex((prev) => (prev - 1 + slideCount) % slideCount)
-  }, [slideCount])
+  const handlePrev = useStableCallback(() => {
+    setActiveIndex((prev) => (prev - 1 + memoizedSlideCount) % memoizedSlideCount)
+  }, [memoizedSlideCount])
 
-  const handleDotClick = useCallback(
+  const handleDotClick = useStableCallback(
     (index: number) => {
       setActiveIndex(index)
       restartAutoPlay()
     },
     [restartAutoPlay],
+  )
+
+  // Стабильный обработчик клика по слайду
+  const handleSlideClick = useStableCallback(
+    (item: BannerCarouselItem) => {
+      onSlideClick?.(item)
+    },
+    [onSlideClick]
   )
 
   const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
@@ -109,38 +124,52 @@ export function BannerCarousel({ items, autoPlayInterval = 8000, onSlideClick }:
       <div className="granite-banner relative rounded-xl overflow-hidden focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-gray-900/50 focus-visible:ring-bronze-400 transition-shadow">
         {currentItem.imageUrl ? (
           <>
-            <img
-              src={currentItem.imageUrl}
-              alt={currentItem.title}
-              className="absolute inset-0 h-full w-full object-cover opacity-70"
-              aria-hidden="true"
-              loading="lazy"
-            />
+            <div className="absolute inset-0 opacity-70">
+              <OptimizedImage
+                src={currentItem.imageUrl}
+                alt={currentItem.title}
+                className="h-full w-full"
+                objectFit="cover"
+                placeholder="blur"
+                sizes="100vw"
+                priority={activeIndex === 0}
+              />
+            </div>
             <div className="absolute inset-0 bg-gradient-to-br from-black/70 via-black/40 to-transparent" aria-hidden="true" />
           </>
         ) : null}
         <div className="relative z-10 p-6 flex flex-col items-center justify-center text-center min-h-[160px]">
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.4 }}
-            className="mb-3"
-          >
-            <Icon className="w-8 h-8 text-bronze-400" />
-          </motion.div>
+          {!shouldReduceMotion ? (
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={getTransition(shouldReduceMotion, 'normal')}
+              className="mb-3"
+            >
+              <Icon className="w-8 h-8 text-bronze-400" />
+            </motion.div>
+          ) : (
+            <div className="mb-3">
+              <Icon className="w-8 h-8 text-bronze-400" />
+            </div>
+          )}
           <h2 className="text-2xl font-inscription text-gray-100 mb-2">{currentItem.title}</h2>
           <p className="text-base font-body text-gray-300">{currentItem.description}</p>
-          {currentItem.cta ? (
+          {currentItem.cta && (
             <span className="mt-3 inline-flex items-center gap-1 text-sm font-body text-bronze-200">
               {currentItem.cta}
-              <motion.span
-                animate={{ x: [0, 3, 0] }}
-                transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
-              >
-                →
-              </motion.span>
+              {!shouldReduceMotion ? (
+                <motion.span
+                  animate={{ x: [0, 3, 0] }}
+                  transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+                >
+                  →
+                </motion.span>
+              ) : (
+                <span>→</span>
+              )}
             </span>
-          ) : null}
+          )}
         </div>
         <div
           className="absolute inset-0 pointer-events-none z-0"
@@ -155,9 +184,6 @@ export function BannerCarousel({ items, autoPlayInterval = 8000, onSlideClick }:
 
   const renderSlide = () => {
     const content = <BannerContent />
-    const handleSlideClick = () => {
-      onSlideClick?.(currentItem)
-    }
 
     if (currentItem.href) {
       if (currentItem.isExternal) {
@@ -167,8 +193,9 @@ export function BannerCarousel({ items, autoPlayInterval = 8000, onSlideClick }:
             target="_blank"
             rel="noreferrer"
             className="block focus:outline-none"
-            whileTap={{ scale: 0.99 }}
-            onClick={handleSlideClick}
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.99 }}
+            transition={getTransition(shouldReduceMotion, 'fast')}
+            onClick={() => handleSlideClick(currentItem)}
           >
             {content}
           </motion.a>
@@ -176,8 +203,14 @@ export function BannerCarousel({ items, autoPlayInterval = 8000, onSlideClick }:
       }
 
       return (
-        <Link to={currentItem.href} className="block focus:outline-none" onClick={handleSlideClick}>
-          <motion.div whileTap={{ scale: 0.99 }}>{content}</motion.div>
+        <Link to={currentItem.href} className="block focus:outline-none" onClick={() => handleSlideClick(currentItem)}>
+          {shouldReduceMotion ? (
+            content
+          ) : (
+            <motion.div whileTap={{ scale: 0.99 }} transition={getTransition(shouldReduceMotion, 'fast')}>
+              {content}
+            </motion.div>
+          )}
         </Link>
       )
     }
@@ -186,8 +219,9 @@ export function BannerCarousel({ items, autoPlayInterval = 8000, onSlideClick }:
       <motion.button
         type="button"
         className="block w-full text-left focus:outline-none"
-        whileTap={{ scale: 0.99 }}
-        onClick={handleSlideClick}
+        whileTap={shouldReduceMotion ? undefined : { scale: 0.99 }}
+        transition={getTransition(shouldReduceMotion, 'fast')}
+        onClick={() => handleSlideClick(currentItem)}
       >
         {content}
       </motion.button>
@@ -201,13 +235,13 @@ export function BannerCarousel({ items, autoPlayInterval = 8000, onSlideClick }:
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={currentItem.id}
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -15 }}
-          transition={{ duration: 0.4 }}
+          variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
+          initial="hidden"
+          animate="visible"
+          exit="exit"
         >
           {renderSlide()}
         </motion.div>
@@ -231,4 +265,15 @@ export function BannerCarousel({ items, autoPlayInterval = 8000, onSlideClick }:
     </div>
   )
 }
+
+// Мемоизация компонента для предотвращения лишних ре-рендеров
+const areEqual = (prevProps: BannerCarouselProps, nextProps: BannerCarouselProps): boolean => {
+  return (
+    prevProps.items === nextProps.items &&
+    prevProps.autoPlayInterval === nextProps.autoPlayInterval &&
+    prevProps.onSlideClick === nextProps.onSlideClick
+  )
+}
+
+export const BannerCarousel = memo(BannerCarouselComponent, areEqual)
 

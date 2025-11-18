@@ -289,10 +289,9 @@ export class CatalogService {
       ]);
 
       // Создаем новый объект пагинации с валидными значениями
-      const validPagination: PaginationDto = {
-        page,
-        limit,
-      };
+      const validPagination = new PaginationDto();
+      validPagination.page = page;
+      validPagination.limit = limit;
 
       return createPaginatedResponse(data, total, validPagination);
     } catch (error) {

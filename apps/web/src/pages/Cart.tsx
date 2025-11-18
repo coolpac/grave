@@ -3,15 +3,17 @@ import { StoneCard } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
 import { useCart } from '../hooks/useCart'
 import { ArrowLeft, Trash2, Plus, Minus, ShoppingCart, Loader2, WifiOff } from 'lucide-react'
-import { useEffect, useMemo, useCallback } from 'react'
+import { useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
+import OptimizedImage from '../components/OptimizedImage'
+import { useReducedMotion } from '../hooks/useReducedMotion'
+import { getAnimationVariants, getTransition } from '../utils/animation-variants'
 
 export default function Cart() {
   const navigate = useNavigate()
   const { BackButton, MainButton } = useTelegram()
   const {
-    cart,
     items,
     total,
     itemsCount,
@@ -20,6 +22,7 @@ export default function Cart() {
     updateQuantity,
     removeItem,
   } = useCart()
+  const { shouldReduceMotion } = useReducedMotion()
 
   // Оптимизированный обработчик удаления с подтверждением
   const handleRemoveItem = useCallback((itemId: number, productName: string) => {
@@ -50,41 +53,6 @@ export default function Cart() {
     }
   }, [updateQuantity])
 
-  // Мемоизированная фильтрация валидных товаров
-  const validItems = useMemo(() => {
-    // Логируем для отладки
-    console.log('Cart items:', items)
-    console.log('Items count:', items.length)
-    
-    const filtered = items.filter((item) => {
-      // Проверяем наличие продукта
-      if (!item.product) {
-        console.warn('Cart item without product:', item)
-        return false
-      }
-      
-      // Определяем цену: сначала вариант, потом базовая цена продукта
-      const price = item.variant?.price ?? item.product?.basePrice ?? 0
-      
-      // Логируем элементы с нулевой ценой для отладки
-      if (price === 0 || isNaN(price)) {
-        console.warn('Cart item with invalid price:', {
-          itemId: item.id,
-          productName: item.product?.name,
-          variantPrice: item.variant?.price,
-          basePrice: item.product?.basePrice,
-          calculatedPrice: price,
-        })
-      }
-      
-      // Более мягкая проверка: разрешаем товары даже с нулевой ценой (может быть бесплатный товар)
-      // Но проверяем, что цена не NaN
-      return !isNaN(price) && price >= 0
-    })
-    
-    console.log('Valid items count:', filtered.length)
-    return filtered
-  }, [items])
 
   useEffect(() => {
     // Проверяем поддержку BackButton перед использованием
@@ -118,14 +86,14 @@ export default function Cart() {
       if (BackButton && typeof BackButton.hide === 'function') {
         try {
           BackButton.hide()
-          BackButton.offClick(() => {})
+          BackButton.clearHandlers()
         } catch (error) {
           // Игнорируем ошибки при очистке
         }
       }
       if (MainButton && typeof MainButton.hide === 'function') {
         MainButton.hide()
-        MainButton.offClick(() => {})
+        MainButton.clearHandlers()
       }
     }
   }, [BackButton, MainButton, navigate, items.length, total])
@@ -141,10 +109,7 @@ export default function Cart() {
     )
   }
 
-  // Показываем индикатор офлайн режима
-  const isUpdating = false // Теперь управляется через React Query
-
-  // Используем items.length вместо validItems.length, чтобы показывать товары даже с проблемами цены
+  // Используем items.length, чтобы показывать товары даже с проблемами цены
   if (!isLoading && items.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -152,8 +117,9 @@ export default function Cart() {
           <motion.button
             onClick={() => navigate(-1)}
             className="p-2.5 rounded-lg transition-all duration-200 shadow-sm"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+            transition={getTransition(shouldReduceMotion, 'fast')}
             style={{
               background: 'linear-gradient(135deg, hsl(220 15% 18%) 0%, hsl(220 15% 16%) 25%, hsl(220 15% 14%) 50%, hsl(220 15% 16%) 75%, hsl(220 15% 18%) 100%)',
               boxShadow: `
@@ -170,31 +136,51 @@ export default function Cart() {
           </motion.button>
         </div>
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
+          variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
+          initial="hidden"
+          animate="visible"
           className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4"
         >
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-            className="mb-6"
-          >
-            <div 
-              className="w-24 h-24 rounded-full flex items-center justify-center"
-              style={{
-                background: 'linear-gradient(135deg, hsl(220 15% 18%) 0%, hsl(220 15% 16%) 25%, hsl(220 15% 14%) 50%, hsl(220 15% 16%) 75%, hsl(220 15% 18%) 100%)',
-                boxShadow: `
-                  inset 0 2px 4px rgba(255, 255, 255, 0.1),
-                  inset 0 -2px 4px rgba(0, 0, 0, 0.5),
-                  0 4px 12px rgba(0, 0, 0, 0.4)
-                `,
-                border: '2px solid rgba(139, 107, 63, 0.3)',
-              }}
+          {!shouldReduceMotion ? (
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={getTransition(shouldReduceMotion, 'normal')}
+              className="mb-6"
             >
-              <ShoppingCart className="w-12 h-12 text-gray-200" />
+              <div 
+                className="w-24 h-24 rounded-full flex items-center justify-center"
+                style={{
+                  background: 'linear-gradient(135deg, hsl(220 15% 18%) 0%, hsl(220 15% 16%) 25%, hsl(220 15% 14%) 50%, hsl(220 15% 16%) 75%, hsl(220 15% 18%) 100%)',
+                  boxShadow: `
+                    inset 0 2px 4px rgba(255, 255, 255, 0.1),
+                    inset 0 -2px 4px rgba(0, 0, 0, 0.5),
+                    0 4px 12px rgba(0, 0, 0, 0.4)
+                  `,
+                  border: '2px solid rgba(139, 107, 63, 0.3)',
+                }}
+              >
+                <ShoppingCart className="w-12 h-12 text-gray-200" />
+              </div>
+            </motion.div>
+          ) : (
+            <div className="mb-6">
+              <div 
+                className="w-24 h-24 rounded-full flex items-center justify-center"
+                style={{
+                  background: 'linear-gradient(135deg, hsl(220 15% 18%) 0%, hsl(220 15% 16%) 25%, hsl(220 15% 14%) 50%, hsl(220 15% 16%) 75%, hsl(220 15% 18%) 100%)',
+                  boxShadow: `
+                    inset 0 2px 4px rgba(255, 255, 255, 0.1),
+                    inset 0 -2px 4px rgba(0, 0, 0, 0.5),
+                    0 4px 12px rgba(0, 0, 0, 0.4)
+                  `,
+                  border: '2px solid rgba(139, 107, 63, 0.3)',
+                }}
+              >
+                <ShoppingCart className="w-12 h-12 text-gray-200" />
+              </div>
             </div>
-          </motion.div>
+          )}
           <h2 className="text-2xl font-inscription text-gray-900 mb-2">Корзина пуста</h2>
           <p className="text-base font-body text-gray-600 mb-24">
             Добавьте товары из каталога
@@ -207,8 +193,9 @@ export default function Cart() {
             <motion.button
               onClick={() => navigate('/')}
               className="granite-button w-full block text-center font-medium py-3 px-4 rounded-lg"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+              whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+              whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+              transition={getTransition(shouldReduceMotion, 'fast')}
             >
               Перейти в каталог
             </motion.button>
@@ -247,17 +234,18 @@ export default function Cart() {
       <div className="px-4 pb-4">
         <div className="flex items-center justify-between">
           <motion.h1
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
+            variants={getAnimationVariants(shouldReduceMotion, 'slideInFromTop')}
+            initial="hidden"
+            animate="visible"
             className="text-3xl font-inscription text-gray-900"
           >
             Корзина
           </motion.h1>
           {isOffline && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
+              variants={getAnimationVariants(shouldReduceMotion, 'scaleIn')}
+              initial="hidden"
+              animate="visible"
               className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-yellow-100/50 border border-yellow-300/50"
             >
               <WifiOff className="w-4 h-4 text-yellow-700" />
@@ -269,8 +257,8 @@ export default function Cart() {
 
       {/* Cart Items */}
       <div className="px-4 space-y-4 pb-32">
-        <AnimatePresence mode="popLayout">
-          {items.map((item, index) => {
+        <AnimatePresence mode="popLayout" initial={false}>
+          {items.map((item) => {
             // Правильно определяем цену: сначала вариант, потом базовая цена продукта
             const price = item.variant?.price ?? item.product?.basePrice ?? 0
             const imageUrl = item.product?.media?.[0]?.url || '/placeholder-image.svg'
@@ -278,13 +266,10 @@ export default function Cart() {
             return (
               <motion.div
                 key={`${item.id}-${item.variantId || 'default'}`}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, x: 100, scale: 0.9 }}
-                transition={{ 
-                  duration: 0.2,
-                  exit: { duration: 0.15 }
-                }}
+                variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
               >
                 <StoneCard>
                   <div className="flex gap-4">
@@ -303,10 +288,15 @@ export default function Cart() {
                         }}
                       >
                         {imageUrl && imageUrl !== '/placeholder-image.svg' ? (
-                          <img 
-                            src={imageUrl} 
+                          <OptimizedImage
+                            src={imageUrl}
                             alt={item.product.name}
-                            className="w-full h-full object-cover"
+                            aspectRatio={1}
+                            size="thumbnail"
+                            sizes="80px"
+                            className="w-full h-full"
+                            objectFit="cover"
+                            placeholder="blur"
                           />
                         ) : (
                           <ShoppingCart className="w-8 h-8 text-gray-400" />
@@ -420,9 +410,9 @@ export default function Cart() {
 
         {/* Summary Card */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.4 }}
+          variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
+          initial="hidden"
+          animate="visible"
         >
           <StoneCard variant="elevated">
             <div className="space-y-4">
@@ -442,17 +432,27 @@ export default function Cart() {
               <div className="border-t border-gray-300/50 pt-4">
                 <div className="flex justify-between items-center">
                   <span className="text-xl font-inscription text-gray-900">Итого:</span>
-                  <motion.div
-                    key={total}
-                    initial={{ scale: 1.1 }}
-                    animate={{ scale: 1 }}
-                    className="flex items-baseline gap-1"
-                  >
-                    <span className="text-3xl font-inscription text-gray-900">
-                      {total.toLocaleString('ru-RU')}
-                    </span>
-                    <span className="text-lg font-body text-gray-600">₽</span>
-                  </motion.div>
+                  {!shouldReduceMotion ? (
+                    <motion.div
+                      key={total}
+                      initial={{ scale: 1.1 }}
+                      animate={{ scale: 1 }}
+                      transition={getTransition(shouldReduceMotion, 'fast')}
+                      className="flex items-baseline gap-1"
+                    >
+                      <span className="text-3xl font-inscription text-gray-900">
+                        {total.toLocaleString('ru-RU')}
+                      </span>
+                      <span className="text-lg font-body text-gray-600">₽</span>
+                    </motion.div>
+                  ) : (
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl font-inscription text-gray-900">
+                        {total.toLocaleString('ru-RU')}
+                      </span>
+                      <span className="text-lg font-body text-gray-600">₽</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -462,16 +462,18 @@ export default function Cart() {
 
       {/* Sticky Checkout Button */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+        variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
+        initial="hidden"
+        animate="visible"
         className="fixed bottom-0 left-0 right-0 z-40 safe-area-bottom bg-gradient-to-b from-gray-100/50 via-gray-50 to-white border-t border-gray-200/50 px-4 pt-4 pb-6"
       >
         <div className="max-w-md mx-auto">
           <motion.button
             onClick={() => navigate('/checkout')}
             className="granite-button w-full py-4 rounded-xl font-body font-semibold flex items-center gap-3 px-4"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+            transition={getTransition(shouldReduceMotion, 'fast')}
           >
             <ShoppingCart className="w-5 h-5" />
             <span className="flex-1 text-left">Оформить заказ</span>

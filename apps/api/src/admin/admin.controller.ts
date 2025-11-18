@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Query, UseGuards, ParseIntPipe, Req } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../auth/guards/admin.guard';
@@ -54,7 +54,7 @@ export class AdminController {
       startDate?: string;
       endDate?: string;
     },
-    @Request() req: any,
+    @Req() req: Request,
   ) {
     const job = await this.reportsQueue.addReportJob({
       type: body.type,
@@ -65,7 +65,7 @@ export class AdminController {
             end: new Date(body.endDate),
           }
         : undefined,
-      userId: req.user?.id,
+      userId: (req.user as any)?.id,
     });
 
     return {

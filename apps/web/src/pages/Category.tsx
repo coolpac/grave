@@ -1,12 +1,14 @@
 import { useParams, Link } from 'react-router-dom'
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
 import { Skeleton } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
 import { useCart } from '../hooks/useCart'
 import { useDebounce } from '../hooks/useDebounce'
+import { usePrefetch } from '../hooks/usePrefetch'
 import { Search, ShoppingCart, Package } from 'lucide-react'
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import ProductCard from '../components/ProductCard'
+import VirtualizedProductGrid from '../components/VirtualizedProductGrid'
 import FlyingElement from '../components/FlyingElement'
 import toast from 'react-hot-toast'
 import axios from 'axios'
@@ -130,6 +132,8 @@ export default function Category() {
   const { slug } = useParams<{ slug: string }>()
   const { BackButton } = useTelegram()
   const { addToCart, itemsCount } = useCart()
+  const { prefetchPage } = usePrefetch()
+  const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
   const [flyingTrigger, setFlyingTrigger] = useState(false)
   const [flyingPosition, setFlyingPosition] = useState({ from: { x: 0, y: 0 }, to: { x: 0, y: 0 } })
@@ -149,7 +153,19 @@ export default function Category() {
     queryFn: ({ pageParam }) => fetchProducts({ pageParam, categorySlug: slug, filters: {}, sort: 'newest' }),
     getNextPageParam: (lastPage) => lastPage.nextPage,
     initialPageParam: 1,
+    staleTime: 5 * 60 * 1000, // 5 минут для каталога
+    gcTime: 10 * 60 * 1000, // 10 минут в памяти
   })
+
+  // Prefetch следующей страницы при приближении к концу списка
+  useEffect(() => {
+    if (hasNextPage && !isFetchingNextPage && slug) {
+      const currentPage = data?.pages.length || 1
+      const nextPage = currentPage + 1
+      // Prefetch следующей страницы заранее
+      prefetchPage(slug, nextPage, {})
+    }
+  }, [hasNextPage, isFetchingNextPage, data?.pages.length, slug, prefetchPage])
 
   // Используем itemsCount из хука useCart вместо локального состояния
 
@@ -283,55 +299,24 @@ export default function Category() {
         <h1 className="text-2xl font-inscription text-gray-900">{categoryName}</h1>
       </div>
 
-      {/* Products Grid */}
-      <div className="px-4">
-        {isLoading ? (
-          <div className="grid grid-cols-2 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-lg overflow-hidden">
-                <Skeleton variant="rectangular" width="100%" height={200} />
-                <div className="p-3 space-y-2">
-                  <Skeleton variant="text" width="80%" height={16} />
-                  <Skeleton variant="text" width="60%" height={20} />
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : isError ? (
+      {/* Products Grid - Виртуализированный для производительности */}
+      <div className="px-4" style={{ height: 'calc(100vh - 200px)', minHeight: '400px' }}>
+        {isError ? (
           <div className="text-center py-8">
             <p className="text-gray-600">Ошибка загрузки товаров</p>
           </div>
         ) : (
-          <>
-            <div className="grid grid-cols-2 gap-4">
-              {products.map((product, index) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  index={index}
-                  onAddToCart={handleAddToCart}
-                />
-              ))}
-            </div>
-
-            {/* Infinite Scroll Trigger */}
-            <div ref={observerTarget} className="h-4" />
-
-            {/* Loading More Skeleton */}
-            {isFetchingNextPage && (
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="bg-white rounded-lg overflow-hidden">
-                    <Skeleton variant="rectangular" width="100%" height={200} />
-                    <div className="p-3 space-y-2">
-                      <Skeleton variant="text" width="80%" height={16} />
-                      <Skeleton variant="text" width="60%" height={20} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
+          <VirtualizedProductGrid
+            products={products}
+            onAddToCart={handleAddToCart}
+            isLoading={isLoading}
+            isFetchingNextPage={isFetchingNextPage}
+            hasNextPage={hasNextPage}
+            onLoadMore={fetchNextPage}
+            columns={2}
+            gap={16}
+            itemHeight={280}
+          />
         )}
       </div>
 

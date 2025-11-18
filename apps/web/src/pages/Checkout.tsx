@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { StoneCard } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
 import { useCart } from '../hooks/useCart'
+import { useTelegramAnalytics } from '../hooks/useTelegramAnalytics'
 import { ArrowLeft, User, Phone, Mail, MessageSquare, CheckCircle, MapPin } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
@@ -27,10 +28,22 @@ type CheckoutFormData = z.infer<typeof checkoutSchema>
 export default function Checkout() {
   const navigate = useNavigate()
   const { BackButton, MainButton, user, webApp } = useTelegram()
-  const { items, isLoading: isCartLoading } = useCart()
+  const { items, isLoading: isCartLoading, total } = useCart()
+  const analytics = useTelegramAnalytics()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('invoice')
   const [authToken, setAuthToken] = useState<string | null>(null)
+
+  // Track checkout started
+  useEffect(() => {
+    if (items.length > 0) {
+      analytics.trackCheckoutStarted({
+        itemsCount: items.length,
+        total: total || 0,
+        paymentMethod,
+      })
+    }
+  }, [analytics, items.length, total, paymentMethod])
 
   // Проверка пустой корзины при загрузке страницы
   useEffect(() => {
@@ -115,9 +128,24 @@ export default function Checkout() {
     if (BackButton && typeof BackButton.show === 'function') {
       try {
         BackButton.show()
-        BackButton.onClick(() => {
+        const handlerId = BackButton.onClick(() => {
           navigate(-1)
-        })
+        }, 'checkout-back')
+
+        return () => {
+          if (BackButton && typeof BackButton.hide === 'function') {
+            try {
+              BackButton.hide()
+              BackButton.offClick(handlerId)
+            } catch (error) {
+              // Игнорируем ошибки при очистке
+            }
+          }
+          if (MainButton && typeof MainButton.hide === 'function') {
+            MainButton.hide()
+            MainButton.clearHandlers()
+          }
+        }
       } catch (error) {
         console.debug('BackButton not supported:', error)
       }
@@ -127,14 +155,14 @@ export default function Checkout() {
       if (BackButton && typeof BackButton.hide === 'function') {
         try {
           BackButton.hide()
-          BackButton.offClick(() => {})
+          BackButton.clearHandlers()
         } catch (error) {
           // Игнорируем ошибки при очистке
         }
       }
       if (MainButton && typeof MainButton.hide === 'function') {
         MainButton.hide()
-        MainButton.offClick(() => {})
+        MainButton.clearHandlers()
       }
     }
   }, [BackButton, MainButton, navigate])
@@ -194,6 +222,15 @@ export default function Checkout() {
       localStorage.setItem('customer_data', JSON.stringify(customerData))
 
       setIsSubmitting(false)
+
+      // Track checkout completed
+      const orderId = response.data.id || response.data.orderNumber
+      if (orderId) {
+        analytics.trackCheckoutCompleted(orderId, total || 0, {
+          paymentMethod,
+          itemsCount: items.length,
+        })
+      }
 
       // Показываем успешное уведомление (откладываем, чтобы избежать обновления состояния во время рендера)
       setTimeout(() => {

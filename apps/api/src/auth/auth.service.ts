@@ -23,6 +23,11 @@ export class AuthService {
     try {
       const botToken = process.env.BOT_TOKEN;
       if (!botToken) {
+        // В development режиме разрешаем работу без BOT_TOKEN
+        if (process.env.NODE_ENV === 'development') {
+          this.logger.warn('BOT_TOKEN is not configured, skipping validation in development mode');
+          return true;
+        }
         throw new Error('BOT_TOKEN is not configured');
       }
 

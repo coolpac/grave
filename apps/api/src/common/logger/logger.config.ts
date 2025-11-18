@@ -1,6 +1,6 @@
 import { WinstonModuleOptions } from 'nest-winston';
 import * as winston from 'winston';
-import DailyRotateFile from 'winston-daily-rotate-file';
+const DailyRotateFile = require('winston-daily-rotate-file');
 import { join } from 'path';
 import * as fs from 'fs';
 

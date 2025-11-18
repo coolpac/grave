@@ -3,6 +3,11 @@ import { ShoppingCart } from 'lucide-react'
 import { StoneCard } from '@monorepo/ui'
 import ProductSpecifications from '../ProductSpecifications'
 import { PLACEHOLDER_IMAGE } from '../../utils/constants'
+import { useReducedMotion } from '../../hooks/useReducedMotion'
+import { getTransition } from '../../utils/animation-variants'
+import OptimizedImage from '../OptimizedImage'
+import { memo, useMemo, useCallback } from 'react'
+import { useStableCallback } from '../../hooks/useStableCallback'
 
 interface SimpleProductCardProps {
   product: {
@@ -16,18 +21,38 @@ interface SimpleProductCardProps {
   onAddToCart: () => void
 }
 
-export default function SimpleProductCard({ product, onAddToCart }: SimpleProductCardProps) {
+function SimpleProductCard({ product, onAddToCart }: SimpleProductCardProps) {
+  const { shouldReduceMotion } = useReducedMotion()
+  
+  // Мемоизированное форматирование цены
+  const formattedPrice = useMemo(() => {
+    return product.price.toLocaleString('ru-RU')
+  }, [product.price])
+
+  // Мемоизированная единица измерения
+  const unitLabel = useMemo(() => {
+    if (product.unit === 'SQUARE_METER') return '₽/м²'
+    if (product.unit === 'TON') return '₽/т'
+    return '₽'
+  }, [product.unit])
+
+  // Стабильный обработчик добавления в корзину
+  const handleAddToCart = useStableCallback(() => {
+    onAddToCart()
+  }, [onAddToCart])
+  
   return (
     <StoneCard className="cursor-pointer overflow-hidden">
       <div className="flex flex-col">
-        <img
-          src={product.image || PLACEHOLDER_IMAGE}
+        <OptimizedImage
+          src={product.image || ''}
           alt={product.name}
-          className="w-full h-48 object-cover"
-          onError={(e) => {
-            const target = e.target as HTMLImageElement
-            target.src = PLACEHOLDER_IMAGE
-          }}
+          aspectRatio={16 / 9}
+          size="thumbnail"
+          sizes="100vw"
+          className="w-full"
+          objectFit="cover"
+          placeholder="blur"
         />
         <div className="p-4">
           <h3 className="font-inscription text-lg text-gray-900 mb-2">
@@ -41,17 +66,18 @@ export default function SimpleProductCard({ product, onAddToCart }: SimpleProduc
           <div className="flex items-center justify-between">
             <div className="flex items-baseline gap-1">
               <span className="text-xl font-inscription text-gray-900">
-                {product.price.toLocaleString('ru-RU')}
+                {formattedPrice}
               </span>
               <span className="text-sm font-body text-gray-600">
-                {product.unit === 'SQUARE_METER' ? '₽/м²' : product.unit === 'TON' ? '₽/т' : '₽'}
+                {unitLabel}
               </span>
             </div>
             <motion.button
-              onClick={onAddToCart}
+              onClick={handleAddToCart}
               className="granite-button px-4 py-2 rounded-lg flex items-center gap-2"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
+              whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+              transition={getTransition(shouldReduceMotion, 'fast')}
             >
               <ShoppingCart className="w-4 h-4" />
               <span className="text-sm font-body">В корзину</span>
@@ -62,4 +88,18 @@ export default function SimpleProductCard({ product, onAddToCart }: SimpleProduc
     </StoneCard>
   )
 }
+
+// Мемоизация компонента для предотвращения лишних ре-рендеров
+const areEqual = (prevProps: SimpleProductCardProps, nextProps: SimpleProductCardProps): boolean => {
+  return (
+    prevProps.product.id === nextProps.product.id &&
+    prevProps.product.name === nextProps.product.name &&
+    prevProps.product.price === nextProps.product.price &&
+    prevProps.product.image === nextProps.product.image &&
+    prevProps.product.unit === nextProps.product.unit &&
+    prevProps.onAddToCart === nextProps.onAddToCart
+  )
+}
+
+export default memo(SimpleProductCard, areEqual)
 

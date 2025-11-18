@@ -1,6 +1,8 @@
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronDown } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
+import { useReducedMotion } from '../hooks/useReducedMotion'
+import { getAnimationVariants, getTransition } from '../utils/animation-variants'
 
 export type SortOption = 'price-asc' | 'price-desc' | 'name-asc' | 'name-desc' | 'newest'
 
@@ -18,6 +20,7 @@ const sortOptions: { value: SortOption; label: string }[] = [
 ]
 
 export default function SortSelect({ value, onChange }: SortSelectProps) {
+  const { shouldReduceMotion } = useReducedMotion()
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
@@ -39,25 +42,34 @@ export default function SortSelect({ value, onChange }: SortSelectProps) {
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
         className="flex items-center gap-2 px-4 py-2 rounded-lg bg-panel border border-border hover:border-accent transition-colors"
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
+        whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+        whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+        transition={getTransition(shouldReduceMotion, 'fast')}
       >
         <span className="text-sm font-medium">{selectedOption?.label || 'Сортировка'}</span>
-        <motion.div
-          animate={{ rotate: isOpen ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          <ChevronDown className="w-4 h-4" />
-        </motion.div>
+        {!shouldReduceMotion ? (
+          <motion.div
+            animate={{ rotate: isOpen ? 180 : 0 }}
+            transition={getTransition(shouldReduceMotion, 'fast')}
+          >
+            <ChevronDown className="w-4 h-4" />
+          </motion.div>
+        ) : (
+          <div style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+            <ChevronDown className="w-4 h-4" />
+          </div>
+        )}
       </motion.button>
 
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          className="absolute top-full mt-2 left-0 right-0 bg-panel border border-border rounded-lg shadow-lg z-10 overflow-hidden"
-        >
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            variants={getAnimationVariants(shouldReduceMotion, 'slideInFromTop')}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+            className="absolute top-full mt-2 left-0 right-0 bg-panel border border-border rounded-lg shadow-lg z-10 overflow-hidden"
+          >
           {sortOptions.map((option) => (
             <button
               key={option.value}
@@ -73,7 +85,8 @@ export default function SortSelect({ value, onChange }: SortSelectProps) {
             </button>
           ))}
         </motion.div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   )
 }

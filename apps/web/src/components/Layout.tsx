@@ -1,40 +1,73 @@
-import { ReactNode, useEffect } from 'react'
+import { ReactNode, useEffect, useMemo, memo } from 'react'
 import { useTelegram } from '../hooks/useTelegram'
 import { useTgViewport } from '../hooks/useTgViewport'
+import { useTelegramAnalytics } from '../hooks/useTelegramAnalytics'
+import { useLocation } from 'react-router-dom'
 import GraniteHeader from './GraniteHeader'
 
 interface LayoutProps {
   children: ReactNode
 }
 
-export default function Layout({ children }: LayoutProps) {
-  const { themeParams } = useTelegram()
+function Layout({ children }: LayoutProps) {
+  const { themeParams, isReady, expand, enableClosingConfirmation, colorScheme } = useTelegram()
+  const location = useLocation()
+  const analytics = useTelegramAnalytics()
   useTgViewport() // Инициализация viewport для CSS переменных
 
+  // Мемоизированные стили для предотвращения лишних обновлений
+  const containerStyle = useMemo(
+    () => ({
+      backgroundColor: 'transparent',
+      color: 'var(--tg-theme-text-color, hsl(var(--text)))',
+      height: 'var(--vh, 100vh)',
+      minHeight: '100vh',
+    }),
+    [] // Стили не зависят от props/state
+  )
+
+  // Initialize analytics
   useEffect(() => {
-    // Применяем цвета Telegram темы к документу
-    if (themeParams) {
-      if (themeParams.bg_color) {
-        document.documentElement.style.setProperty('--tg-theme-bg-color', themeParams.bg_color)
-      }
-      if (themeParams.text_color) {
-        document.documentElement.style.setProperty('--tg-theme-text-color', themeParams.text_color)
-      }
-      if (themeParams.secondary_bg_color) {
-        document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', themeParams.secondary_bg_color)
-      }
+    if (isReady) {
+      analytics.initialize()
     }
-  }, [themeParams])
+  }, [isReady, analytics])
+
+  // Track page views
+  useEffect(() => {
+    if (isReady && location.pathname) {
+      analytics.trackPageView(location.pathname, {
+        search: location.search,
+        hash: location.hash,
+      })
+    }
+  }, [location.pathname, location.search, location.hash, isReady, analytics])
+
+  // Auto-expand and enable closing confirmation on mount
+  useEffect(() => {
+    if (isReady) {
+      // Expand to fullscreen
+      expand()
+      
+      // Enable closing confirmation for better UX
+      enableClosingConfirmation()
+    }
+  }, [isReady, expand, enableClosingConfirmation])
+
+  // Theme is already applied in useTelegram hook, but we ensure it's applied here too
+  useEffect(() => {
+    // Theme colors are applied in useTelegram hook via applyThemeColors
+    // This effect ensures the color scheme class is set
+    if (colorScheme !== 'auto') {
+      document.documentElement.classList.toggle('tg-dark', colorScheme === 'dark')
+      document.documentElement.classList.toggle('tg-light', colorScheme === 'light')
+    }
+  }, [colorScheme, themeParams])
 
   return (
     <div
       className="flex flex-col w-full safe-area-insets overflow-hidden relative z-10"
-      style={{
-        backgroundColor: 'transparent',
-        color: 'var(--tg-theme-text-color, hsl(var(--text)))',
-        height: 'var(--vh, 100vh)',
-        minHeight: '100vh',
-      }}
+      style={containerStyle}
     >
       {/* Empty Granite Header */}
       <GraniteHeader />
@@ -45,4 +78,8 @@ export default function Layout({ children }: LayoutProps) {
     </div>
   )
 }
+
+// Мемоизация Layout для предотвращения лишних ре-рендеров
+// Layout ре-рендерится только когда изменяются children
+export default memo(Layout)
 

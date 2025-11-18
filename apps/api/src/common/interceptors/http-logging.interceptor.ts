@@ -67,7 +67,7 @@ export class HttpLoggingInterceptor implements NestInterceptor {
         next: (data) => {
           const duration = Date.now() - startTime;
           const { statusCode } = response;
-          const userId = user?.id || user?.telegramId || 'anonymous';
+          const userId = (user as any)?.id || (user as any)?.telegramId || 'anonymous';
 
           // Log request details
           const logData = {
@@ -122,7 +122,7 @@ export class HttpLoggingInterceptor implements NestInterceptor {
         error: (error) => {
           const duration = Date.now() - startTime;
           const statusCode = error.status || 500;
-          const userId = user?.id || user?.telegramId || 'anonymous';
+          const userId = (user as any)?.id || (user as any)?.telegramId || 'anonymous';
 
           // Log error with full context
           const errorLogData = {

@@ -1,7 +1,11 @@
 import { Link } from 'react-router-dom'
 import { ShoppingCart } from 'lucide-react'
-import { useRef } from 'react'
+import { useRef, useMemo, useCallback, memo } from 'react'
+import OptimizedImage from './OptimizedImage'
 import { PLACEHOLDER_IMAGE } from '../utils/constants'
+import { usePrefetch } from '../hooks/usePrefetch'
+import { useStableCallback } from '../hooks/useStableCallback'
+import { useRenderCount } from '../hooks/useRenderCount'
 
 interface ProductCardProps {
   product: {
@@ -21,23 +25,87 @@ interface ProductCardProps {
   onAddToCart?: (product: any, position: { x: number; y: number }) => void
 }
 
-export default function ProductCard({ product, index = 0, onAddToCart }: ProductCardProps) {
+/**
+ * Оптимизированная карточка товара с React.memo и мемоизацией
+ * 
+ * Оптимизации:
+ * - React.memo для предотвращения лишних ре-рендеров
+ * - useMemo для вычисления imageUrl
+ * - useCallback для event handlers
+ */
+function ProductCard({ product, index = 0, onAddToCart }: ProductCardProps) {
   const cardRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
+  const { prefetchProduct } = usePrefetch()
+  
+  // Отслеживание рендеров (только в development)
+  useRenderCount('ProductCard', false)
 
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (buttonRef.current && onAddToCart) {
-      const rect = buttonRef.current.getBoundingClientRect()
-      onAddToCart(product, {
-        x: rect.left + rect.width / 2,
-        y: rect.top + rect.height / 2,
-      })
+  // Мемоизированный URL изображения
+  const imageUrl = useMemo(
+    () => product.images?.[0] || product.image || PLACEHOLDER_IMAGE,
+    [product.images, product.image]
+  )
+
+  // Стабильный обработчик prefetch (не меняется между рендерами)
+  const handleMouseEnter = useStableCallback(() => {
+    if (product.slug) {
+      prefetchProduct(product.slug)
     }
-  }
+  }, [product.slug, prefetchProduct])
 
-  const imageUrl = product.images?.[0] || product.image || PLACEHOLDER_IMAGE
+  // Стабильный обработчик добавления в корзину
+  const handleAddToCart = useStableCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (buttonRef.current && onAddToCart) {
+        const rect = buttonRef.current.getBoundingClientRect()
+        onAddToCart(product, {
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        })
+      }
+    },
+    [product, onAddToCart]
+  )
+
+  // Мемоизированное форматирование цены
+  const formattedPrice = useMemo(() => {
+    return product.price > 0
+      ? `${product.price.toLocaleString('ru-RU')} ₽`
+      : 'По запросу'
+  }, [product.price])
+
+  // Мемоизированное форматирование материала
+  const materialLabel = useMemo(() => {
+    if (!product.material) return null
+    return product.material === 'MARBLE' ? 'Мрамор' : product.material === 'GRANITE' ? 'Гранит' : product.material
+  }, [product.material])
+
+  // Мемоизированные классы для материала
+  const materialClasses = useMemo(() => {
+    if (!product.material) return ''
+    return product.material === 'MARBLE'
+      ? 'bg-blue-100 text-blue-700'
+      : product.material === 'GRANITE'
+      ? 'bg-gray-100 text-gray-700'
+      : 'bg-gray-100 text-gray-600'
+  }, [product.material])
+
+  // Мемоизированное форматирование вариантов
+  const variantsText = useMemo(() => {
+    if (!product.variants || product.variants.length === 0) return null
+    const count = product.variants.length
+    return `${count} ${count === 1 ? 'вариант' : count < 5 ? 'варианта' : 'вариантов'}`
+  }, [product.variants])
+
+  // Мемоизированное форматирование атрибутов
+  const attributesText = useMemo(() => {
+    if (!product.attributes || product.attributes.length === 0) return null
+    const count = product.attributes.length
+    return `${count} ${count === 1 ? 'атрибут' : count < 5 ? 'атрибута' : 'атрибутов'}`
+  }, [product.attributes])
 
   return (
     <div 
@@ -46,19 +114,20 @@ export default function ProductCard({ product, index = 0, onAddToCart }: Product
       style={{
         background: 'linear-gradient(to bottom, #ffffff 0%, #fafafa 100%)',
       }}
+      onMouseEnter={handleMouseEnter}
+      onTouchStart={handleMouseEnter}
     >
       <Link to={`/p/${product.slug}`} className="block">
-        <div className="relative aspect-square bg-gray-100 overflow-hidden">
-          <img
+        <div className="relative aspect-square bg-gray-100 overflow-hidden group">
+          <OptimizedImage
             src={imageUrl}
             alt={product.name}
-            className="w-full h-full object-cover transition-transform duration-300 hover:scale-105"
-            loading="lazy"
-            onError={(e) => {
-              // Fallback на placeholder при ошибке загрузки
-              const target = e.target as HTMLImageElement
-              target.src = PLACEHOLDER_IMAGE
-            }}
+            aspectRatio={1}
+            size="thumbnail"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            className="transition-transform duration-300 group-hover:scale-105"
+            objectFit="cover"
+            placeholder="blur"
           />
             {/* Add to Cart Button - темный гранитный стиль с мраморной текстурой */}
             <button
@@ -77,31 +146,21 @@ export default function ProductCard({ product, index = 0, onAddToCart }: Product
           </h3>
           <div className="flex items-center justify-between mb-1">
             <p className="text-base font-body font-semibold text-gray-900">
-              {product.price > 0 ? `${product.price.toLocaleString('ru-RU')} ₽` : 'По запросу'}
+              {formattedPrice}
             </p>
-            {product.material && (
-              <span className={`text-xs px-2 py-0.5 rounded ${
-                product.material === 'MARBLE' 
-                  ? 'bg-blue-100 text-blue-700' 
-                  : product.material === 'GRANITE'
-                  ? 'bg-gray-100 text-gray-700'
-                  : 'bg-gray-100 text-gray-600'
-              }`}>
-                {product.material === 'MARBLE' ? 'Мрамор' : product.material === 'GRANITE' ? 'Гранит' : product.material}
+            {materialLabel && (
+              <span className={`text-xs px-2 py-0.5 rounded ${materialClasses}`}>
+                {materialLabel}
               </span>
             )}
           </div>
           {product.productType && product.productType !== 'SIMPLE' && (
             <div className="mt-1.5 flex flex-wrap gap-1">
-              {product.variants && product.variants.length > 0 && (
-                <span className="text-xs text-gray-500">
-                  {product.variants.length} {product.variants.length === 1 ? 'вариант' : product.variants.length < 5 ? 'варианта' : 'вариантов'}
-                </span>
+              {variantsText && (
+                <span className="text-xs text-gray-500">{variantsText}</span>
               )}
-              {product.attributes && product.attributes.length > 0 && (
-                <span className="text-xs text-gray-500">
-                  • {product.attributes.length} {product.attributes.length === 1 ? 'атрибут' : product.attributes.length < 5 ? 'атрибута' : 'атрибутов'}
-                </span>
+              {attributesText && (
+                <span className="text-xs text-gray-500">• {attributesText}</span>
               )}
             </div>
           )}
@@ -113,4 +172,68 @@ export default function ProductCard({ product, index = 0, onAddToCart }: Product
     </div>
   )
 }
+
+/**
+ * Сравнение props для React.memo
+ * Оптимизировано для предотвращения лишних ре-рендеров
+ * 
+ * Возвращает true если props равны (компонент не должен ре-рендериться)
+ * Возвращает false если props изменились (компонент должен ре-рендериться)
+ */
+const areEqual = (prevProps: ProductCardProps, nextProps: ProductCardProps): boolean => {
+  // Быстрая проверка: если ссылки на объекты одинаковые, props не изменились
+  if (prevProps === nextProps) {
+    return true
+  }
+
+  // Сравниваем основные свойства товара (примитивы - быстро)
+  if (
+    prevProps.product.id !== nextProps.product.id ||
+    prevProps.product.slug !== nextProps.product.slug ||
+    prevProps.product.name !== nextProps.product.name ||
+    prevProps.product.price !== nextProps.product.price ||
+    prevProps.product.image !== nextProps.product.image ||
+    prevProps.product.material !== nextProps.product.material ||
+    prevProps.index !== nextProps.index
+  ) {
+    return false
+  }
+
+  // Сравниваем массивы изображений (shallow comparison)
+  const prevImages = prevProps.product.images || []
+  const nextImages = nextProps.product.images || []
+  if (prevImages.length !== nextImages.length) {
+    return false
+  }
+  if (prevImages.some((img, i) => img !== nextImages[i])) {
+    return false
+  }
+
+  // Сравниваем варианты (только количество для производительности)
+  // Если нужно более точное сравнение, можно добавить проверку по id
+  const prevVariants = prevProps.product.variants || []
+  const nextVariants = nextProps.product.variants || []
+  if (prevVariants.length !== nextVariants.length) {
+    return false
+  }
+
+  // Сравниваем атрибуты (только количество)
+  const prevAttributes = prevProps.product.attributes || []
+  const nextAttributes = nextProps.product.attributes || []
+  if (prevAttributes.length !== nextAttributes.length) {
+    return false
+  }
+
+  // onAddToCart - функция, обычно стабильная благодаря useStableCallback
+  // Но проверяем ссылку на всякий случай
+  if (prevProps.onAddToCart !== nextProps.onAddToCart) {
+    return false
+  }
+
+  // Все проверки пройдены - props не изменились
+  return true
+}
+
+// Экспортируем мемоизированный компонент
+export default memo(ProductCard, areEqual)
 

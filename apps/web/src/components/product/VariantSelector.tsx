@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { ShoppingCart, Check } from 'lucide-react'
 import { StoneCard } from '@monorepo/ui'
+import { useReducedMotion } from '../../hooks/useReducedMotion'
+import { getTransition } from '../../utils/animation-variants'
 
 interface AttributeValue {
   id: number
@@ -35,6 +37,7 @@ interface VariantSelectorProps {
 }
 
 export default function VariantSelector({ product, onAddToCart, onPriceChange }: VariantSelectorProps) {
+  const { shouldReduceMotion } = useReducedMotion()
   const [selectedAttributes, setSelectedAttributes] = useState<Record<string, string>>({})
   const [selectedVariant, setSelectedVariant] = useState<Variant | null>(null)
   const [price, setPrice] = useState<number | null>(null)
@@ -115,8 +118,9 @@ export default function VariantSelector({ product, onAddToCart, onPriceChange }:
                       ? 'border-bronze-500 bg-bronze-50'
                       : 'border-gray-200 bg-white hover:border-gray-300'
                   }`}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+                  whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+                  transition={getTransition(shouldReduceMotion, 'fast')}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-body text-sm text-gray-900">
@@ -156,8 +160,9 @@ export default function VariantSelector({ product, onAddToCart, onPriceChange }:
           <motion.button
             onClick={handleAddToCart}
             className="granite-button w-full py-3 rounded-lg font-body font-semibold flex items-center justify-center gap-2"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+            transition={getTransition(shouldReduceMotion, 'fast')}
           >
             <ShoppingCart className="w-5 h-5" />
             <span>В корзину</span>

@@ -67,16 +67,18 @@ export default function ProductImageGallery({ images, onClose }: ProductImageGal
                 wrapperClass="w-full h-full"
                 contentClass="w-full h-full flex items-center justify-center"
               >
-                <img
-                  src={images[currentIndex]}
-                  alt={`Product image ${currentIndex + 1}`}
-                  className="max-w-full max-h-full object-contain"
-                  onError={(e) => {
-                    // Fallback на placeholder при ошибке загрузки
-                    const target = e.target as HTMLImageElement
-                    target.src = PLACEHOLDER_IMAGE
-                  }}
-                />
+                <div className="max-w-full max-h-full">
+                  <OptimizedImage
+                    src={images[currentIndex]}
+                    alt={`Product image ${currentIndex + 1}`}
+                    size="large"
+                    sizes="100vw"
+                    className="max-w-full max-h-full"
+                    objectFit="contain"
+                    placeholder="blur"
+                    priority
+                  />
+                </div>
               </TransformComponent>
             </TransformWrapper>
           </motion.div>

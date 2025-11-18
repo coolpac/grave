@@ -31,6 +31,7 @@
   "dependencies": {
     "@bull-board/api": "^6.14.2",
     "@bull-board/express": "^6.14.2",
+    "@nestjs/axios": "^4.0.1",
     "@nestjs/bull": "^11.0.4",
     "@nestjs/cache-manager": "^2.1.1",
     "@nestjs/common": "^10.3.0",

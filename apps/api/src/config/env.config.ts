@@ -23,7 +23,7 @@ export interface EnvConfig {
   REDIS_PASSWORD?: string;
 
   // Telegram
-  BOT_TOKEN: string;
+  BOT_TOKEN?: string;
   CUSTOMER_BOT_TOKEN?: string;
   ADMIN_BOT_TOKEN?: string;
   TELEGRAM_MANAGER_CHAT_ID?: string;

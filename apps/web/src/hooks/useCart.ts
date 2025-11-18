@@ -198,10 +198,21 @@ export function useCart() {
         throw err;
       }
     },
-    retry: 2,
+    retry: 1, // Быстрый fallback
     retryDelay: 1000,
-    staleTime: 30000, // 30 секунд
-    refetchOnWindowFocus: true,
+    staleTime: 30 * 1000, // 30 секунд - корзина часто меняется
+    gcTime: 5 * 60 * 1000, // 5 минут в памяти
+    // Background refetch для корзины - обновляем в фоне каждые 30 секунд
+    refetchInterval: (query) => {
+      // Обновляем только если есть токен и не офлайн
+      const token = localStorage.getItem('token');
+      if (token && !isOffline) {
+        return 30 * 1000; // 30 секунд
+      }
+      return false;
+    },
+    refetchOnWindowFocus: true, // Обновляем при фокусе для корзины
+    refetchOnReconnect: true, // Обновляем при переподключении
   });
 
   // Загрузка локальной корзины
@@ -453,6 +464,94 @@ export function useCart() {
           return { local: true, productId, variantId, quantity };
         }
         throw error;
+      }
+    },
+    // Optimistic update для добавления в корзину
+    onMutate: async (variables) => {
+      // Отменяем текущие запросы корзины
+      await queryClient.cancelQueries({ queryKey: ['cart'] });
+      
+      // Сохраняем предыдущее состояние
+      const previousCart = queryClient.getQueryData<Cart>(['cart']);
+      
+      // Оптимистично обновляем корзину только для авторизованных пользователей
+      const token = localStorage.getItem('token');
+      if (token) {
+        queryClient.setQueryData<Cart>(['cart'], (old) => {
+          if (!old) {
+            // Если корзины нет, создаем новую
+            const newItem: CartItem = {
+              id: -(Date.now() + Math.random()), // Временный отрицательный ID
+              productId: variables.productId,
+              variantId: variables.variantId,
+              quantity: variables.quantity || 1,
+              product: {
+                id: variables.productId,
+                slug: variables.productSlug || '',
+                name: variables.productName || '',
+                basePrice: variables.productPrice,
+                media: variables.imageUrl ? [{ url: variables.imageUrl, order: 0 }] : undefined,
+              },
+              variant: variables.variantId && variables.variantPrice
+                ? {
+                    id: variables.variantId,
+                    price: variables.variantPrice,
+                    name: variables.variantName,
+                  }
+                : undefined,
+            };
+            return { id: 0, items: [newItem] };
+          }
+          
+          // Проверяем, есть ли уже такой товар
+          const existingItemIndex = old.items.findIndex(
+            (item) =>
+              item.productId === variables.productId &&
+              (item.variantId || 'default') === (variables.variantId || 'default')
+          );
+          
+          if (existingItemIndex >= 0) {
+            // Увеличиваем количество существующего товара
+            const updatedItems = old.items.map((item, index) =>
+              index === existingItemIndex
+                ? { ...item, quantity: item.quantity + (variables.quantity || 1) }
+                : item
+            );
+            return { ...old, items: updatedItems };
+          } else {
+            // Добавляем новый товар
+            const newItem: CartItem = {
+              id: -(Date.now() + Math.random()), // Временный отрицательный ID
+              productId: variables.productId,
+              variantId: variables.variantId,
+              quantity: variables.quantity || 1,
+              product: {
+                id: variables.productId,
+                slug: variables.productSlug || '',
+                name: variables.productName || '',
+                basePrice: variables.productPrice,
+                media: variables.imageUrl ? [{ url: variables.imageUrl, order: 0 }] : undefined,
+              },
+              variant: variables.variantId && variables.variantPrice
+                ? {
+                    id: variables.variantId,
+                    price: variables.variantPrice,
+                    name: variables.variantName,
+                  }
+                : undefined,
+            };
+            return { ...old, items: [...old.items, newItem] };
+          }
+        });
+      }
+      
+      return { previousCart };
+    },
+    onError: (err, variables, context) => {
+      // Откат при ошибке (только для авторизованных пользователей)
+      const token = localStorage.getItem('token');
+      if (token && context?.previousCart) {
+        queryClient.setQueryData(['cart'], context.previousCart);
       }
     },
     onSuccess: async (data, variables) => {

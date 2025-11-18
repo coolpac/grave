@@ -1,5 +1,7 @@
 import { motion } from 'framer-motion'
 import { X } from 'lucide-react'
+import { useReducedMotion } from '../hooks/useReducedMotion'
+import { getTransition } from '../utils/animation-variants'
 
 interface FilterOption {
   id: string
@@ -24,6 +26,7 @@ export default function FilterChips({
   onFilterChange,
   onClearAll,
 }: FilterChipsProps) {
+  const { shouldReduceMotion } = useReducedMotion()
   const hasActiveFilters = Object.values(selectedFilters).some((arr) => arr.length > 0)
 
   return (
@@ -44,8 +47,9 @@ export default function FilterChips({
                       ? 'bg-accent text-accent-foreground'
                       : 'bg-panel border border-border hover:border-accent'
                   }`}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
+                  whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+                  transition={getTransition(shouldReduceMotion, 'fast')}
                 >
                   {option.label}
                 </motion.button>
@@ -114,8 +118,9 @@ export default function FilterChips({
         <motion.button
           onClick={onClearAll}
           className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium bg-panel border border-border hover:border-destructive text-destructive"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
+          whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
+          whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+          transition={getTransition(shouldReduceMotion, 'fast')}
         >
           <X className="w-4 h-4" />
           Очистить фильтры

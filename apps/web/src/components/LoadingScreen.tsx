@@ -1,5 +1,7 @@
 import { motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
+import { useReducedMotion } from '../hooks/useReducedMotion'
+import { getTransition } from '../utils/animation-variants'
 
 interface LoadingScreenProps {
   onComplete: () => void
@@ -7,26 +9,55 @@ interface LoadingScreenProps {
 
 export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
   const [isVisible, setIsVisible] = useState(true)
+  const { shouldReduceMotion } = useReducedMotion()
 
   useEffect(() => {
+    // На слабых устройствах сокращаем время загрузки
+    const loadingTime = shouldReduceMotion ? 1000 : 2000
     const timer = setTimeout(() => {
       setIsVisible(false)
       setTimeout(() => {
         onComplete()
-      }, 400)
-    }, 2000)
+      }, shouldReduceMotion ? 200 : 400)
+    }, loadingTime)
 
     return () => {
       clearTimeout(timer)
     }
-  }, [onComplete])
+  }, [onComplete, shouldReduceMotion])
+
+  // На слабых устройствах упрощаем анимацию загрузки
+  if (shouldReduceMotion) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center"
+        style={{
+          backgroundColor: 'var(--tg-theme-bg-color, #000000)',
+        }}
+      >
+        <div className="flex flex-col items-center gap-12">
+          <span
+            className="text-6xl font-light tracking-tight"
+            style={{
+              color: 'rgba(255, 255, 255, 0.95)',
+              fontFamily: 'Cinzel, serif',
+              fontWeight: 300,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            G
+          </span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: isVisible ? 1 : 0 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.4, ease: [0.25, 0.1, 0.25, 1] }}
+      transition={getTransition(shouldReduceMotion, 'normal')}
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{
         backgroundColor: 'var(--tg-theme-bg-color, #000000)',
@@ -46,7 +77,7 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.6, ease: [0.25, 0.1, 0.25, 1] }}
+        transition={getTransition(shouldReduceMotion, 'normal')}
         className="flex flex-col items-center gap-12"
       >
         {/* Простой логотип - только буква, минималистично */}
@@ -54,7 +85,7 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
           className="relative"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.2, duration: 0.5 }}
+          transition={getTransition(shouldReduceMotion, 'normal')}
         >
           <span
             className="text-6xl font-light tracking-tight"
@@ -74,7 +105,7 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
           className="relative w-32 h-px overflow-hidden"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.4, duration: 0.4 }}
+          transition={getTransition(shouldReduceMotion, 'normal')}
         >
           {/* Фон линии - очень темный */}
           <div
