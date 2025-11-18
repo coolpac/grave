@@ -92,11 +92,11 @@ export function createSplitContext<T extends Record<string, any>>(
     Provider: ({ children, value }: { children: React.ReactNode; value: T }) => {
       return Object.entries(contexts).reduce(
         (acc, [key, Context]) => {
-          const ContextProvider = Context.Provider as React.Provider<T[keyof T]>
+          const ContextValue = value[key as keyof T]
           return (
-            <ContextProvider key={key} value={value[key as keyof T]}>
+            <Context.Provider key={key} value={ContextValue}>
               {acc}
-            </ContextProvider>
+            </Context.Provider>
           )
         },
         children as React.ReactElement
