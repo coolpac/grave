@@ -33,7 +33,7 @@ import { DatabaseModule } from './database/database.module';
       envFilePath: '.env',
       validationSchema: envValidationSchema,
       validationOptions: {
-        allowUnknown: false, // Reject unknown environment variables
+        allowUnknown: true, // Allow system environment variables (e.g., COREPACK_ROOT, PATH, etc.)
         abortEarly: true, // Stop validation on first error
       },
       expandVariables: true, // Expand ${VAR} syntax in .env files

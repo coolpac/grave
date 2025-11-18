@@ -130,8 +130,9 @@ export const envValidationSchema = Joi.object({
 
   CLOUDFLARE_TUNNEL_URL: Joi.string()
     .uri()
+    .allow('')
     .optional()
-    .description('Cloudflare tunnel URL (optional)'),
+    .description('Cloudflare tunnel URL (optional, leave empty if not using Cloudflare Tunnel)'),
 
   PUBLIC_URL: Joi.string()
     .uri()
