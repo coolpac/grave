@@ -63,22 +63,29 @@ export default function MaterialCategories() {
   })
 
   useEffect(() => {
-    if (BackButton && typeof BackButton.show === 'function') {
-      try {
-        BackButton.show()
-        BackButton.onClick(() => {
-          navigate(-1)
-        })
-      } catch (error) {
-        console.debug('BackButton not supported:', error)
-      }
+    if (!BackButton || typeof BackButton.show !== 'function') {
+      return
+    }
+
+    let handlerId: string | null = null
+    try {
+      BackButton.show()
+      handlerId = BackButton.onClick(() => {
+        navigate(-1)
+      }, 'material-categories-back')
+    } catch (error) {
+      console.debug('BackButton not supported:', error)
     }
 
     return () => {
-      if (BackButton && typeof BackButton.hide === 'function') {
+      if (typeof BackButton.hide === 'function') {
         try {
           BackButton.hide()
-          BackButton.offClick(() => {})
+          if (handlerId) {
+            BackButton.offClick(handlerId)
+          } else if (typeof BackButton.clearHandlers === 'function') {
+            BackButton.clearHandlers()
+          }
         } catch (error) {
           // Игнорируем ошибки при очистке
         }

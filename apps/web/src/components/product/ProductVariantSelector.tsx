@@ -2,14 +2,12 @@ import { useEffect } from 'react'
 import SimpleProductCard from './SimpleProductCard'
 import VariantSelector from './VariantSelector'
 import MatrixSelector from './MatrixSelector'
-import { ProductType } from '@prisma/client'
-
 interface ProductVariantSelectorProps {
   product: {
     id: number
     slug: string
     name: string
-    productType?: ProductType | string
+    productType?: 'SIMPLE' | 'SINGLE_VARIANT' | 'MATRIX' | string
     basePrice?: number
     price?: number
     attributes?: Array<{
@@ -103,7 +101,7 @@ export default function ProductVariantSelector({ product, onAddToCart, onPriceCh
               id: 1,
               name: 'Вариант',
               slug: 'variant',
-              values: product.variants.map((v, i) => ({
+              values: (product.variants ?? []).map((v, i) => ({
                 id: i + 1,
                 value: String(v.id),
                 displayName: v.name || `Вариант ${i + 1}`,

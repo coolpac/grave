@@ -38,13 +38,19 @@ export class OptimizedMainButton {
    */
   setParams = (params: { color?: string; textColor?: string }) => {
     const { color, textColor } = params
+    const nextParams: Record<string, string> = {}
+
     if (color && this.currentColor !== color) {
       this.currentColor = color
-      this.button.setParams({ color })
+      nextParams.color = color
     }
     if (textColor && this.currentTextColor !== textColor) {
       this.currentTextColor = textColor
-      this.button.setParams({ textColor })
+      nextParams.text_color = textColor
+    }
+
+    if (Object.keys(nextParams).length > 0) {
+      this.button.setParams(nextParams as any)
     }
   }
 

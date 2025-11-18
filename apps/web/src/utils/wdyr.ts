@@ -20,28 +20,36 @@
 import React from 'react'
 
 if (import.meta.env.DEV) {
-  try {
-    const whyDidYouRender = require('@welldone-software/why-did-you-render')
-    
-    whyDidYouRender(React, {
-      trackAllPureComponents: false, // Не отслеживать все компоненты (слишком много логов)
-      trackHooks: true, // Отслеживать изменения в хуках
-      trackExtraHooks: [
-        // Отслеживать дополнительные хуки
-        [require('@tanstack/react-query'), 'useQuery', 'useMutation', 'useQueryClient'],
-      ],
-      logOnDifferentValues: true, // Логировать когда значения изменились
-      hotReloadBufferMs: 500, // Задержка для hot reload
-      onlyLogs: false, // Показывать не только логи, но и предупреждения
-      collapseGroups: true, // Сворачивать группы в консоли
-      titleColor: 'green',
-      diffNameColor: 'aqua',
-      logOwner: true, // Показывать владельца компонента
-    })
-  } catch (error) {
-    // Игнорируем ошибки если библиотека не установлена
-    console.warn('Why Did You Render не может быть инициализирован:', error)
+  const initWhyDidYouRender = async () => {
+    try {
+      const [{ default: whyDidYouRender }, reactQuery] = await Promise.all([
+        import('@welldone-software/why-did-you-render'),
+        import('@tanstack/react-query'),
+      ])
+
+      whyDidYouRender(React, {
+        trackAllPureComponents: false, // Не отслеживать все компоненты (слишком много логов)
+        trackHooks: true, // Отслеживать изменения в хуках
+        trackExtraHooks: [
+          // Отслеживать дополнительные хуки
+          [reactQuery, 'useQuery'],
+          [reactQuery, 'useMutation'],
+          [reactQuery, 'useQueryClient'],
+        ],
+        logOnDifferentValues: true, // Логировать когда значения изменились
+        hotReloadBufferMs: 500, // Задержка для hot reload
+        onlyLogs: false, // Показывать не только логи, но и предупреждения
+        collapseGroups: true, // Сворачивать группы в консоли
+        titleColor: 'green',
+        diffNameColor: 'aqua',
+      })
+    } catch (error) {
+      // Игнорируем ошибки если библиотека не установлена
+      console.warn('Why Did You Render не может быть инициализирован:', error)
+    }
   }
+
+  void initWhyDidYouRender()
 }
 
 export default React

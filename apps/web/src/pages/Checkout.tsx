@@ -180,10 +180,11 @@ export default function Checkout() {
           const authResponse = await axios.post(`${API_URL}/auth/validate`, {
             initData: webApp.initData,
           })
-          if (authResponse.data?.token) {
-            token = authResponse.data.token
-            localStorage.setItem('token', token)
-            setAuthToken(token)
+          const newToken = authResponse.data?.token as string | undefined
+          if (newToken) {
+            token = newToken
+            localStorage.setItem('token', newToken)
+            setAuthToken(newToken)
           }
         } catch (authError) {
           console.warn('Failed to authenticate:', authError)

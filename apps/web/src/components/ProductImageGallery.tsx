@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch'
 import { X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { PLACEHOLDER_IMAGE } from '../utils/constants'
+import OptimizedImage from './OptimizedImage'
 
 interface ProductImageGalleryProps {
   images: string[]

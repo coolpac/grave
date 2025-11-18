@@ -98,12 +98,14 @@ export default function Orders() {
   }, [])
 
   useEffect(() => {
+    let handlerId: string | null = null
+
     if (BackButton && typeof BackButton.show === 'function') {
       try {
         BackButton.show()
-        BackButton.onClick(() => {
+        handlerId = BackButton.onClick(() => {
           navigate(-1)
-        })
+        }, 'orders-back')
       } catch (error) {
         console.debug('BackButton not supported:', error)
       }
@@ -116,7 +118,11 @@ export default function Orders() {
       if (BackButton && typeof BackButton.hide === 'function') {
         try {
           BackButton.hide()
-          BackButton.offClick(() => {})
+          if (handlerId) {
+            BackButton.offClick(handlerId)
+          } else if (typeof BackButton.clearHandlers === 'function') {
+            BackButton.clearHandlers()
+          }
         } catch (error) {
           // Игнорируем ошибки при очистке
         }

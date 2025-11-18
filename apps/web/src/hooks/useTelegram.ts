@@ -35,7 +35,7 @@ export interface UseTelegramReturn {
   HapticFeedback: HapticFeedbackAPI
   sendDataToServer: () => Promise<boolean>
   expand: () => void
-  close: () => void
+  close: () => Promise<boolean>
   enableClosingConfirmation: () => void
   disableClosingConfirmation: () => void
   isExpanded: boolean
@@ -45,17 +45,19 @@ export interface UseTelegramReturn {
 /**
  * Throttle function for frequent calls
  */
-function throttle<T extends (...args: any[]) => void>(
+function throttle<T extends (...args: any[]) => any>(
   func: T,
   limit: number
-): (...args: Parameters<T>) => void {
+): (...args: Parameters<T>) => ReturnType<T> {
   let inThrottle: boolean
-  return function (this: any, ...args: Parameters<T>) {
+  let lastResult: ReturnType<T>
+  return function (this: any, ...args: Parameters<T>): ReturnType<T> {
     if (!inThrottle) {
-      func.apply(this, args)
+      lastResult = func.apply(this, args)
       inThrottle = true
       setTimeout(() => (inThrottle = false), limit)
     }
+    return lastResult
   }
 }
 
@@ -253,12 +255,14 @@ export const useTelegram = (): UseTelegramReturn => {
   )
 
   // Memoized close
-  const close = useCallback(() => {
-    if (typeof WebApp === 'undefined' || !WebApp) return
+  const close = useCallback(async (): Promise<boolean> => {
+    if (typeof WebApp === 'undefined' || !WebApp) return false
     try {
       WebApp.close()
+      return true
     } catch (error) {
       console.warn('Failed to close WebApp:', error)
+      return false
     }
   }, [])
 
@@ -330,7 +334,7 @@ export const useTelegram = (): UseTelegramReturn => {
     HapticFeedback,
     sendDataToServer,
     expand,
-    close,
+    close: close as () => Promise<boolean>,
     enableClosingConfirmation,
     disableClosingConfirmation,
     isExpanded,

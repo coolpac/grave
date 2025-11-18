@@ -154,7 +154,7 @@ const cartAxios = createCartAxios();
  */
 export function useCart() {
   const queryClient = useQueryClient();
-  const syncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [isOffline, setIsOffline] = useState(false);
 
   // Проверка онлайн/офлайн статуса
@@ -553,6 +553,13 @@ export function useCart() {
       if (token && context?.previousCart) {
         queryClient.setQueryData(['cart'], context.previousCart);
       }
+      console.error('Failed to add to cart:', err);
+      // Откладываем toast, чтобы избежать обновления состояния во время рендера
+      setTimeout(() => {
+        toast.error('Не удалось добавить товар в корзину. Попробуйте позже.', {
+          icon: '❌',
+        });
+      }, 0);
     },
     onSuccess: async (data, variables) => {
       if (data.local) {
@@ -616,15 +623,6 @@ export function useCart() {
           });
         }, 0);
       }
-    },
-    onError: (error: any) => {
-      console.error('Failed to add to cart:', error);
-      // Откладываем toast, чтобы избежать обновления состояния во время рендера
-      setTimeout(() => {
-        toast.error('Не удалось добавить товар в корзину. Попробуйте позже.', {
-          icon: '❌',
-        });
-      }, 0);
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['cart'] });

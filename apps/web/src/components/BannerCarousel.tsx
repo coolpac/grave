@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { useReducedMotion } from '../hooks/useReducedMotion'
 import { getAnimationVariants, getTransition } from '../utils/animation-variants'
 import { useStableCallback } from '../hooks/useStableCallback'
+import OptimizedImage from './OptimizedImage'
 
 type BannerItemBase = {
   id: string
@@ -26,7 +27,7 @@ type BannerCarouselProps = {
   onSlideClick?: (item: BannerCarouselItem) => void
 }
 
-function BannerCarousel({ items, autoPlayInterval = 8000, onSlideClick }: BannerCarouselProps) {
+function BannerCarouselComponent({ items, autoPlayInterval = 8000, onSlideClick }: BannerCarouselProps) {
   const slideCount = items.length
   const [activeIndex, setActiveIndex] = useState(0)
   const touchStartX = useRef(0)
