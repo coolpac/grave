@@ -49,7 +49,7 @@ RUN pnpm install --prod --frozen-lockfile --shamefully-hoist
 
 # Copy built application
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/dist ./dist
-COPY --from=builder --chown=nestjs:nodejs /app/apps/api/prisma ./prisma
+COPY --from=builder --chown=nestjs:nodejs /app/apps/api/prisma ./apps/api/prisma
 
 # Generate Prisma Client for production (needed because of shamefully-hoist)
 # Install prisma CLI first
