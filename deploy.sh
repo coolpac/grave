@@ -19,17 +19,12 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Function to print colored output
 print_status() {
     echo -e "${GREEN}✓${NC} $1"
 }
 
 print_error() {
     echo -e "${RED}✗${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}⚠${NC} $1"
 }
 
 # Check if .env.production exists
@@ -39,15 +34,13 @@ if [ ! -f ".env.production" ]; then
     exit 1
 fi
 
-# Create backup before deployment
-print_status "Creating backup..."
-ssh ${DEPLOY_USER}@${SERVER_IP} "mkdir -p ${BACKUP_DIR} && \
-    if [ -d ${PROJECT_DIR} ]; then \
-        tar -czf ${BACKUP_DIR}/backup-\$(date +%Y%m%d-%H%M%S).tar.gz -C ${PROJECT_DIR} .; \
-    fi"
+# Copy setup script specifically first
+print_status "Copying memory setup script..."
+scp setup-memory.sh ${DEPLOY_USER}@${SERVER_IP}:/root/
+ssh ${DEPLOY_USER}@${SERVER_IP} "chmod +x /root/setup-memory.sh"
 
 # Copy files to server
-print_status "Copying files to server..."
+print_status "Copying project files to server..."
 rsync -avz --exclude 'node_modules' \
     --exclude '.git' \
     --exclude 'dist' \
@@ -61,18 +54,40 @@ print_status "Copying environment file..."
 scp .env.production ${DEPLOY_USER}@${SERVER_IP}:${PROJECT_DIR}/.env
 
 # Deploy on server
-print_status "Deploying on server..."
+print_status "Executing deployment on server..."
 ssh ${DEPLOY_USER}@${SERVER_IP} << 'ENDSSH'
     set -e
+    
+    # 1. Ensure memory optimization is applied
+    echo "Checking memory configuration..."
+    /root/setup-memory.sh
+    
     cd /opt/ritual-app
     
     # Stop services
     echo "Stopping services..."
     docker-compose -f docker-compose.production.yml down || true
     
-    # Build and start services
-    echo "Building and starting services..."
-    docker-compose -f docker-compose.production.yml build --no-cache
+    # Clean up old resources to free memory
+    echo "Cleaning up Docker resources..."
+    docker system prune -f || true
+    
+    # Build services SEQUENTIALLY to avoid OOM
+    # We force 1 parallel job to be safe
+    
+    echo "------------------------------------------------"
+    echo "🏗️  Building API (Backend)..."
+    echo "------------------------------------------------"
+    # Using limited resources specifically for build process if possible, or just relying on Swap
+    DOCKER_BUILDKIT=1 docker-compose -f docker-compose.production.yml build api
+    
+    echo "------------------------------------------------"
+    echo "🏗️  Building Web (Frontend)..."
+    echo "------------------------------------------------"
+    DOCKER_BUILDKIT=1 docker-compose -f docker-compose.production.yml build web
+    
+    # Start services
+    echo "🚀 Starting services..."
     docker-compose -f docker-compose.production.yml up -d
     
     # Wait for services to be healthy
@@ -95,8 +110,3 @@ echo ""
 echo "Services are available at:"
 echo "  - Frontend: http://${SERVER_IP}"
 echo "  - API: http://${SERVER_IP}/api"
-echo "  - Health: http://${SERVER_IP}/api/health"
-echo ""
-echo "To view logs:"
-echo "  ssh ${DEPLOY_USER}@${SERVER_IP} 'cd ${PROJECT_DIR} && docker-compose -f docker-compose.production.yml logs -f'"
-

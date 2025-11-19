@@ -4,6 +4,15 @@ services:
     image: postgres:15-alpine
     container_name: ritual_postgres
     restart: unless-stopped
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ritual_db}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
@@ -61,6 +70,15 @@ services:
     image: redis:7-alpine
     container_name: ritual_redis
     restart: unless-stopped
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
     command: >
       redis-server
       --appendonly yes
@@ -85,8 +103,20 @@ services:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+      # Resource limits during build to prevent server overload
+      args:
+        BUILDKIT_INLINE_CACHE: 1
     container_name: ritual_api
     restart: unless-stopped
+    # Resource limits to prevent overload
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ritual_db}?schema=public
@@ -141,8 +171,20 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      # Resource limits during build to prevent server overload
+      args:
+        BUILDKIT_INLINE_CACHE: 1
     container_name: ritual_web
     restart: unless-stopped
+    # Resource limits to prevent overload
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     ports:
       - "80:80"
       - "443:443"
