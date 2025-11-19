@@ -19,8 +19,11 @@ COPY apps/api ./apps/api
 COPY packages ./packages
 COPY turbo.json tsconfig.json ./
 
-# Build the application
+# Generate Prisma Client
 WORKDIR /app/apps/api
+RUN npx prisma generate
+
+# Build the application
 RUN pnpm build
 
 # Production stage
