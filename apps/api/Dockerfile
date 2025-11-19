@@ -1,20 +1,22 @@
 # Multi-stage build for NestJS API in monorepo
+# Optimized for pnpm workspaces and Prisma
+
 FROM node:20-alpine AS base
 
 # Enable corepack (includes pnpm)
 RUN corepack enable && corepack prepare pnpm@10.17.0 --activate
 
-# Builder stage
+# Builder stage - installs all deps and builds
 FROM base AS builder
 WORKDIR /app
 
-# Copy package files first (for better caching)
+# Copy package files first (for better Docker layer caching)
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/ui/package.json ./packages/ui/
 
-# Install all dependencies (including devDependencies for build)
-# Use --shamefully-hoist to ensure all dependencies are accessible
+# Install ALL dependencies (including devDependencies for build)
+# Use --shamefully-hoist to make all deps accessible to webpack
 RUN pnpm install --frozen-lockfile --shamefully-hoist
 
 # Copy source code
@@ -22,20 +24,21 @@ COPY apps/api ./apps/api
 COPY packages ./packages
 COPY turbo.json tsconfig.json ./
 
-# Generate Prisma Client
+# Generate Prisma Client (must be done before build)
 WORKDIR /app/apps/api
 RUN npx prisma generate
 
 # Build the application
 # Set NODE_PATH to help webpack resolve modules
 ENV NODE_PATH=/app/node_modules
+WORKDIR /app/apps/api
 RUN pnpm build
 
-# Production stage
+# Production stage - minimal runtime image
 FROM base AS runner
 WORKDIR /app
 
-# Create app user
+# Create app user (non-root for security)
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nestjs
 
@@ -44,19 +47,24 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json ./apps/api/
 COPY packages/ui/package.json ./packages/ui/
 
-# Install production dependencies only
+# Install ONLY production dependencies
 RUN pnpm install --prod --frozen-lockfile --shamefully-hoist
 
-# Copy built application
+# Copy built application from builder
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/dist ./dist
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/prisma ./apps/api/prisma
 
-# Generate Prisma Client for production (needed because of shamefully-hoist)
-# Install prisma CLI first
-RUN npm install -g prisma@5.9.1
-WORKDIR /app/apps/api
-RUN npx prisma generate
-WORKDIR /app
+# Copy generated Prisma Client from builder
+# With shamefully-hoist, @prisma/client should be in node_modules/@prisma/client
+# We need to copy both the package and the generated .prisma directory
+RUN mkdir -p ./node_modules/@prisma
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules/@prisma/client ./node_modules/@prisma/client
+
+# Copy .prisma directory (generated types) - location depends on pnpm structure
+# Try multiple possible locations
+RUN mkdir -p ./node_modules/.prisma
+COPY --from=builder --chown=nestjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma || \
+     mkdir -p ./node_modules/.prisma
 
 # Create necessary directories
 RUN mkdir -p uploads logs && \
