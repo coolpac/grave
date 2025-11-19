@@ -60,11 +60,11 @@ COPY --from=builder --chown=nestjs:nodejs /app/apps/api/prisma ./apps/api/prisma
 RUN mkdir -p ./node_modules/@prisma
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
-# Copy .prisma directory (generated types) - location depends on pnpm structure
-# Try multiple possible locations
+# Copy .prisma directory (generated types) if it exists
+# Note: With shamefully-hoist, Prisma Client is in @prisma/client
+# The .prisma directory is optional but helpful for type generation
+# We create it empty - Prisma Client will work without it
 RUN mkdir -p ./node_modules/.prisma
-COPY --from=builder --chown=nestjs:nodejs /app/node_modules/.prisma ./node_modules/.prisma || \
-     mkdir -p ./node_modules/.prisma
 
 # Create necessary directories
 RUN mkdir -p uploads logs && \
