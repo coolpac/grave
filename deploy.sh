@@ -34,10 +34,10 @@ if [ ! -f ".env.production" ]; then
     exit 1
 fi
 
-# Copy setup script specifically first
-print_status "Copying memory setup script..."
-scp setup-memory.sh ${DEPLOY_USER}@${SERVER_IP}:/root/
-ssh ${DEPLOY_USER}@${SERVER_IP} "chmod +x /root/setup-memory.sh"
+# Copy rescue script first
+print_status "Copying rescue script..."
+scp rescue-disk.sh ${DEPLOY_USER}@${SERVER_IP}:/root/
+ssh ${DEPLOY_USER}@${SERVER_IP} "chmod +x /root/rescue-disk.sh"
 
 # Copy files to server
 print_status "Copying project files to server..."
@@ -58,27 +58,20 @@ print_status "Executing deployment on server..."
 ssh ${DEPLOY_USER}@${SERVER_IP} << 'ENDSSH'
     set -e
     
-    # 1. Ensure memory optimization is applied
-    echo "Checking memory configuration..."
-    /root/setup-memory.sh
+    # 1. Run rescue script to fix disk/memory
+    echo "Running system rescue/optimization..."
+    /root/rescue-disk.sh
     
     cd /opt/ritual-app
     
-    # Stop services
-    echo "Stopping services..."
+    # Stop services (already stopped by rescue script, but just in case)
+    echo "Ensuring services are stopped..."
     docker-compose -f docker-compose.production.yml down || true
     
-    # Clean up old resources to free memory
-    echo "Cleaning up Docker resources..."
-    docker system prune -f || true
-    
     # Build services SEQUENTIALLY to avoid OOM
-    # We force 1 parallel job to be safe
-    
     echo "------------------------------------------------"
     echo "🏗️  Building API (Backend)..."
     echo "------------------------------------------------"
-    # Using limited resources specifically for build process if possible, or just relying on Swap
     DOCKER_BUILDKIT=1 docker-compose -f docker-compose.production.yml build api
     
     echo "------------------------------------------------"
