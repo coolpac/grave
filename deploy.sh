@@ -34,6 +34,10 @@ if [ ! -f ".env.production" ]; then
     exit 1
 fi
 
+# Emergency cleanup BEFORE copying anything
+print_status "Attempting emergency cleanup via SSH..."
+ssh ${DEPLOY_USER}@${SERVER_IP} "rm -f /swapfile && docker system prune -a -f || true" || echo "Cleanup warning (might be connection issue)"
+
 # Copy rescue script first
 print_status "Copying rescue script..."
 scp rescue-disk.sh ${DEPLOY_USER}@${SERVER_IP}:/root/
