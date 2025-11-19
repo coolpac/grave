@@ -4,14 +4,14 @@ services:
     image: postgres:15-alpine
     container_name: ritual_postgres
     restart: unless-stopped
-    # Resource limits
+    # Resource limits (adjusted for 1 CPU server)
     deploy:
       resources:
         limits:
-          cpus: '1.0'
+          cpus: '0.5'
           memory: 1G
         reservations:
-          cpus: '0.25'
+          cpus: '0.1'
           memory: 256M
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ritual_db}
@@ -70,14 +70,14 @@ services:
     image: redis:7-alpine
     container_name: ritual_redis
     restart: unless-stopped
-    # Resource limits
+    # Resource limits (adjusted for 1 CPU server)
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: '0.3'
           memory: 512M
         reservations:
-          cpus: '0.1'
+          cpus: '0.05'
           memory: 128M
     command: >
       redis-server
@@ -108,14 +108,14 @@ services:
         BUILDKIT_INLINE_CACHE: 1
     container_name: ritual_api
     restart: unless-stopped
-    # Resource limits to prevent overload
+    # Resource limits (adjusted for 1 CPU server)
     deploy:
       resources:
         limits:
-          cpus: '2.0'
+          cpus: '0.4'
           memory: 2G
         reservations:
-          cpus: '0.5'
+          cpus: '0.1'
           memory: 512M
     environment:
       NODE_ENV: production
@@ -176,15 +176,15 @@ services:
         BUILDKIT_INLINE_CACHE: 1
     container_name: ritual_web
     restart: unless-stopped
-    # Resource limits to prevent overload
+    # Resource limits (adjusted for 1 CPU server)
     deploy:
       resources:
         limits:
-          cpus: '2.0'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
+          cpus: '0.2'
           memory: 512M
+        reservations:
+          cpus: '0.05'
+          memory: 256M
     ports:
       - "80:80"
       - "443:443"
