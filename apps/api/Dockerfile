@@ -54,17 +54,19 @@ RUN pnpm install --prod --frozen-lockfile --shamefully-hoist
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/dist ./dist
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/prisma ./apps/api/prisma
 
-# Copy generated Prisma Client from builder
-# With shamefully-hoist, @prisma/client should be in node_modules/@prisma/client
-# We need to copy both the package and the generated .prisma directory
+# Copy Prisma Client and generated files from builder
+# Copy @prisma/client package
 RUN mkdir -p ./node_modules/@prisma
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
-# Copy .prisma directory (generated types) if it exists
-# Note: With shamefully-hoist, Prisma Client is in @prisma/client
-# The .prisma directory is optional but helpful for type generation
-# We create it empty - Prisma Client will work without it
-RUN mkdir -p ./node_modules/.prisma
+# Generate Prisma Client in production to ensure correct location
+# This ensures .prisma/client/default exists in the right place
+# Install prisma CLI globally (needed for generate)
+RUN npm install -g prisma@5.9.1
+WORKDIR /app/apps/api
+# Generate Prisma Client - this will create .prisma/client/default
+RUN npx prisma generate
+WORKDIR /app
 
 # Create necessary directories
 RUN mkdir -p uploads logs && \
