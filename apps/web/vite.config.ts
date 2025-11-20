@@ -52,10 +52,22 @@ export default defineConfig({
   build: {
     // Code splitting configuration
     chunkSizeWarningLimit: 500,
+    // Ensure proper module preloading order
+    modulePreload: {
+      polyfill: true,
+      resolveDependencies: (filename, deps) => {
+        // Ensure vendor-react is always preloaded first
+        const reactChunk = deps.find(dep => dep.includes('vendor-react'))
+        if (reactChunk) {
+          return [reactChunk, ...deps.filter(dep => !dep.includes('vendor-react'))]
+        }
+        return deps
+      }
+    },
     rollupOptions: {
       output: {
         manualChunks: (id) => {
-          // Vendor chunk - React and core libraries
+          // Vendor chunk - React and core libraries (MUST be loaded first)
           if (
             id.includes('node_modules/react') ||
             id.includes('node_modules/react-dom') ||
@@ -137,8 +149,11 @@ export default defineConfig({
             return 'page-orders'
           }
 
-          // Other node_modules go to vendor-other
-          if (id.includes('node_modules')) {
+          // Other node_modules go to vendor-other (but only if not React-related)
+          if (id.includes('node_modules') && 
+              !id.includes('react') && 
+              !id.includes('react-dom') && 
+              !id.includes('react-router')) {
             return 'vendor-other'
           }
         },

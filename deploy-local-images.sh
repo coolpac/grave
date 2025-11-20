@@ -166,7 +166,7 @@ ssh ${DEPLOY_USER}@${SERVER_IP} << 'ENDSSH'
     
     # Run database migrations
     echo "Running database migrations..."
-    docker-compose -f docker-compose.production.yml exec -T api npx prisma migrate deploy || true
+    docker-compose -f docker-compose.production.yml exec -T api sh -c "cd /app/apps/api && npx prisma migrate deploy" || true
     
     # Check service status
     echo "Checking service status..."
