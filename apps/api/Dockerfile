@@ -59,9 +59,10 @@ COPY --from=builder --chown=nestjs:nodejs /app/apps/api/prisma ./apps/api/prisma
 RUN mkdir -p ./node_modules/@prisma
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
-# Copy entire Prisma structure from builder
-# With shamefully-hoist, Prisma generates to .pnpm/@prisma+client*/node_modules/.prisma
-# We need to copy the entire @prisma+client package structure from pnpm
+# Copy entire @prisma+client package structure from pnpm
+# This includes the .prisma directory with generated client
+# Prisma generates to: .pnpm/@prisma+client@VERSION/node_modules/.prisma/client/default
+# We need to copy the entire package structure to maintain the path
 RUN mkdir -p ./node_modules/.pnpm
 RUN --mount=from=builder,source=/app/node_modules/.pnpm,target=/tmp/pnpm \
     if [ -d /tmp/pnpm ]; then \
@@ -70,13 +71,6 @@ RUN --mount=from=builder,source=/app/node_modules/.pnpm,target=/tmp/pnpm \
           cp -r "$dir" ./node_modules/.pnpm/; \
         fi; \
       done; \
-    fi
-
-# Also copy .prisma from root if it exists (for compatibility)
-RUN mkdir -p ./node_modules/.prisma
-RUN --mount=from=builder,source=/app/node_modules/.prisma,target=/tmp/.prisma \
-    if [ -d /tmp/.prisma ] && [ "$(ls -A /tmp/.prisma 2>/dev/null)" ]; then \
-      cp -r /tmp/.prisma/* ./node_modules/.prisma/ 2>/dev/null || true; \
     fi
 
 # Create necessary directories
