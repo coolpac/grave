@@ -128,7 +128,7 @@ function ProductCard({ product, index = 0, onAddToCart }: ProductCardProps) {
         className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-bronze-400 focus-visible:ring-offset-2"
         aria-label={`Перейти к товару ${product.name}`}
       >
-        <div className="relative aspect-square bg-gray-100 overflow-hidden group">
+        <div className="relative aspect-square bg-gray-100 overflow-hidden group" itemProp="image">
           <OptimizedImage
             src={imageUrl}
             alt={product.name}
@@ -140,7 +140,6 @@ function ProductCard({ product, index = 0, onAddToCart }: ProductCardProps) {
             loading={index !== undefined && index < 4 ? 'eager' : 'lazy'}
             objectFit="cover"
             placeholder="blur"
-            itemProp="image"
           />
           {/* Add to Cart Button - темный гранитный стиль с мраморной текстурой */}
           <button

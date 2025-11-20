@@ -43,7 +43,6 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
           right: 0,
           bottom: 0,
           width: '100%',
-          height: '100%',
           height: '100dvh', // Dynamic viewport height для мобильных
         }}
       >
@@ -80,7 +79,6 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
         right: 0,
         bottom: 0,
         width: '100%',
-        height: '100%',
         height: '100dvh', // Dynamic viewport height для мобильных
       }}
     >

@@ -36,8 +36,8 @@ function AppContent() {
     // Минимальное время показа экрана загрузки - 1.5 секунды для красоты (уменьшено для мобильных)
     const minLoadingTime = 1500
     const startTime = Date.now()
-    let timeoutTimer: NodeJS.Timeout
-    let browserTimer: NodeJS.Timeout
+    let timeoutTimer: ReturnType<typeof setTimeout>
+    let browserTimer: ReturnType<typeof setTimeout>
 
     // Таймаут для гарантированного завершения загрузки (особенно для браузера без Telegram)
     timeoutTimer = setTimeout(() => {
