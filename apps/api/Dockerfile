@@ -54,19 +54,30 @@ RUN pnpm install --prod --frozen-lockfile --shamefully-hoist
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/dist ./dist
 COPY --from=builder --chown=nestjs:nodejs /app/apps/api/prisma ./apps/api/prisma
 
-# Copy Prisma Client and generated files from builder
+# Copy Prisma Client from builder
 # Copy @prisma/client package
 RUN mkdir -p ./node_modules/@prisma
 COPY --from=builder --chown=nestjs:nodejs /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
-# Generate Prisma Client in production to ensure correct location
-# This ensures .prisma/client/default exists in the right place
-# Install prisma CLI globally (needed for generate)
-RUN npm install -g prisma@5.9.1
-WORKDIR /app/apps/api
-# Generate Prisma Client - this will create .prisma/client/default
-RUN npx prisma generate
-WORKDIR /app
+# Copy entire Prisma structure from builder
+# With shamefully-hoist, Prisma generates to .pnpm/@prisma+client*/node_modules/.prisma
+# We need to copy the entire @prisma+client package structure from pnpm
+RUN mkdir -p ./node_modules/.pnpm
+RUN --mount=from=builder,source=/app/node_modules/.pnpm,target=/tmp/pnpm \
+    if [ -d /tmp/pnpm ]; then \
+      for dir in /tmp/pnpm/@prisma+client*; do \
+        if [ -d "$dir" ]; then \
+          cp -r "$dir" ./node_modules/.pnpm/; \
+        fi; \
+      done; \
+    fi
+
+# Also copy .prisma from root if it exists (for compatibility)
+RUN mkdir -p ./node_modules/.prisma
+RUN --mount=from=builder,source=/app/node_modules/.prisma,target=/tmp/.prisma \
+    if [ -d /tmp/.prisma ] && [ "$(ls -A /tmp/.prisma 2>/dev/null)" ]; then \
+      cp -r /tmp/.prisma/* ./node_modules/.prisma/ 2>/dev/null || true; \
+    fi
 
 # Create necessary directories
 RUN mkdir -p uploads logs && \
