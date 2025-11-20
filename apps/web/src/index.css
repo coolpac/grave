@@ -227,7 +227,17 @@ html, body {
   padding: 0;
   width: 100%;
   height: 100%;
+  height: 100dvh; /* Dynamic viewport height для мобильных */
   overflow: hidden;
+  position: fixed; /* Предотвращает скролл во время загрузки */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  /* Оптимизация производительности */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 #root {
@@ -235,6 +245,7 @@ html, body {
   height: 100%;
   height: 100dvh; /* Dynamic viewport height */
   overflow: hidden;
+  position: relative;
 }
 
 /* Safe area insets */
@@ -1012,5 +1023,150 @@ a.granite-button:hover {
     min-height: 80px;
     height: 96px;
   }
+}
+
+/* ============================================
+   PRODUCT CARD OPTIMIZATION
+   ============================================ */
+
+/* Оптимизированные hover эффекты для карточек товаров */
+.product-card {
+  transition: 
+    transform var(--duration-fast, 160ms) var(--ease-out, ease),
+    box-shadow var(--duration-fast, 160ms) var(--ease-out, ease);
+  will-change: transform;
+}
+
+/* Плавный подъем при hover с оптимизированными тенями */
+.product-card:hover {
+  transform: translateY(-2px) translateZ(0);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.06);
+  will-change: transform, box-shadow;
+}
+
+/* Отключаем hover эффекты на touch устройствах */
+@media (hover: none) and (pointer: coarse) {
+  .product-card:hover {
+    transform: none;
+    box-shadow: inherit;
+  }
+}
+
+/* Оптимизация изображения в карточке товара */
+.product-card img {
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Оптимизация кнопки добавления в корзину */
+.product-card .granite-button {
+  transition: 
+    transform var(--duration-fast, 160ms) var(--ease-out, ease),
+    box-shadow var(--duration-fast, 160ms) var(--ease-out, ease);
+  will-change: transform;
+}
+
+.product-card .granite-button:hover {
+  transform: scale(1.1) translateZ(0);
+  will-change: transform;
+}
+
+.product-card .granite-button:active {
+  transform: scale(0.95) translateZ(0);
+}
+
+/* Отключаем hover эффекты кнопки на touch устройствах */
+@media (hover: none) and (pointer: coarse) {
+  .product-card .granite-button:hover {
+    transform: none;
+  }
+}
+
+/* ============================================
+   CART OPTIMIZATION
+   ============================================ */
+
+/* Оптимизированные стили для карточек товаров в корзине */
+.cart-item-card {
+  transition: 
+    transform var(--duration-fast, 160ms) var(--ease-out, ease),
+    box-shadow var(--duration-fast, 160ms) var(--ease-out, ease);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Плавный hover эффект для карточек в корзине */
+.cart-item-card:hover {
+  transform: translateY(-1px) translateZ(0);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* Отключаем hover эффекты на touch устройствах */
+@media (hover: none) and (pointer: coarse) {
+  .cart-item-card:hover {
+    transform: none;
+    box-shadow: inherit;
+  }
+}
+
+/* Оптимизация кнопок в корзине */
+.cart-item-card .granite-button {
+  transition: 
+    transform var(--duration-fast, 160ms) var(--ease-out, ease),
+    opacity var(--duration-fast, 160ms) var(--ease-out, ease);
+  will-change: transform;
+}
+
+.cart-item-card .granite-button:active {
+  transform: scale(0.95) translateZ(0);
+}
+
+/* Оптимизация для sticky элементов */
+.cart-item-card,
+.cart-item-card * {
+  /* Улучшаем производительность скролла */
+  contain: layout style paint;
+}
+
+/* ============================================
+   ORDERS PAGE OPTIMIZATION
+   ============================================ */
+
+/* Оптимизированные стили для карточек заказов */
+.order-card {
+  transition: 
+    transform var(--duration-fast, 160ms) var(--ease-out, ease),
+    box-shadow var(--duration-fast, 160ms) var(--ease-out, ease);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Плавный hover эффект для карточек заказов */
+.order-card:hover {
+  transform: translateY(-1px) translateZ(0);
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.08),
+    0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* Отключаем hover эффекты на touch устройствах */
+@media (hover: none) and (pointer: coarse) {
+  .order-card:hover {
+    transform: none;
+    box-shadow: inherit;
+  }
+}
+
+/* Оптимизация для списка заказов */
+.order-card * {
+  /* Улучшаем производительность скролла */
+  contain: layout style paint;
 }
 

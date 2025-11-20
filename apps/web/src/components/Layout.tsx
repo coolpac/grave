@@ -66,10 +66,16 @@ function Layout({ children }: LayoutProps) {
 
   return (
     <div
-      className="flex flex-col w-full safe-area-insets overflow-hidden relative z-10"
-      style={containerStyle}
+      className="flex flex-col w-full overflow-hidden relative z-10"
+      style={{
+        ...containerStyle,
+        paddingLeft: 'env(safe-area-inset-left, 0px)',
+        paddingRight: 'env(safe-area-inset-right, 0px)',
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        // Не добавляем padding-top здесь, т.к. GraniteHeader сам управляет safe-area-inset-top
+      }}
     >
-      {/* Empty Granite Header */}
+      {/* Empty Granite Header with safe area top */}
       <GraniteHeader />
       
       <main className="flex-1 overflow-y-auto">

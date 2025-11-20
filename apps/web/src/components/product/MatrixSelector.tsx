@@ -6,7 +6,7 @@ import axios from 'axios'
 import { useReducedMotion } from '../../hooks/useReducedMotion'
 import { getTransition } from '../../utils/animation-variants'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+import { API_URL } from '../../config/api'
 
 interface AttributeValue {
   id: number

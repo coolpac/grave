@@ -3,7 +3,7 @@ import { StoneCard } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
 import { useCart } from '../hooks/useCart'
 import { ArrowLeft, Trash2, Plus, Minus, ShoppingCart, Loader2, WifiOff } from 'lucide-react'
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 import OptimizedImage from '../components/OptimizedImage'
@@ -211,22 +211,13 @@ export default function Cart() {
       <div className="px-4 pt-4 pb-2">
         <motion.button
           onClick={() => navigate(-1)}
-          className="p-2.5 rounded-lg transition-all duration-200 shadow-sm"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          style={{
-            background: 'linear-gradient(135deg, hsl(220 15% 18%) 0%, hsl(220 15% 16%) 25%, hsl(220 15% 14%) 50%, hsl(220 15% 16%) 75%, hsl(220 15% 18%) 100%)',
-            boxShadow: `
-              inset 0 2px 4px rgba(255, 255, 255, 0.1),
-              inset 0 -2px 4px rgba(0, 0, 0, 0.5),
-              inset 2px 0 2px rgba(255, 255, 255, 0.08),
-              inset -2px 0 2px rgba(0, 0, 0, 0.4),
-              0 2px 8px rgba(0, 0, 0, 0.3)
-            `,
-            border: '1px solid rgba(139, 107, 63, 0.3)',
-          }}
+          className="granite-button p-2.5 rounded-lg touch-manipulation"
+          whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
+          whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
+          transition={getTransition(shouldReduceMotion, 'fast')}
+          aria-label="Назад"
         >
-          <ArrowLeft className="w-5 h-5 text-gray-200" />
+          <ArrowLeft className="w-5 h-5 text-gray-200" aria-hidden="true" />
         </motion.button>
       </div>
 
@@ -262,6 +253,7 @@ export default function Cart() {
             // Правильно определяем цену: сначала вариант, потом базовая цена продукта
             const price = item.variant?.price ?? item.product?.basePrice ?? 0
             const imageUrl = item.product?.media?.[0]?.url || '/placeholder-image.svg'
+            const itemTotal = price * item.quantity
             
             return (
               <motion.div
@@ -270,23 +262,17 @@ export default function Cart() {
                 initial="hidden"
                 animate="visible"
                 exit="exit"
+                layout
               >
-                <StoneCard>
+                <StoneCard className="cart-item-card touch-manipulation">
                   <div className="flex gap-4">
                     {/* Product Image */}
-                    <Link to={`/p/${item.product.slug}`} className="flex-shrink-0">
-                      <div 
-                        className="w-24 h-24 rounded-lg flex items-center justify-center overflow-hidden bg-gray-100"
-                        style={{
-                          background: 'linear-gradient(135deg, hsl(220 15% 18%) 0%, hsl(220 15% 16%) 25%, hsl(220 15% 14%) 50%, hsl(220 15% 16%) 75%, hsl(220 15% 18%) 100%)',
-                          boxShadow: `
-                            inset 0 2px 4px rgba(255, 255, 255, 0.1),
-                            inset 0 -2px 4px rgba(0, 0, 0, 0.5),
-                            0 2px 8px rgba(0, 0, 0, 0.2)
-                          `,
-                          border: '1px solid rgba(139, 107, 63, 0.3)',
-                        }}
-                      >
+                    <Link 
+                      to={`/p/${item.product.slug}`} 
+                      className="flex-shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-bronze-400 focus-visible:ring-offset-2 rounded-lg"
+                      aria-label={`Перейти к товару ${item.product.name}`}
+                    >
+                      <div className="w-24 h-24 rounded-lg flex items-center justify-center overflow-hidden bg-gray-100 granite-button">
                         {imageUrl && imageUrl !== '/placeholder-image.svg' ? (
                           <OptimizedImage
                             src={imageUrl}
@@ -297,38 +283,44 @@ export default function Cart() {
                             className="w-full h-full"
                             objectFit="cover"
                             placeholder="blur"
+                            loading="lazy"
                           />
                         ) : (
-                          <ShoppingCart className="w-8 h-8 text-gray-400" />
+                          <ShoppingCart className="w-8 h-8 text-gray-400" aria-hidden="true" />
                         )}
                       </div>
                     </Link>
 
                     {/* Product Info */}
                     <div className="flex-1 min-w-0">
-                      <Link to={`/p/${item.product.slug}`}>
+                      <Link 
+                        to={`/p/${item.product.slug}`}
+                        className="focus:outline-none focus-visible:ring-2 focus-visible:ring-bronze-400 focus-visible:ring-offset-2 rounded"
+                      >
                         <h3 className="font-inscription text-lg text-gray-900 mb-1 truncate hover:text-bronze-500 transition-colors">
                           {item.product.name}
                         </h3>
                       </Link>
                       {item.variant?.name && (
-                        <p className="text-sm text-gray-600 mb-1">{item.variant.name}</p>
+                        <p className="text-sm text-gray-600 mb-1" aria-label="Вариант товара">
+                          {item.variant.name}
+                        </p>
                       )}
                       <div className="flex flex-col gap-1 mb-3">
                         <div className="flex items-baseline gap-1">
-                          <p className="text-xl font-inscription text-gray-900">
-                            {(price * item.quantity).toLocaleString('ru-RU')}
+                          <p className="text-xl font-inscription text-gray-900" aria-label="Цена за единицу">
+                            {itemTotal.toLocaleString('ru-RU')}
                           </p>
-                          <span className="text-sm font-body text-gray-600">₽</span>
+                          <span className="text-sm font-body text-gray-600" aria-hidden="true">₽</span>
                         </div>
-                        <span className="text-xs font-body text-gray-500">
+                        <span className="text-xs font-body text-gray-500" aria-label={`${price.toLocaleString('ru-RU')} рублей за единицу, количество ${item.quantity}`}>
                           {price.toLocaleString('ru-RU')} ₽ × {item.quantity}
                         </span>
                       </div>
 
                       {/* Quantity Controls */}
                       <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3" role="group" aria-label="Управление количеством">
                           <button
                             onClick={() => {
                               if (item.quantity > 1) {
@@ -338,53 +330,35 @@ export default function Cart() {
                               }
                             }}
                             disabled={(item.quantity <= 1 || isLoading)}
-                            className="w-9 h-9 rounded-lg flex items-center justify-center transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80 active:opacity-60"
-                            style={{
-                              background: 'linear-gradient(135deg, hsl(220 15% 18%) 0%, hsl(220 15% 16%) 25%, hsl(220 15% 14%) 50%, hsl(220 15% 16%) 75%, hsl(220 15% 18%) 100%)',
-                              boxShadow: `
-                                inset 0 2px 4px rgba(255, 255, 255, 0.1),
-                                inset 0 -2px 4px rgba(0, 0, 0, 0.5),
-                                0 2px 4px rgba(0, 0, 0, 0.2)
-                              `,
-                              border: '1px solid rgba(139, 107, 63, 0.3)',
-                            }}
+                            className="granite-button w-9 h-9 rounded-lg flex items-center justify-center touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
+                            aria-label={`Уменьшить количество ${item.product.name}`}
+                            type="button"
                           >
-                            <Minus className="w-4 h-4 text-gray-200" />
+                            <Minus className="w-4 h-4 text-gray-200" aria-hidden="true" />
                           </button>
-                          <span className="text-lg font-inscription text-gray-900 w-8 text-center">
+                          <span 
+                            className="text-lg font-inscription text-gray-900 w-8 text-center"
+                            aria-label={`Количество: ${item.quantity}`}
+                          >
                             {item.quantity}
                           </span>
                           <button
                             onClick={() => handleUpdateQuantity(item.id, 1)}
                             disabled={isLoading}
-                            className="w-9 h-9 rounded-lg flex items-center justify-center transition-opacity duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80 active:opacity-60"
-                            style={{
-                              background: 'linear-gradient(135deg, hsl(220 15% 18%) 0%, hsl(220 15% 16%) 25%, hsl(220 15% 14%) 50%, hsl(220 15% 16%) 75%, hsl(220 15% 18%) 100%)',
-                              boxShadow: `
-                                inset 0 2px 4px rgba(255, 255, 255, 0.1),
-                                inset 0 -2px 4px rgba(0, 0, 0, 0.5),
-                                0 2px 4px rgba(0, 0, 0, 0.2)
-                              `,
-                              border: '1px solid rgba(139, 107, 63, 0.3)',
-                            }}
+                            className="granite-button w-9 h-9 rounded-lg flex items-center justify-center touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
+                            aria-label={`Увеличить количество ${item.product.name}`}
+                            type="button"
                           >
-                            <Plus className="w-4 h-4 text-gray-200" />
+                            <Plus className="w-4 h-4 text-gray-200" aria-hidden="true" />
                           </button>
                         </div>
                         <button
                           onClick={() => handleRemoveItem(item.id, item.product.name)}
-                          className="w-9 h-9 rounded-lg flex items-center justify-center transition-opacity duration-200 disabled:opacity-50 hover:opacity-80 active:opacity-60"
-                          style={{
-                            background: 'linear-gradient(135deg, hsl(220 15% 18%) 0%, hsl(220 15% 16%) 25%, hsl(220 15% 14%) 50%, hsl(220 15% 16%) 75%, hsl(220 15% 18%) 100%)',
-                            boxShadow: `
-                              inset 0 2px 4px rgba(255, 255, 255, 0.1),
-                              inset 0 -2px 4px rgba(0, 0, 0, 0.5),
-                              0 2px 4px rgba(0, 0, 0, 0.2)
-                            `,
-                            border: '1px solid rgba(139, 107, 63, 0.3)',
-                          }}
+                          className="granite-button w-9 h-9 rounded-lg flex items-center justify-center touch-manipulation"
+                          aria-label={`Удалить ${item.product.name} из корзины`}
+                          type="button"
                         >
-                          <Trash2 className="w-4 h-4 text-gray-200" />
+                          <Trash2 className="w-4 h-4 text-gray-200" aria-hidden="true" />
                         </button>
                       </div>
 
@@ -392,11 +366,11 @@ export default function Cart() {
                       <div className="pt-2 border-t border-gray-200/50">
                         <div className="flex items-baseline justify-between">
                           <span className="text-sm font-body text-gray-600">Итого:</span>
-                          <div className="flex items-baseline gap-1">
+                          <div className="flex items-baseline gap-1" aria-label={`Итого за товар: ${itemTotal.toLocaleString('ru-RU')} рублей`}>
                             <span className="text-lg font-inscription text-gray-900">
-                              {(price * item.quantity).toLocaleString('ru-RU')}
+                              {itemTotal.toLocaleString('ru-RU')}
                             </span>
-                            <span className="text-sm font-body text-gray-600">₽</span>
+                            <span className="text-sm font-body text-gray-600" aria-hidden="true">₽</span>
                           </div>
                         </div>
                       </div>
@@ -414,19 +388,21 @@ export default function Cart() {
           initial="hidden"
           animate="visible"
         >
-          <StoneCard variant="elevated">
-            <div className="space-y-4">
+          <StoneCard variant="elevated" className="cart-summary-card">
+            <div className="space-y-4" role="region" aria-label="Итоговая информация о корзине">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-body text-gray-600">Товаров:</span>
-                <span className="font-inscription text-base text-gray-900">{itemsCount} шт.</span>
+                <span className="font-inscription text-base text-gray-900" aria-label={`Количество товаров: ${itemsCount}`}>
+                  {itemsCount} шт.
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-sm font-body text-gray-600">Сумма:</span>
-                <div className="flex items-baseline gap-1">
+                <div className="flex items-baseline gap-1" aria-label={`Сумма: ${total.toLocaleString('ru-RU')} рублей`}>
                   <span className="font-inscription text-base text-gray-900">
                     {total.toLocaleString('ru-RU')}
                   </span>
-                  <span className="text-sm font-body text-gray-600">₽</span>
+                  <span className="text-sm font-body text-gray-600" aria-hidden="true">₽</span>
                 </div>
               </div>
               <div className="border-t border-gray-300/50 pt-4">
@@ -439,18 +415,19 @@ export default function Cart() {
                       animate={{ scale: 1 }}
                       transition={getTransition(shouldReduceMotion, 'fast')}
                       className="flex items-baseline gap-1"
+                      aria-label={`Итоговая сумма: ${total.toLocaleString('ru-RU')} рублей`}
                     >
                       <span className="text-3xl font-inscription text-gray-900">
                         {total.toLocaleString('ru-RU')}
                       </span>
-                      <span className="text-lg font-body text-gray-600">₽</span>
+                      <span className="text-lg font-body text-gray-600" aria-hidden="true">₽</span>
                     </motion.div>
                   ) : (
-                    <div className="flex items-baseline gap-1">
+                    <div className="flex items-baseline gap-1" aria-label={`Итоговая сумма: ${total.toLocaleString('ru-RU')} рублей`}>
                       <span className="text-3xl font-inscription text-gray-900">
                         {total.toLocaleString('ru-RU')}
                       </span>
-                      <span className="text-lg font-body text-gray-600">₽</span>
+                      <span className="text-lg font-body text-gray-600" aria-hidden="true">₽</span>
                     </div>
                   )}
                 </div>
@@ -470,14 +447,16 @@ export default function Cart() {
         <div className="max-w-md mx-auto">
           <motion.button
             onClick={() => navigate('/checkout')}
-            className="granite-button w-full py-4 rounded-xl font-body font-semibold flex items-center gap-3 px-4"
+            className="granite-button w-full py-4 rounded-xl font-body font-semibold flex items-center gap-3 px-4 touch-manipulation"
             whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
             whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
             transition={getTransition(shouldReduceMotion, 'fast')}
+            aria-label={`Оформить заказ на сумму ${total.toLocaleString('ru-RU')} рублей`}
+            type="button"
           >
-            <ShoppingCart className="w-5 h-5" />
+            <ShoppingCart className="w-5 h-5" aria-hidden="true" />
             <span className="flex-1 text-left">Оформить заказ</span>
-            <div className="flex items-baseline gap-1">
+            <div className="flex items-baseline gap-1" aria-hidden="true">
               <span className="text-xl font-inscription text-gray-100">
                 {total.toLocaleString('ru-RU')}
               </span>

@@ -30,7 +30,8 @@ export default function GraniteHeader() {
       ref={headerRef}
       className={`granite-header ${isDark ? 'granite-header-dark' : 'granite-header-light'}`}
       style={{
-        paddingTop: `max(${safeAreaInsetTop}px, 0px)`,
+        paddingTop: `max(${safeAreaInsetTop}px, env(safe-area-inset-top, 0px))`,
+        marginTop: 0, // Убираем возможные отступы
       }}
       aria-hidden="true"
     />

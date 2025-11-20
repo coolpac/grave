@@ -19,7 +19,7 @@ import { PLACEHOLDER_IMAGE } from '../utils/constants'
 import { useReducedMotion } from '../hooks/useReducedMotion'
 import { getTransition, getAnimationVariants } from '../utils/animation-variants'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+import { API_URL } from '../config/api'
 
 // Флаг для отслеживания доступности API (используем sessionStorage для сессии)
 const getApiAvailable = (): boolean => {

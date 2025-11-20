@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+import { API_URL } from '../config/api';
 
 const CART_STORAGE_KEY = 'cart_items';
 const CART_SYNC_KEY = 'cart_sync_pending';

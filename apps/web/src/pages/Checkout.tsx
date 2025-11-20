@@ -13,7 +13,7 @@ import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+import { API_URL } from '../config/api'
 
 const checkoutSchema = z.object({
   name: z.string().min(2, 'Имя должно содержать минимум 2 символа'),

@@ -108,16 +108,26 @@ function ProductCard({ product, index = 0, onAddToCart }: ProductCardProps) {
   }, [product.attributes])
 
   return (
-    <div 
+    <article 
       ref={cardRef} 
-      className="bg-white rounded-lg overflow-hidden border border-gray-200/50 shadow-sm hover:shadow-md transition-shadow duration-200"
+      className="product-card bg-white rounded-lg overflow-hidden border border-gray-200/50 shadow-sm touch-manipulation"
       style={{
         background: 'linear-gradient(to bottom, #ffffff 0%, #fafafa 100%)',
+        // GPU-ускорение для плавных анимаций
+        transform: 'translateZ(0)',
+        backfaceVisibility: 'hidden',
+        WebkitFontSmoothing: 'antialiased',
       }}
       onMouseEnter={handleMouseEnter}
       onTouchStart={handleMouseEnter}
+      itemScope
+      itemType="https://schema.org/Product"
     >
-      <Link to={`/p/${product.slug}`} className="block">
+      <Link 
+        to={`/p/${product.slug}`} 
+        className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-bronze-400 focus-visible:ring-offset-2"
+        aria-label={`Перейти к товару ${product.name}`}
+      >
         <div className="relative aspect-square bg-gray-100 overflow-hidden group">
           <OptimizedImage
             src={imageUrl}
@@ -125,31 +135,48 @@ function ProductCard({ product, index = 0, onAddToCart }: ProductCardProps) {
             aspectRatio={1}
             size="thumbnail"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-            className="transition-transform duration-300 group-hover:scale-105"
+            className="transition-transform duration-300 ease-out group-hover:scale-105 will-change-transform"
+            priority={index !== undefined && index < 4}
+            loading={index !== undefined && index < 4 ? 'eager' : 'lazy'}
             objectFit="cover"
             placeholder="blur"
+            itemProp="image"
           />
-            {/* Add to Cart Button - темный гранитный стиль с мраморной текстурой */}
-            <button
-              ref={buttonRef}
-              onClick={handleAddToCart}
-              className="granite-button absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center z-10"
-              style={{ position: 'absolute' }}
-              aria-label="Добавить в корзину"
-            >
-              <ShoppingCart className="w-5 h-5 text-gray-200" />
-            </button>
+          {/* Add to Cart Button - темный гранитный стиль с мраморной текстурой */}
+          <button
+            ref={buttonRef}
+            onClick={handleAddToCart}
+            className="granite-button absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center z-10 touch-manipulation shadow-lg hover:shadow-xl transition-shadow duration-200"
+            style={{ position: 'absolute' }}
+            aria-label={`Добавить ${product.name} в корзину`}
+            type="button"
+          >
+            <ShoppingCart className="w-5 h-5 text-gray-200" aria-hidden="true" />
+          </button>
         </div>
         <div className="p-3">
-          <h3 className="text-sm font-body font-medium text-gray-900 mb-1 line-clamp-2">
+          <h3 
+            className="text-sm font-body font-medium text-gray-900 mb-1 line-clamp-2"
+            itemProp="name"
+          >
             {product.name}
           </h3>
           <div className="flex items-center justify-between mb-1">
-            <p className="text-base font-body font-semibold text-gray-900">
-              {formattedPrice}
+            <p 
+              className="text-base font-body font-semibold text-gray-900"
+              itemProp="offers"
+              itemScope
+              itemType="https://schema.org/Offer"
+            >
+              <meta itemProp="price" content={product.price.toString()} />
+              <meta itemProp="priceCurrency" content="RUB" />
+              <span>{formattedPrice}</span>
             </p>
             {materialLabel && (
-              <span className={`text-xs px-2 py-0.5 rounded ${materialClasses}`}>
+              <span 
+                className={`text-xs px-2 py-0.5 rounded ${materialClasses}`}
+                itemProp="material"
+              >
                 {materialLabel}
               </span>
             )}
@@ -157,19 +184,25 @@ function ProductCard({ product, index = 0, onAddToCart }: ProductCardProps) {
           {product.productType && product.productType !== 'SIMPLE' && (
             <div className="mt-1.5 flex flex-wrap gap-1">
               {variantsText && (
-                <span className="text-xs text-gray-500">{variantsText}</span>
+                <span className="text-xs text-gray-500" aria-label="Количество вариантов">
+                  {variantsText}
+                </span>
               )}
               {attributesText && (
-                <span className="text-xs text-gray-500">• {attributesText}</span>
+                <span className="text-xs text-gray-500" aria-label="Количество атрибутов">
+                  • {attributesText}
+                </span>
               )}
             </div>
           )}
           {product.options && (
-            <p className="text-xs font-body text-gray-600 mt-1">{product.options}</p>
+            <p className="text-xs font-body text-gray-600 mt-1 line-clamp-1">
+              {product.options}
+            </p>
           )}
         </div>
       </Link>
-    </div>
+    </article>
   )
 }
 

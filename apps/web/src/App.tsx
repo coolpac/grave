@@ -33,12 +33,14 @@ function AppContent() {
   const { isReady, sendDataToServer } = useTelegram()
 
   useEffect(() => {
-    // Минимальное время показа экрана загрузки - 2 секунды для красоты
-    const minLoadingTime = 2000
+    // Минимальное время показа экрана загрузки - 1.5 секунды для красоты (уменьшено для мобильных)
+    const minLoadingTime = 1500
     const startTime = Date.now()
+    let timeoutTimer: NodeJS.Timeout
+    let browserTimer: NodeJS.Timeout
 
     // Таймаут для гарантированного завершения загрузки (особенно для браузера без Telegram)
-    const timeoutTimer = setTimeout(() => {
+    timeoutTimer = setTimeout(() => {
       const elapsed = Date.now() - startTime
       const remaining = Math.max(0, minLoadingTime - elapsed)
       setTimeout(() => {
@@ -69,8 +71,8 @@ function AppContent() {
           }, remaining)
         })
     } else {
-      // Если Telegram не готов (браузер без Telegram), показываем экран минимум 2 секунды
-      const browserTimer = setTimeout(() => {
+      // Если Telegram не готов (браузер без Telegram), показываем экран минимум 1.5 секунды
+      browserTimer = setTimeout(() => {
         const elapsed = Date.now() - startTime
         const remaining = Math.max(0, minLoadingTime - elapsed)
         clearTimeout(timeoutTimer)
@@ -79,15 +81,11 @@ function AppContent() {
           setIsLoading(false)
         }, remaining)
       }, 100)
-      
-      return () => {
-        clearTimeout(timeoutTimer)
-        clearTimeout(browserTimer)
-      }
     }
 
     return () => {
       clearTimeout(timeoutTimer)
+      if (browserTimer) clearTimeout(browserTimer)
     }
   }, [isReady, sendDataToServer])
 

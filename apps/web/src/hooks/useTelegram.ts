@@ -145,6 +145,15 @@ export const useTelegram = (): UseTelegramReturn => {
 
       expandApp()
 
+      // Disable vertical swipes to prevent empty space above header (iOS fix)
+      if (typeof (WebApp as any).disableVerticalSwipes === 'function') {
+        try {
+          ;(WebApp as any).disableVerticalSwipes()
+        } catch (error) {
+          console.warn('Failed to disable vertical swipes:', error)
+        }
+      }
+
       // Enable closing confirmation (if supported)
       if (typeof (WebApp as any).enableClosingConfirmation === 'function') {
         try {

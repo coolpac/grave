@@ -222,6 +222,9 @@
   position: relative;
   border-radius: 0.75rem;
   overflow: hidden;
+  /* Оптимизация для touch устройств */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   /* Базовый фон с градиентом для глубины */
   background: 
     /* Верхний слой - светлые вкрапления */
@@ -253,6 +256,10 @@
     transform var(--duration-fast, 160ms) var(--ease-out, ease),
     box-shadow var(--duration-fast, 160ms) var(--ease-out, ease);
   /* Применяем текстуру через псевдоэлемент */
+  /* GPU-ускорение для плавных анимаций */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
 }
 
 /* Псевдоэлемент для каменной текстуры + органичные мраморные прожилки */
@@ -261,6 +268,9 @@
   position: absolute;
   inset: 0;
   border-radius: inherit;
+  /* GPU-ускорение для текстуры */
+  transform: translateZ(0);
+  will-change: opacity;
   /* Многослойный шум для каменной крошки (увеличено количество) */
   background-image: 
     /* Крупные вкрапления - больше точек */
@@ -727,51 +737,78 @@
   }
 }
 
-/* Hover эффекты - оптимизированные для 60fps с усиленной текстурой */
+/* Hover эффекты - оптимизированные для 60fps с GPU-ускорением */
+/* Используем только transform и opacity для максимальной производительности */
+.stone-card {
+  /* Подготавливаем GPU-слой заранее для плавности */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Улучшенный hover эффект - плавный подъем с оптимизированными тенями */
 .stone-card:hover {
-  transform: scale(1.01) translateY(-2px);
+  /* Плавный подъем с минимальным scale для лучшей производительности */
+  transform: translateY(-4px) scale(1.005) translateZ(0);
+  /* Упрощенные тени - только 2 слоя вместо 7 для лучшей производительности */
   box-shadow: 
-    /* Внутренние тени - усиленные */
-    inset 0 2px 4px rgba(0, 0, 0, 0.1),
-    inset 0 -2px 3px rgba(255, 255, 255, 0.18),
-    inset 2px 0 2px rgba(0, 0, 0, 0.08),
-    inset -2px 0 2px rgba(255, 255, 255, 0.15),
-    /* Внешние тени - глубина при подъеме */
-    0 2px 4px rgba(0, 0, 0, 0.08),
-    0 6px 12px rgba(0, 0, 0, 0.1),
-    0 12px 24px rgba(0, 0, 0, 0.06);
+    /* Комбинированная внутренняя тень */
+    inset 0 1px 2px rgba(0, 0, 0, 0.08),
+    /* Внешняя тень для глубины */
+    0 8px 16px rgba(0, 0, 0, 0.12),
+    0 4px 8px rgba(0, 0, 0, 0.08);
   /* will-change только на hover для оптимизации */
-  will-change: transform, box-shadow;
+  will-change: transform;
 }
 
 .stone-card:hover::after {
-  /* Усиливаем текстуру при hover */
-  opacity: 0.8;
+  /* Плавное усиление текстуры при hover */
+  opacity: 0.75;
+  transition: opacity var(--duration-fast, 160ms) var(--ease-out, ease);
 }
 
 .dark .stone-card:hover {
-  transform: scale(1.01) translateY(-2px);
+  transform: translateY(-4px) scale(1.005) translateZ(0);
+  /* Упрощенные тени для темной темы */
   box-shadow: 
-    /* Внутренние тени - усиленные */
-    inset 0 2px 4px rgba(0, 0, 0, 0.5),
-    inset 0 -2px 3px rgba(255, 255, 255, 0.08),
-    inset 2px 0 2px rgba(0, 0, 0, 0.4),
-    inset -2px 0 2px rgba(255, 255, 255, 0.05),
-    /* Внешние тени - глубина при подъеме */
-    0 2px 4px rgba(0, 0, 0, 0.4),
-    0 6px 12px rgba(0, 0, 0, 0.3),
-    0 12px 24px rgba(0, 0, 0, 0.2);
+    inset 0 1px 2px rgba(0, 0, 0, 0.3),
+    0 8px 16px rgba(0, 0, 0, 0.4),
+    0 4px 8px rgba(0, 0, 0, 0.3);
 }
 
 .dark .stone-card:hover::after {
-  /* Усиливаем текстуру при hover */
-  opacity: 0.85;
+  opacity: 0.8;
+  transition: opacity var(--duration-fast, 160ms) var(--ease-out, ease);
 }
 
-/* Быстрый блик при hover - стандартизированная длительность */
-.stone-card:hover::after {
-  animation: stone-shimmer-fast var(--duration-fast, 160ms) var(--ease-out, ease) forwards;
-  will-change: transform, opacity;
+/* Отключаем hover эффекты на touch устройствах для лучшей производительности */
+@media (hover: none) and (pointer: coarse) {
+  .stone-card:hover {
+    transform: none;
+    box-shadow: inherit;
+  }
+  
+  .stone-card:hover::after {
+    opacity: inherit;
+    animation: none;
+  }
+  
+  .dark .stone-card:hover {
+    transform: none;
+    box-shadow: inherit;
+  }
+  
+  .dark .stone-card:hover::after {
+    opacity: inherit;
+  }
+}
+
+/* Быстрый блик при hover - только для desktop с hover */
+@media (hover: hover) {
+  .stone-card:hover::after {
+    animation: stone-shimmer-fast var(--duration-fast, 160ms) var(--ease-out, ease) forwards;
+    will-change: transform, opacity;
+  }
 }
 
 @keyframes stone-shimmer-fast {

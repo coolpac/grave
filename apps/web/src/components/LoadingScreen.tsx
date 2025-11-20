@@ -12,13 +12,16 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
   const { shouldReduceMotion } = useReducedMotion()
 
   useEffect(() => {
+    // Убеждаемся что экран виден сразу
+    setIsVisible(true)
+    
     // На слабых устройствах сокращаем время загрузки
-    const loadingTime = shouldReduceMotion ? 1000 : 2000
+    const loadingTime = shouldReduceMotion ? 800 : 1500
     const timer = setTimeout(() => {
       setIsVisible(false)
       setTimeout(() => {
         onComplete()
-      }, shouldReduceMotion ? 200 : 400)
+      }, shouldReduceMotion ? 150 : 300)
     }, loadingTime)
 
     return () => {
@@ -30,9 +33,18 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
   if (shouldReduceMotion) {
     return (
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center"
+        className="fixed inset-0 flex items-center justify-center"
         style={{
           backgroundColor: 'var(--tg-theme-bg-color, #000000)',
+          zIndex: 99999,
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100%',
+          height: '100%',
+          height: '100dvh', // Dynamic viewport height для мобильных
         }}
       >
         <div className="flex flex-col items-center gap-12">
@@ -58,9 +70,18 @@ export default function LoadingScreen({ onComplete }: LoadingScreenProps) {
       animate={{ opacity: isVisible ? 1 : 0 }}
       exit={{ opacity: 0 }}
       transition={getTransition(shouldReduceMotion, 'normal')}
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="fixed inset-0 flex items-center justify-center"
       style={{
         backgroundColor: 'var(--tg-theme-bg-color, #000000)',
+        zIndex: 99999,
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100%',
+        height: '100%',
+        height: '100dvh', // Dynamic viewport height для мобильных
       }}
     >
       {/* Очень subtle каменная текстура - едва заметная */}

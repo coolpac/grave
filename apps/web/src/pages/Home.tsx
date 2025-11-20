@@ -12,7 +12,7 @@ import { usePrefetch } from '../hooks/usePrefetch'
 import { useReducedMotion } from '../hooks/useReducedMotion'
 import { getAnimationVariants, getTransition, hoverLift } from '../utils/animation-variants'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
+import { API_URL } from '../config/api'
 
 type BannerResponse = {
   id: number
@@ -165,7 +165,11 @@ export default function Home() {
 
       {/* Highlight Banner Carousel */}
       <div className="px-4 mb-6">
-        <BannerCarousel items={slidesToShow} autoPlayInterval={8000} onSlideClick={handleBannerClick} />
+        <BannerCarousel 
+          items={slidesToShow} 
+          autoPlayInterval={8000} 
+          onSlideClick={handleBannerClick}
+        />
       </div>
 
       {/* Material Selection - Мрамор и Гранит */}
@@ -173,9 +177,11 @@ export default function Home() {
         {isLoading ? (
           <div className="grid grid-cols-2 gap-3">
             {Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="stone-card p-4 h-48">
+              <div key={i} className="stone-card p-4 min-h-[200px]">
                 <Skeleton variant="text" width="60%" height={20} />
                 <Skeleton variant="text" width="80%" height={14} className="mt-2" />
+                <Skeleton variant="text" width="70%" height={14} className="mt-4" />
+                <Skeleton variant="text" width="50%" height={14} className="mt-2" />
               </div>
             ))}
           </div>
@@ -190,14 +196,19 @@ export default function Home() {
               onMouseEnter={() => prefetchCategory('marble')}
               onTouchStart={() => prefetchCategory('marble')}
             >
-              <Link to="/materials/marble">
+              <Link 
+                to="/materials/marble" 
+                className="block h-full"
+                aria-label="Перейти к мраморным изделиям"
+              >
                 <motion.div
                   variants={shouldReduceMotion ? undefined : hoverLift}
                   initial="rest"
                   whileHover="hover"
                   whileTap="tap"
+                  className="h-full"
                 >
-                  <StoneCard className="cursor-pointer overflow-hidden relative min-h-[200px]">
+                  <StoneCard className="cursor-pointer overflow-hidden relative min-h-[200px] h-full touch-manipulation">
                     <div className="relative z-10 p-4 flex flex-col justify-between h-full">
                       <div>
                         <h2 className="text-lg font-inscription text-gray-900 mb-1.5">
@@ -243,14 +254,19 @@ export default function Home() {
               onMouseEnter={() => prefetchCategory('granite')}
               onTouchStart={() => prefetchCategory('granite')}
             >
-              <Link to="/materials/granite">
+              <Link 
+                to="/materials/granite" 
+                className="block h-full"
+                aria-label="Перейти к гранитным изделиям"
+              >
                 <motion.div
                   variants={shouldReduceMotion ? undefined : hoverLift}
                   initial="rest"
                   whileHover="hover"
                   whileTap="tap"
+                  className="h-full"
                 >
-                  <StoneCard className="cursor-pointer overflow-hidden relative min-h-[200px]">
+                  <StoneCard className="cursor-pointer overflow-hidden relative min-h-[200px] h-full touch-manipulation">
                     <div className="relative z-10 p-4 flex flex-col justify-between h-full">
                       <div>
                         <h2 className="text-lg font-inscription text-gray-900 mb-1.5">

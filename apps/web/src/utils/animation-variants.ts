@@ -148,6 +148,7 @@ export const hoverScale: Variants = {
 
 /**
  * Hover с подъемом (только для desktop)
+ * Оптимизирован для лучшей производительности
  */
 export const hoverLift: Variants = {
   rest: {
@@ -155,14 +156,21 @@ export const hoverLift: Variants = {
     scale: 1,
   },
   hover: {
-    y: -2,
-    scale: 1.02,
-    transition: transitions.fast,
+    y: -4,
+    scale: 1.005,
+    transition: {
+      ...transitions.fast,
+      // Используем более плавную кривую для элегантности
+      ease: [0.22, 1, 0.36, 1],
+    },
   },
   tap: {
     y: 0,
-    scale: 0.98,
-    transition: transitions.fast,
+    scale: 0.995,
+    transition: {
+      duration: 0.1,
+      ease: 'easeOut',
+    },
   },
 }
 
