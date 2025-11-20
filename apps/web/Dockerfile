@@ -37,8 +37,8 @@ RUN mkdir -p /var/cache/nginx/client_temp && \
     chown -R nginx:nginx /var/cache/nginx && \
     chown -R nginx:nginx /usr/share/nginx/html
 
-# Expose port
-EXPOSE 80
+# Expose ports
+EXPOSE 80 443
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
