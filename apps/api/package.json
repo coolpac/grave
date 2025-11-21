@@ -26,6 +26,7 @@
     "tunnel": "cloudflared tunnel --url http://localhost:3000",
     "create:categories": "ts-node scripts/create-categories.ts",
     "create:products": "ts-node scripts/create-test-products.ts",
+    "create:products:prod": "ts-node scripts/create-products-production.ts",
     "cleanup:test-data": "ts-node scripts/cleanup-test-data.ts"
   },
   "dependencies": {
