@@ -1,9 +1,9 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { StoneCard, Skeleton } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
-import { Package, Sparkles, Star, TrendingUp, ArrowLeft } from 'lucide-react'
+import { Package, Sparkles, Star, TrendingUp, ArrowLeft, LucideIcon } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useEffect, useCallback, useMemo } from 'react'
+import { useEffect, useCallback, useMemo, memo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { useReducedMotion } from '../hooks/useReducedMotion'
@@ -45,6 +45,103 @@ const materialInfo = {
   },
 }
 
+// Мемоизированный компонент карточки категории для предотвращения перерендеров
+interface CategoryCardProps {
+  category: {
+    slug: string
+    name: string
+    icon: LucideIcon
+    count: number
+  }
+  index: number
+  shouldReduceMotion: boolean
+  onHover: (slug: string) => void
+}
+
+const CategoryCard = memo(({ category, index, shouldReduceMotion, onHover }: CategoryCardProps) => {
+  const Icon = category.icon
+  
+  // Мемоизированный текст для количества товаров
+  const countText = useMemo(() => {
+    return category.count === 1 ? 'товар' : category.count < 5 ? 'товара' : 'товаров'
+  }, [category.count])
+
+  // Мемоизированный обработчик hover
+  const handleHover = useCallback(() => {
+    onHover(category.slug)
+  }, [onHover, category.slug])
+
+  return (
+    <motion.div
+      key={category.slug}
+      variants={shouldReduceMotion ? getAnimationVariants(shouldReduceMotion, 'slideIn') : staggerItem}
+      initial="hidden"
+      animate="visible"
+      custom={index}
+      className="h-full"
+    >
+      <Link 
+        to={`/c/${category.slug}`} 
+        className="h-full block"
+        aria-label={`Перейти к категории ${category.name}`}
+        onMouseEnter={handleHover}
+        onTouchStart={handleHover}
+      >
+        {shouldReduceMotion ? (
+          <div className="h-full">
+            <StoneCard className="h-full cursor-pointer flex flex-col touch-manipulation min-h-[200px]">
+              <div className="flex flex-col items-center text-center p-4 h-full min-h-[200px]">
+                <div className="granite-button w-20 h-20 rounded-xl flex items-center justify-center relative shrink-0 mb-4">
+                  <Icon className="w-8 h-8 text-gray-200" />
+                </div>
+                <div className="flex-1 flex flex-col justify-center w-full">
+                  <h3 className="font-inscription text-base text-gray-900 leading-tight min-h-[2.5rem] flex items-center justify-center">
+                    {category.name}
+                  </h3>
+                  <p className="text-xs font-body text-gray-600 mt-2">
+                    {category.count} {countText}
+                  </p>
+                </div>
+              </div>
+            </StoneCard>
+          </div>
+        ) : (
+          <motion.div
+            variants={hoverLift}
+            initial="rest"
+            whileHover="hover"
+            whileTap="tap"
+            className="h-full"
+          >
+            <StoneCard className="h-full cursor-pointer flex flex-col touch-manipulation min-h-[200px]">
+              <div className="flex flex-col items-center text-center p-4 h-full min-h-[200px]">
+                {/* Icon Container */}
+                <motion.div
+                  className="granite-button w-20 h-20 rounded-xl flex items-center justify-center relative shrink-0 mb-4"
+                  whileHover={{ rotate: 5, scale: 1.05 }}
+                  transition={getTransition(shouldReduceMotion, 'fast')}
+                >
+                  <Icon className="w-8 h-8 text-gray-200" />
+                </motion.div>
+                <div className="flex-1 flex flex-col justify-center w-full">
+                  <h3 className="font-inscription text-base text-gray-900 leading-tight min-h-[2.5rem] flex items-center justify-center">
+                    {category.name}
+                  </h3>
+                  <p className="text-xs font-body text-gray-600 mt-2">
+                    {category.count} {countText}
+                  </p>
+                </div>
+              </div>
+            </StoneCard>
+          </motion.div>
+        )}
+      </Link>
+    </motion.div>
+  )
+})
+
+CategoryCard.displayName = 'CategoryCard'
+
 export default function MaterialCategories() {
   const { material } = useParams<{ material: 'marble' | 'granite' }>()
   const navigate = useNavigate()
@@ -61,8 +158,11 @@ export default function MaterialCategories() {
       )
       return data
     },
-    staleTime: 5 * 60 * 1000, // Кэш на 5 минут
-    gcTime: 10 * 60 * 1000, // Хранить в кэше 10 минут
+    staleTime: 10 * 60 * 1000, // Кэш на 10 минут (увеличено)
+    gcTime: 30 * 60 * 1000, // Хранить в кэше 30 минут (увеличено)
+    refetchOnWindowFocus: false, // Не перезапрашивать при фокусе окна
+    refetchOnMount: false, // Не перезапрашивать при монтировании, если данные свежие
+    refetchOnReconnect: false, // Не перезапрашивать при переподключении
   })
 
   // Prefetch категории при hover/touch
@@ -118,9 +218,12 @@ export default function MaterialCategories() {
   const categoriesConfig = material === 'marble' ? marbleCategoriesConfig : graniteCategoriesConfig
   
   // Объединяем конфигурацию категорий с реальными данными из API
+  // Мемоизировано для предотвращения пересоздания массива
   const categories = useMemo(() => {
+    if (!categoriesData) return categoriesConfig.map(config => ({ ...config, count: 0 }))
+    
     return categoriesConfig.map(config => {
-      const categoryData = categoriesData?.find((cat: any) => cat.slug === config.slug)
+      const categoryData = categoriesData.find((cat: any) => cat.slug === config.slug)
       return {
         ...config,
         count: categoryData?._count?.products || 0,
@@ -183,75 +286,15 @@ export default function MaterialCategories() {
             animate="visible"
             className="grid grid-cols-2 gap-4"
           >
-            {categories.map((category, index) => {
-              const Icon = category.icon
-              return (
-                <motion.div
-                  key={category.slug}
-                  variants={shouldReduceMotion ? getAnimationVariants(shouldReduceMotion, 'slideIn') : staggerItem}
-                  initial="hidden"
-                  animate="visible"
-                  className="h-full"
-                >
-                  <Link 
-                    to={`/c/${category.slug}`} 
-                    className="h-full block"
-                    aria-label={`Перейти к категории ${category.name}`}
-                    onMouseEnter={() => handleCategoryHover(category.slug)}
-                    onTouchStart={() => handleCategoryHover(category.slug)}
-                  >
-                    {shouldReduceMotion ? (
-                      <div className="h-full">
-                        <StoneCard className="h-full cursor-pointer flex flex-col touch-manipulation min-h-[200px]">
-                          <div className="flex flex-col items-center text-center p-4 h-full min-h-[200px]">
-                            <div className="granite-button w-20 h-20 rounded-xl flex items-center justify-center relative shrink-0 mb-4">
-                              <Icon className="w-8 h-8 text-gray-200" />
-                            </div>
-                            <div className="flex-1 flex flex-col justify-center w-full">
-                              <h3 className="font-inscription text-base text-gray-900 leading-tight min-h-[2.5rem] flex items-center justify-center">
-                                {category.name}
-                              </h3>
-                              <p className="text-xs font-body text-gray-600 mt-2">
-                                {category.count} {category.count === 1 ? 'товар' : category.count < 5 ? 'товара' : 'товаров'}
-                              </p>
-                            </div>
-                          </div>
-                        </StoneCard>
-                      </div>
-                    ) : (
-                      <motion.div
-                        variants={hoverLift}
-                        initial="rest"
-                        whileHover="hover"
-                        whileTap="tap"
-                        className="h-full"
-                      >
-                        <StoneCard className="h-full cursor-pointer flex flex-col touch-manipulation min-h-[200px]">
-                          <div className="flex flex-col items-center text-center p-4 h-full min-h-[200px]">
-                            {/* Icon Container */}
-                            <motion.div
-                              className="granite-button w-20 h-20 rounded-xl flex items-center justify-center relative shrink-0 mb-4"
-                              whileHover={{ rotate: 5, scale: 1.05 }}
-                              transition={getTransition(shouldReduceMotion, 'fast')}
-                            >
-                              <Icon className="w-8 h-8 text-gray-200" />
-                            </motion.div>
-                            <div className="flex-1 flex flex-col justify-center w-full">
-                              <h3 className="font-inscription text-base text-gray-900 leading-tight min-h-[2.5rem] flex items-center justify-center">
-                                {category.name}
-                              </h3>
-                              <p className="text-xs font-body text-gray-600 mt-2">
-                                {category.count} {category.count === 1 ? 'товар' : category.count < 5 ? 'товара' : 'товаров'}
-                              </p>
-                            </div>
-                          </div>
-                        </StoneCard>
-                      </motion.div>
-                    )}
-                  </Link>
-                </motion.div>
-              )
-            })}
+            {categories.map((category, index) => (
+              <CategoryCard
+                key={category.slug}
+                category={category}
+                index={index}
+                shouldReduceMotion={shouldReduceMotion}
+                onHover={handleCategoryHover}
+              />
+            ))}
           </motion.div>
         )}
       </div>

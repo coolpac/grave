@@ -4,7 +4,7 @@ import { Skeleton } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
 import { MapPin, Phone, Mail, Info, Sparkles, ShieldCheck, Ruler } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useCallback, useMemo, useRef } from 'react'
+import { useCallback, useMemo, useRef, memo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { BannerCarousel, type BannerCarouselItem } from '../components/BannerCarousel'
@@ -13,6 +13,99 @@ import { useReducedMotion } from '../hooks/useReducedMotion'
 import { getAnimationVariants, getTransition, hoverLift } from '../utils/animation-variants'
 
 import { API_URL } from '../config/api'
+
+// Мемоизированный компонент карточки материала для предотвращения перерендеров
+interface MaterialCardProps {
+  material: 'marble' | 'granite'
+  title: string
+  description: string
+  count: number
+  categoriesCount: number
+  countText: string
+  index: number
+  shouldReduceMotion: boolean
+  onPrefetch: () => void
+}
+
+const MaterialCard = memo(({
+  material,
+  title,
+  description,
+  count,
+  categoriesCount,
+  countText,
+  index,
+  shouldReduceMotion,
+  onPrefetch,
+}: MaterialCardProps) => {
+  // Декоративный фон - мемоизирован для предотвращения пересоздания
+  // Вынесен за пределы компонента, так как он статичен
+  const backgroundStyle = {
+    backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+  }
+
+  return (
+    <motion.div
+      variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
+      initial="hidden"
+      animate="visible"
+      custom={index}
+      onMouseEnter={onPrefetch}
+      onTouchStart={onPrefetch}
+    >
+      <Link 
+        to={`/materials/${material}`} 
+        className="block h-full"
+        aria-label={`Перейти к ${title.toLowerCase()}`}
+      >
+        <motion.div
+          variants={shouldReduceMotion ? undefined : hoverLift}
+          initial="rest"
+          whileHover="hover"
+          whileTap="tap"
+          className="h-full"
+        >
+          <StoneCard className="cursor-pointer overflow-hidden relative min-h-[200px] h-full touch-manipulation">
+            <div className="relative z-10 p-4 flex flex-col justify-between h-full">
+              <div>
+                <h2 className="text-lg font-inscription text-gray-900 mb-1.5">
+                  {title}
+                </h2>
+                <p className="text-xs font-body text-gray-600 mb-3 line-clamp-2">
+                  {description}
+                </p>
+                <div className="flex flex-col gap-1 text-xs font-body text-gray-700">
+                  <span>{categoriesCount} категорий</span>
+                  <span>{count} {countText}</span>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center gap-1 text-bronze-600">
+                <span className="text-xs font-body font-medium">Смотреть</span>
+                {!shouldReduceMotion && (
+                  <motion.div
+                    animate={{ x: [0, 3, 0] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    className="text-xs"
+                  >
+                    →
+                  </motion.div>
+                )}
+                {shouldReduceMotion && <span className="text-xs">→</span>}
+              </div>
+            </div>
+            {/* Декоративный фон */}
+            <div
+              className="absolute inset-0 opacity-5 pointer-events-none"
+              style={backgroundStyle}
+            />
+          </StoneCard>
+        </motion.div>
+      </Link>
+    </motion.div>
+  )
+})
+
+MaterialCard.displayName = 'MaterialCard'
 
 type BannerResponse = {
   id: number
@@ -116,25 +209,48 @@ export default function Home() {
     }
   }, [])
 
-  // Загрузка статистики по материалам
+  // Загрузка статистики по материалам - оптимизированный запрос с длительным кэшированием
   const { data: materialStats, isLoading: isLoadingStats } = useQuery({
     queryKey: ['material-stats'],
     queryFn: async () => {
       const { data } = await axios.get(`${API_URL}/products/stats/by-material`)
       return data
     },
-    staleTime: 5 * 60 * 1000, // Кэш на 5 минут
+    staleTime: 10 * 60 * 1000, // Кэш на 10 минут (увеличено)
+    gcTime: 30 * 60 * 1000, // Хранить в кэше 30 минут
+    refetchOnWindowFocus: false, // Не перезапрашивать при фокусе окна
+    refetchOnMount: false, // Не перезапрашивать при монтировании, если данные свежие
+    refetchOnReconnect: false, // Не перезапрашивать при переподключении
   })
 
-  const marbleCount = materialStats?.marble?.products || 0
-  const graniteCount = materialStats?.granite?.products || 0
-  const marbleCategoriesCount = materialStats?.marble?.categories || 5
-  const graniteCategoriesCount = materialStats?.granite?.categories || 5
+  // Мемоизированные значения для предотвращения перерендеров
+  const marbleCount = useMemo(() => materialStats?.marble?.products || 0, [materialStats?.marble?.products])
+  const graniteCount = useMemo(() => materialStats?.granite?.products || 0, [materialStats?.granite?.products])
+  const marbleCategoriesCount = useMemo(() => materialStats?.marble?.categories || 5, [materialStats?.marble?.categories])
+  const graniteCategoriesCount = useMemo(() => materialStats?.granite?.categories || 5, [materialStats?.granite?.categories])
   const isLoading = isLoadingStats
 
-  const scrollToContacts = () => {
+  const scrollToContacts = useCallback(() => {
     contactRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
+  }, [])
+
+  // Мемоизированные обработчики prefetch
+  const handleMarblePrefetch = useCallback(() => {
+    prefetchCategory('marble')
+  }, [prefetchCategory])
+
+  const handleGranitePrefetch = useCallback(() => {
+    prefetchCategory('granite')
+  }, [prefetchCategory])
+
+  // Мемоизированные тексты для предотвращения перерендеров
+  const marbleText = useMemo(() => {
+    return marbleCount === 1 ? 'товар' : marbleCount < 5 ? 'товара' : 'товаров'
+  }, [marbleCount])
+
+  const graniteText = useMemo(() => {
+    return graniteCount === 1 ? 'товар' : graniteCount < 5 ? 'товара' : 'товаров'
+  }, [graniteCount])
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
@@ -188,120 +304,30 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {/* Мраморные изделия */}
-            <motion.div
-              variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
-              initial="hidden"
-              animate="visible"
-              custom={0}
-              onMouseEnter={() => prefetchCategory('marble')}
-              onTouchStart={() => prefetchCategory('marble')}
-            >
-              <Link 
-                to="/materials/marble" 
-                className="block h-full"
-                aria-label="Перейти к мраморным изделиям"
-              >
-                <motion.div
-                  variants={shouldReduceMotion ? undefined : hoverLift}
-                  initial="rest"
-                  whileHover="hover"
-                  whileTap="tap"
-                  className="h-full"
-                >
-                  <StoneCard className="cursor-pointer overflow-hidden relative min-h-[200px] h-full touch-manipulation">
-                    <div className="relative z-10 p-4 flex flex-col justify-between h-full">
-                      <div>
-                        <h2 className="text-lg font-inscription text-gray-900 mb-1.5">
-                          Мраморные изделия
-                        </h2>
-                        <p className="text-xs font-body text-gray-600 mb-3 line-clamp-2">
-                          Элегантные изделия из натурального мрамора
-                        </p>
-                        <div className="flex flex-col gap-1 text-xs font-body text-gray-700">
-                          <span>{marbleCategoriesCount} категорий</span>
-                          <span>{marbleCount} {marbleCount === 1 ? 'товар' : marbleCount < 5 ? 'товара' : 'товаров'}</span>
-                        </div>
-                      </div>
-                      <div className="mt-3 flex items-center gap-1 text-bronze-600">
-                        <span className="text-xs font-body font-medium">Смотреть</span>
-                        <motion.div
-                          animate={{ x: [0, 3, 0] }}
-                          transition={{ duration: 1.5, repeat: Infinity }}
-                          className="text-xs"
-                        >
-                          →
-                        </motion.div>
-                      </div>
-                    </div>
-                    {/* Декоративный фон */}
-                    <div
-                      className="absolute inset-0 opacity-5 pointer-events-none"
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                      }}
-                    />
-                  </StoneCard>
-                </motion.div>
-              </Link>
-            </motion.div>
+            <MaterialCard
+              material="marble"
+              title="Мраморные изделия"
+              description="Элегантные изделия из натурального мрамора"
+              count={marbleCount}
+              categoriesCount={marbleCategoriesCount}
+              countText={marbleText}
+              index={0}
+              shouldReduceMotion={shouldReduceMotion}
+              onPrefetch={handleMarblePrefetch}
+            />
 
             {/* Гранитные изделия */}
-            <motion.div
-              variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
-              initial="hidden"
-              animate="visible"
-              custom={1}
-              onMouseEnter={() => prefetchCategory('granite')}
-              onTouchStart={() => prefetchCategory('granite')}
-            >
-              <Link 
-                to="/materials/granite" 
-                className="block h-full"
-                aria-label="Перейти к гранитным изделиям"
-              >
-                <motion.div
-                  variants={shouldReduceMotion ? undefined : hoverLift}
-                  initial="rest"
-                  whileHover="hover"
-                  whileTap="tap"
-                  className="h-full"
-                >
-                  <StoneCard className="cursor-pointer overflow-hidden relative min-h-[200px] h-full touch-manipulation">
-                    <div className="relative z-10 p-4 flex flex-col justify-between h-full">
-                      <div>
-                        <h2 className="text-lg font-inscription text-gray-900 mb-1.5">
-                          Гранитные изделия
-                        </h2>
-                        <p className="text-xs font-body text-gray-600 mb-3 line-clamp-2">
-                          Прочные и долговечные изделия из гранита
-                        </p>
-                        <div className="flex flex-col gap-1 text-xs font-body text-gray-700">
-                          <span>{graniteCategoriesCount} категорий</span>
-                          <span>{graniteCount} {graniteCount === 1 ? 'товар' : graniteCount < 5 ? 'товара' : 'товаров'}</span>
-                        </div>
-                      </div>
-                      <div className="mt-3 flex items-center gap-1 text-bronze-600">
-                        <span className="text-xs font-body font-medium">Смотреть</span>
-                        <motion.div
-                          animate={{ x: [0, 3, 0] }}
-                          transition={{ duration: 1.5, repeat: Infinity }}
-                          className="text-xs"
-                        >
-                          →
-                        </motion.div>
-                      </div>
-                    </div>
-                    {/* Декоративный фон */}
-                    <div
-                      className="absolute inset-0 opacity-5 pointer-events-none"
-                      style={{
-                        backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23000000' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-                      }}
-                    />
-                  </StoneCard>
-                </motion.div>
-              </Link>
-            </motion.div>
+            <MaterialCard
+              material="granite"
+              title="Гранитные изделия"
+              description="Прочные и долговечные изделия из гранита"
+              count={graniteCount}
+              categoriesCount={graniteCategoriesCount}
+              countText={graniteText}
+              index={1}
+              shouldReduceMotion={shouldReduceMotion}
+              onPrefetch={handleGranitePrefetch}
+            />
           </div>
         )}
       </div>
