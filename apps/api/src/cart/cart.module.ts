@@ -8,7 +8,7 @@ import { CartAbandonedModule } from './cart-abandoned.module';
   imports: [PrismaModule, CartAbandonedModule],
   controllers: [CartController],
   providers: [CartService],
-  exports: [CartService],
+  exports: [CartService, CartAbandonedModule],
 })
 export class CartModule {}
 

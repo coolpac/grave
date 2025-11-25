@@ -69,13 +69,29 @@ rsync -avz --exclude 'node_modules' \
     --exclude '.env.local' \
     ./ ${DEPLOY_USER}@${SERVER_IP}:${PROJECT_DIR}/
 
-print_status "Copying environment file..."
-scp .env.production ${DEPLOY_USER}@${SERVER_IP}:${PROJECT_DIR}/.env
+# НЕ копируем .env файл - он должен быть настроен один раз на сервере и больше не трогаться
+print_info "ℹ️  .env файл на сервере НЕ обновляется (сохраняются ваши настройки)"
+print_info "ℹ️  Если нужно изменить .env, отредактируйте вручную: ssh root@94.241.141.194 'nano /opt/ritual-app/.env'"
 
 print_status "Deploying on server..."
 ssh ${DEPLOY_USER}@${SERVER_IP} << ENDSSH
     set -e
     cd ${PROJECT_DIR}
+    
+    # Проверяем, что .env существует
+    if [ ! -f .env ]; then
+        print_error "❌ .env файл не найден на сервере!"
+        print_error "Создайте его вручную или скопируйте с локальной машины:"
+        print_error "  scp .env.production root@94.241.141.194:/opt/ritual-app/.env"
+        exit 1
+    fi
+    
+    echo "✓ .env файл найден, используем существующие настройки"
+    
+    # Create necessary directories with proper permissions
+    echo "Creating directories..."
+    mkdir -p apps/api/uploads/thumbnails apps/api/logs apps/api/reports
+    chmod -R 777 apps/api/uploads apps/api/logs apps/api/reports
     
     # Stop services
     docker-compose -f docker-compose.production.yml down || true

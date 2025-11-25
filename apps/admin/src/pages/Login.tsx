@@ -5,19 +5,124 @@ import api from '../lib/api';
 import { Button } from '@ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/components/card';
 
+// Типы для Telegram WebApp
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp?: {
+        initData: string;
+        initDataUnsafe: {
+          user?: {
+            id: number;
+            first_name?: string;
+            last_name?: string;
+            username?: string;
+          };
+        };
+        ready: () => void;
+        expand: () => void;
+      };
+    };
+  }
+}
+
 export default function Login() {
   const navigate = useNavigate();
   const [initData, setInitData] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [autoLoginAttempted, setAutoLoginAttempted] = useState(false);
 
   useEffect(() => {
+    // Инициализация Telegram WebApp
+    if (window.Telegram?.WebApp) {
+      console.log('📱 Telegram WebApp detected');
+      window.Telegram.WebApp.ready();
+      window.Telegram.WebApp.expand();
+      console.log('📱 Telegram WebApp initData:', window.Telegram.WebApp.initData ? 'present' : 'missing');
+      console.log('📱 Telegram WebApp user:', window.Telegram.WebApp.initDataUnsafe?.user);
+    } else {
+      console.log('⚠️ Telegram WebApp not available (opening in browser?)');
+    }
+
     // Проверяем, есть ли уже токен
     const token = localStorage.getItem('authToken');
     if (token) {
+      console.log('✅ Token found in localStorage, navigating to dashboard');
       navigate('/');
+      return;
     }
-  }, [navigate]);
+
+    // Автоматическая авторизация через Telegram WebApp
+    if (!autoLoginAttempted && window.Telegram?.WebApp?.initData) {
+      console.log('🚀 Starting auto-login with Telegram initData');
+      setAutoLoginAttempted(true);
+      handleAutoLogin(window.Telegram.WebApp.initData);
+    } else if (!autoLoginAttempted) {
+      console.log('⏳ Waiting for Telegram WebApp initData...');
+      // Даём время Telegram WebApp загрузиться
+      const timer = setTimeout(() => {
+        if (window.Telegram?.WebApp?.initData && !autoLoginAttempted) {
+          console.log('🚀 Retrying auto-login after delay');
+          setAutoLoginAttempted(true);
+          handleAutoLogin(window.Telegram.WebApp.initData);
+        }
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [navigate, autoLoginAttempted]);
+
+  const handleAutoLogin = async (telegramInitData: string) => {
+    setIsLoading(true);
+    console.log('🔐 Auto-login attempt with Telegram initData');
+    
+    try {
+      const response = await api.post('/auth/validate', { initData: telegramInitData });
+      console.log('✅ Auth response:', { 
+        hasToken: !!(response.data?.accessToken || response.data?.token),
+        userRole: response.data?.user?.role,
+        userId: response.data?.user?.id,
+        telegramId: response.data?.user?.telegramId,
+      });
+      
+      const token = response.data?.accessToken || response.data?.token;
+      
+      if (token) {
+        // Проверяем что пользователь админ
+        const user = response.data?.user;
+        console.log('👤 User data:', user);
+        
+        if (user?.role === 'ADMIN') {
+          console.log('✅ User is ADMIN, saving token and navigating');
+          localStorage.setItem('authToken', token);
+          navigate('/');
+        } else {
+          console.warn('❌ User is not ADMIN, role:', user?.role);
+          setError(`Доступ запрещён. Ваша роль: ${user?.role || 'не определена'}. Обратитесь к администратору.`);
+        }
+      } else {
+        console.error('❌ No token in response');
+        setError('Токен не получен от сервера');
+      }
+    } catch (err: any) {
+      console.error('❌ Auth error:', {
+        status: err.response?.status,
+        message: err.response?.data?.message,
+        error: err.message,
+      });
+      
+      // Если ошибка - показываем форму для ручного ввода
+      if (err.response?.status === 401) {
+        setError('Ошибка авторизации: ' + (err.response?.data?.message || 'Неверные данные'));
+      } else if (err.response?.status === 403) {
+        setError('Доступ запрещён. Вы не являетесь администратором.');
+      } else {
+        setError(err.response?.data?.message || err.message || 'Ошибка авторизации');
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,9 +131,17 @@ export default function Login() {
 
     try {
       const response = await api.post('/auth/validate', { initData });
-      if (response.data?.token) {
-        localStorage.setItem('authToken', response.data.token);
-        navigate('/');
+      const token = response.data?.accessToken || response.data?.token;
+      
+      if (token) {
+        // Проверяем что пользователь админ
+        const user = response.data?.user;
+        if (user?.role === 'ADMIN') {
+          localStorage.setItem('authToken', token);
+          navigate('/');
+        } else {
+          setError('Доступ запрещён. Вы не являетесь администратором.');
+        }
       } else {
         setError('Токен не получен от сервера');
       }
@@ -57,7 +170,9 @@ export default function Login() {
             Вход в админ-панель
           </CardTitle>
           <p className="text-white/60 text-sm font-medium">
-            Введите данные для авторизации
+            {window.Telegram?.WebApp?.initData 
+              ? 'Авторизация через Telegram...' 
+              : 'Введите данные для авторизации'}
           </p>
         </CardHeader>
         <CardContent>
@@ -75,7 +190,9 @@ export default function Login() {
                 required
               />
               <p className="text-xs text-white/50">
-                Для разработки можно использовать тестовый токен из localStorage
+                {window.Telegram?.WebApp?.initData 
+                  ? 'Если вы открыли админку из Telegram, авторизация произойдёт автоматически'
+                  : 'Вставьте initData из Telegram или используйте тестовый токен для разработки'}
               </p>
             </div>
 

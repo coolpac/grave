@@ -31,7 +31,7 @@ export class ProductsService {
       return await this.prisma.product.create({
         data: {
           ...cleanProductData,
-          specifications: specifications ? JSON.stringify(specifications) : null,
+          specifications: specifications || null,
           attributes: attributes
             ? {
                 create: attributes.map((attr) => ({
@@ -47,7 +47,7 @@ export class ProductsService {
                           value: val.value,
                           displayName: val.displayName,
                           order: val.order ?? 0,
-                          metadata: val.metadata ? JSON.stringify(val.metadata) : null,
+                          metadata: val.metadata || null,
                         })),
                       }
                     : undefined,
@@ -58,25 +58,13 @@ export class ProductsService {
             ? {
                 create: variants.map((variant) => {
                   // Подготовка данных варианта - только те поля, которые есть в схеме
-                  const variantData: {
-                    name: string | null
-                    sku?: string | null
-                    price: number
-                    stock: number
-                    weight?: number | null
-                    unit: string
-                    isActive: boolean
-                    attributes: string
-                    metadata?: string | null
-                  } = {
+                  const variantData: any = {
                     name: variant.name || null,
                     price: Number(variant.price),
                     stock: variant.stock ?? 0,
                     unit: variant.unit || cleanProductData.unit || 'PIECE',
                     isActive: variant.isActive !== undefined ? Boolean(variant.isActive) : true,
-                    attributes: variant.attributes 
-                      ? JSON.stringify(variant.attributes)
-                      : '{}',
+                    attributes: variant.attributes || {},
                   }
                   
                   // Добавляем опциональные поля только если они есть
@@ -87,9 +75,7 @@ export class ProductsService {
                     variantData.weight = variant.weight ? Number(variant.weight) : null
                   }
                   if (variant.metadata !== undefined) {
-                    variantData.metadata = variant.metadata 
-                      ? JSON.stringify(variant.metadata)
-                      : null
+                    variantData.metadata = variant.metadata || null
                   }
                   
                   return variantData
@@ -173,10 +159,10 @@ export class ProductsService {
       throw new NotFoundException(`Product with slug "${slug}" not found`)
     }
 
-    // Парсим JSON поля для удобства использования
+    // В PostgreSQL specifications уже является Json объектом
     const parsedProduct = {
       ...product,
-      specifications: product.specifications ? JSON.parse(product.specifications) : {},
+      specifications: product.specifications || {},
     }
 
     // Record product view metric
@@ -354,7 +340,7 @@ export class ProductsService {
       // Парсим JSON поля для удобства использования
       return products.map((product) => ({
         ...product,
-        specifications: product.specifications ? JSON.parse(product.specifications) : {},
+        specifications: product.specifications || {},
       }))
     }
 
@@ -399,10 +385,10 @@ export class ProductsService {
       this.prisma.product.count(),
     ])
 
-    // Парсим JSON поля
+    // В PostgreSQL specifications уже является Json объектом
     const parsedProducts = products.map((product) => ({
       ...product,
-      specifications: product.specifications ? JSON.parse(product.specifications) : {},
+      specifications: product.specifications || {},
     }))
 
     return createPaginatedResponse(parsedProducts, total, pagination)
@@ -521,21 +507,19 @@ export class ProductsService {
         ...filteredData,
       }
 
-      // Обрабатываем specifications
+      // Обрабатываем specifications (для PostgreSQL Json типа)
       if (specifications !== undefined) {
         try {
-          // Если specifications уже строка, используем её, иначе преобразуем в JSON
-          if (typeof specifications === 'string') {
-            // Проверяем, что это валидный JSON
+          // Если specifications уже объект - передаём напрямую
+          if (specifications && typeof specifications === 'object') {
+            updateData.specifications = specifications
+          } else if (typeof specifications === 'string') {
+            // Если строка - парсим в объект
             try {
-              JSON.parse(specifications)
-              updateData.specifications = specifications
+              updateData.specifications = JSON.parse(specifications)
             } catch {
-              // Если не валидный JSON, преобразуем объект в строку
-              updateData.specifications = JSON.stringify(specifications)
+              updateData.specifications = null
             }
-          } else if (specifications && typeof specifications === 'object') {
-            updateData.specifications = JSON.stringify(specifications)
           } else {
             updateData.specifications = null
           }

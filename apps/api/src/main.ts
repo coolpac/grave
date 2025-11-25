@@ -43,35 +43,81 @@ async function bootstrap() {
     configService.get<string>('FRONTEND_URL'),
   ].filter(Boolean) as string[];
 
+  // CORS configuration with special handling for auth endpoints
+  app.use((req, res, next) => {
+    // Для auth endpoints разрешаем все origin (Telegram WebApp может использовать разные origin)
+    if (req.path.startsWith('/api/auth/validate') || req.path.startsWith('/api/auth/admin-token')) {
+      const origin = req.headers.origin;
+      if (origin) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+      } else {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+      }
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Origin');
+      
+      if (req.method === 'OPTIONS') {
+        return res.sendStatus(200);
+      }
+    }
+    next();
+  });
+
   app.enableCors({
     origin: isDevelopment
       ? true // В разработке разрешаем все
       : (origin, callback) => {
-          // Разрешаем запросы без origin (например, Postman, curl)
+          // Разрешаем запросы без origin (например, Postman, curl, Telegram WebApp в некоторых случаях)
           if (!origin) {
+            logger.debug('CORS: Allowing request without origin');
             return callback(null, true);
           }
-          // Разрешаем Telegram домены
+          
+          logger.debug(`CORS: Checking origin: ${origin}`);
+          
+          // Разрешаем Telegram домены (все поддомены)
           if (
             origin.includes('telegram.org') ||
             origin.includes('telegramcdn.net') ||
-            origin.includes('tcdn.me')
+            origin.includes('tcdn.me') ||
+            origin.includes('telegramapp.org')
           ) {
+            logger.debug(`CORS: Allowing Telegram origin: ${origin}`);
             return callback(null, true);
           }
-          // Разрешаем Cloudflare Tunnel домены (trycloudflare.com)
+          
+          // Разрешаем Cloudflare Tunnel домены
           if (origin.includes('trycloudflare.com') || origin.includes('cloudflare.com')) {
+            logger.debug(`CORS: Allowing Cloudflare origin: ${origin}`);
             return callback(null, true);
           }
+          
+          // Разрешаем наш домен
+          const frontendUrl = configService.get<string>('FRONTEND_URL');
+          const publicUrl = configService.get<string>('PUBLIC_URL');
+          if (origin === frontendUrl || origin === publicUrl || origin.includes('optmramor.ru')) {
+            logger.debug(`CORS: Allowing frontend origin: ${origin}`);
+            return callback(null, true);
+          }
+          
           // Проверяем разрешённые домены
-          if (allowedOrigins.some(allowed => origin === allowed || origin.includes(allowed.replace('*.', '')))) {
+          if (allowedOrigins.some(allowed => {
+            const matches = origin === allowed || origin.includes(allowed.replace('*.', ''));
+            if (matches) {
+              logger.debug(`CORS: Allowing matched origin: ${origin} (pattern: ${allowed})`);
+            }
+            return matches;
+          })) {
             return callback(null, true);
           }
+          
+          logger.warn(`CORS: Blocked origin: ${origin}`);
           callback(new Error('Not allowed by CORS'));
         },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Origin', 'X-Requested-With'],
     exposedHeaders: ['X-Total-Count', 'X-Page', 'X-Per-Page'],
     maxAge: 86400, // 24 hours
   });

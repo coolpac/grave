@@ -53,9 +53,8 @@ rsync -avz --exclude 'node_modules' \
     --exclude '.env.local' \
     ./ ${DEPLOY_USER}@${SERVER_IP}:${PROJECT_DIR}/
 
-# Copy production .env file
-print_status "Copying environment file..."
-scp .env.production ${DEPLOY_USER}@${SERVER_IP}:${PROJECT_DIR}/.env
+# НЕ копируем .env файл - он должен быть настроен один раз на сервере
+print_info "ℹ️  .env файл на сервере НЕ обновляется (сохраняются ваши настройки)"
 
 # Deploy on server
 print_status "Executing deployment on server..."
@@ -67,6 +66,18 @@ ssh ${DEPLOY_USER}@${SERVER_IP} << 'ENDSSH'
     /root/rescue-disk.sh
     
     cd /opt/ritual-app
+    
+    # Проверяем, что .env существует
+    if [ ! -f .env ]; then
+        echo "❌ .env файл не найден на сервере!"
+        echo "Создайте его вручную:"
+        echo "  ssh root@94.241.141.194 'nano /opt/ritual-app/.env'"
+        echo "Или скопируйте с локальной машины:"
+        echo "  scp .env.production root@94.241.141.194:/opt/ritual-app/.env"
+        exit 1
+    fi
+    
+    echo "✓ .env файл найден, используем существующие настройки"
     
     # Stop services (already stopped by rescue script, but just in case)
     echo "Ensuring services are stopped..."

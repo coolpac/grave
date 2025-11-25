@@ -17,49 +17,46 @@ export class AuthService {
 
   /**
    * Валидация Telegram initData по HMAC и TTL
-   * Пробует использовать ADMIN_BOT_TOKEN, затем BOT_TOKEN
-   * Использует утилиту verifyTelegramInitData
+   * Использует ADMIN_BOT_TOKEN (приоритет) или BOT_TOKEN (fallback)
+   * 
+   * Логика:
+   * 1. Если указан ADMIN_BOT_TOKEN - используем его
+   * 2. Если нет ADMIN_BOT_TOKEN, но есть BOT_TOKEN - используем BOT_TOKEN
+   * 3. Если оба пустые - ошибка (кроме development)
    */
   validateInitData(initData: string): boolean {
     try {
-      // Список токенов для проверки (приоритет: ADMIN_BOT_TOKEN, затем BOT_TOKEN)
-      const tokens: string[] = [];
+      // Приоритет: ADMIN_BOT_TOKEN, затем BOT_TOKEN
+      const adminBotToken = process.env.ADMIN_BOT_TOKEN?.trim();
+      const botToken = process.env.BOT_TOKEN?.trim();
       
-      // Сначала пробуем ADMIN_BOT_TOKEN (если указан)
-      const adminBotToken = process.env.ADMIN_BOT_TOKEN;
-      if (adminBotToken && adminBotToken.trim() !== '') {
-        tokens.push(adminBotToken);
-      }
+      // Определяем токен для валидации
+      let tokenToUse: string | undefined;
       
-      // Затем пробуем BOT_TOKEN
-      const botToken = process.env.BOT_TOKEN;
-      if (botToken && botToken.trim() !== '') {
-        tokens.push(botToken);
+      if (adminBotToken && adminBotToken !== '') {
+        tokenToUse = adminBotToken;
+        this.logger.debug('Using ADMIN_BOT_TOKEN for initData validation');
+      } else if (botToken && botToken !== '') {
+        tokenToUse = botToken;
+        this.logger.debug('Using BOT_TOKEN for initData validation (ADMIN_BOT_TOKEN not set)');
       }
 
       // Если нет токенов
-      if (tokens.length === 0) {
+      if (!tokenToUse) {
         // В development режиме разрешаем работу без токенов
         if (process.env.NODE_ENV === 'development') {
           this.logger.warn('No bot tokens configured, skipping validation in development mode');
           return true;
         }
-        throw new Error('No bot tokens configured (ADMIN_BOT_TOKEN or BOT_TOKEN required)');
+        throw new Error('No bot tokens configured. Set ADMIN_BOT_TOKEN (recommended) or BOT_TOKEN');
       }
 
       // Используем готовый валидатор (maxAgeSec = 300 = 5 минут по умолчанию)
       const maxAgeSec = parseInt(process.env.INIT_DATA_MAX_AGE_SEC || '300', 10);
       
-      // Пробуем каждый токен по очереди
-      for (const token of tokens) {
-        const result = verifyTelegramInitData(initData, token, maxAgeSec);
-        if (result.ok) {
-          return true;
-        }
-      }
-      
-      // Если ни один токен не подошел
-      return false;
+      // Валидируем initData с выбранным токеном
+      const result = verifyTelegramInitData(initData, tokenToUse, maxAgeSec);
+      return result.ok;
     } catch (error) {
       this.logger.error({
         message: 'Error validating initData',
@@ -94,18 +91,26 @@ export class AuthService {
   async authenticate(validateDto: ValidateInitDataDto): Promise<AuthResponseDto> {
     // Валидация initData
     if (!this.validateInitData(validateDto.initData)) {
+      this.logger.warn('Invalid initData provided');
       throw new UnauthorizedException('Invalid initData');
     }
 
     // Парсинг данных пользователя
     const userData = this.parseInitData(validateDto.initData);
     if (!userData || !userData.id) {
+      this.logger.warn('Invalid user data in initData', { userData });
       throw new UnauthorizedException('Invalid user data');
     }
+    
+    this.logger.debug({
+      message: 'Authenticating user',
+      telegramId: userData.id,
+      username: userData.username,
+    });
 
     // Поиск или создание пользователя
     let user = await this.prisma.user.findUnique({
-      where: { telegramId: String(userData.id) },
+      where: { telegramId: BigInt(userData.id) },
     });
 
     if (!user) {
@@ -115,7 +120,7 @@ export class AuthService {
 
       user = await this.prisma.user.create({
         data: {
-          telegramId: String(userData.id),
+          telegramId: BigInt(userData.id),
           firstName: userData.first_name || '',
           lastName: userData.last_name,
           username: userData.username,
@@ -126,7 +131,12 @@ export class AuthService {
         },
       });
     } else {
-      // Обновление данных пользователя
+      // Проверяем whitelist для обновления роли (если пользователь теперь админ)
+      const adminWhitelist = process.env.ADMIN_WHITELIST?.split(',').map(Number) || [];
+      const shouldBeAdmin = adminWhitelist.includes(userData.id);
+      const currentRole = user.role;
+      
+      // Обновление данных пользователя и роли (если нужно)
       user = await this.prisma.user.update({
         where: { id: user.id },
         data: {
@@ -136,7 +146,18 @@ export class AuthService {
           languageCode: userData.language_code ?? user.languageCode,
           isPremium: userData.is_premium ?? user.isPremium,
           photoUrl: userData.photo_url ?? user.photoUrl,
+          // Обновляем роль если пользователь в whitelist
+          role: shouldBeAdmin ? 'ADMIN' : currentRole,
         },
+      });
+      
+      this.logger.debug({
+        message: 'User updated',
+        userId: user.id,
+        telegramId: userData.id,
+        oldRole: currentRole,
+        newRole: user.role,
+        inWhitelist: shouldBeAdmin,
       });
     }
 
@@ -190,14 +211,14 @@ export class AuthService {
 
     // Ищем или создаем пользователя
     let user = await this.prisma.user.findUnique({
-      where: { telegramId: String(telegramId) },
+      where: { telegramId: BigInt(telegramId) },
     });
 
     if (!user) {
       // Создаем нового пользователя с ролью ADMIN (если в whitelist) или USER
       user = await this.prisma.user.create({
         data: {
-          telegramId: String(telegramId),
+          telegramId: BigInt(telegramId),
           firstName: 'Dev',
           lastName: 'User',
           username: `dev_${telegramId}`,
@@ -278,14 +299,14 @@ export class AuthService {
 
     // Ищем или создаем пользователя
     let user = await this.prisma.user.findUnique({
-      where: { telegramId: targetTelegramId },
+      where: { telegramId: BigInt(targetTelegramId) },
     });
 
     if (!user) {
       // Создаем нового пользователя с ролью ADMIN
       user = await this.prisma.user.create({
         data: {
-          telegramId: targetTelegramId,
+          telegramId: BigInt(targetTelegramId),
           firstName: 'Admin',
           lastName: 'User',
           username: `admin_${targetTelegramId}`,

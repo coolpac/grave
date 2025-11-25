@@ -32,6 +32,10 @@ print_warning() {
     echo -e "${YELLOW}⚠${NC} $1"
 }
 
+print_info() {
+    echo -e "${YELLOW}ℹ${NC} $1"
+}
+
 # Check if images exist on server
 print_status "Checking if images are available on server..."
 ssh ${DEPLOY_USER}@${SERVER_IP} << 'ENDSSH'
@@ -75,9 +79,8 @@ rsync -avz --exclude 'node_modules' \
     --exclude '*.tar.gz' \
     ./ ${DEPLOY_USER}@${SERVER_IP}:${PROJECT_DIR}/
 
-# Copy production .env file
-print_status "Copying environment file..."
-scp .env.production ${DEPLOY_USER}@${SERVER_IP}:${PROJECT_DIR}/.env
+# НЕ копируем .env файл - он должен быть настроен один раз на сервере
+print_info "ℹ️  .env файл на сервере НЕ обновляется (сохраняются ваши настройки)"
 
 # Update docker-compose to use pre-built images
 print_status "Updating docker-compose to use pre-built images..."
@@ -143,6 +146,23 @@ print_status "Deploying on server (no build needed - using pre-built images)..."
 ssh ${DEPLOY_USER}@${SERVER_IP} << 'ENDSSH'
     set -e
     cd /opt/ritual-app
+    
+    # Проверяем, что .env существует
+    if [ ! -f .env ]; then
+        echo "❌ .env файл не найден на сервере!"
+        echo "Создайте его вручную:"
+        echo "  ssh root@94.241.141.194 'nano /opt/ritual-app/.env'"
+        echo "Или скопируйте с локальной машины:"
+        echo "  scp .env.production root@94.241.141.194:/opt/ritual-app/.env"
+        exit 1
+    fi
+    
+    echo "✓ .env файл найден, используем существующие настройки"
+    
+    # Create necessary directories with proper permissions
+    echo "Creating directories..."
+    mkdir -p apps/api/uploads/thumbnails apps/api/logs apps/api/reports
+    chmod -R 777 apps/api/uploads apps/api/logs apps/api/reports
     
     # Stop services gracefully
     echo "Stopping services..."

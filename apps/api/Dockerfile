@@ -1,7 +1,10 @@
 # Multi-stage build for NestJS API in monorepo
 # Optimized for pnpm workspaces and Prisma
 
-FROM node:20-alpine AS base
+FROM node:20-slim AS base
+
+# Install OpenSSL and other required packages
+RUN apt-get update && apt-get install -y openssl wget ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # Enable corepack (includes pnpm)
 RUN corepack enable && corepack prepare pnpm@10.17.0 --activate
@@ -24,9 +27,9 @@ COPY apps/api ./apps/api
 COPY packages ./packages
 COPY turbo.json tsconfig.json ./
 
-# Generate Prisma Client (must be done before build)
+# Use PostgreSQL schema for production and generate Prisma Client
 WORKDIR /app/apps/api
-RUN npx prisma generate
+RUN cp prisma/schema.postgresql.prisma prisma/schema.prisma && npx prisma generate
 
 # Build the application
 # Set NODE_PATH to help webpack resolve modules
@@ -39,8 +42,8 @@ FROM base AS runner
 WORKDIR /app
 
 # Create app user (non-root for security)
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nestjs
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --uid 1001 --gid nodejs nestjs
 
 # Copy package files
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
@@ -73,9 +76,10 @@ RUN --mount=from=builder,source=/app/node_modules/.pnpm,target=/tmp/pnpm \
       done; \
     fi
 
-# Create necessary directories
-RUN mkdir -p uploads logs && \
-    chown -R nestjs:nodejs /app
+# Create necessary directories with proper permissions
+# Create cache directory for nestjs user (needed for Prisma generate)
+RUN mkdir -p uploads/thumbnails logs reports /home/nestjs/.cache && \
+    chown -R nestjs:nodejs /app /home/nestjs
 
 # Switch to non-root user
 USER nestjs

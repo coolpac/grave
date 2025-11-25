@@ -80,20 +80,23 @@ export const envValidationSchema = Joi.object({
   // ============================================
   // Telegram Bot Configuration
   // ============================================
-  BOT_TOKEN: Joi.string()
-    .optional()
-    .allow('')
-    .description('Telegram bot token (optional if ADMIN_BOT_TOKEN is set, used as fallback for initData validation)'),
-
-  CUSTOMER_BOT_TOKEN: Joi.string()
-    .optional()
-    .allow('')
-    .description('Customer bot token (optional, falls back to BOT_TOKEN)'),
-
+  // Рекомендуется: указать ADMIN_BOT_TOKEN (токен админского бота)
+  // Если ADMIN_BOT_TOKEN не указан, будет использован BOT_TOKEN как fallback
   ADMIN_BOT_TOKEN: Joi.string()
     .optional()
     .allow('')
-    .description('Admin bot token (used for initData validation, preferred over BOT_TOKEN)'),
+    .description('Admin bot token (рекомендуется, используется для валидации initData админов)'),
+
+  BOT_TOKEN: Joi.string()
+    .optional()
+    .allow('')
+    .description('Основной бот токен (fallback, если ADMIN_BOT_TOKEN не указан. Можно продублировать ADMIN_BOT_TOKEN)'),
+
+  // CUSTOMER_BOT_TOKEN не используется в коде, оставлен для совместимости
+  CUSTOMER_BOT_TOKEN: Joi.string()
+    .optional()
+    .allow('')
+    .description('Customer bot token (не используется, можно оставить пустым)'),
 
   TELEGRAM_MANAGER_CHAT_ID: Joi.string()
     .optional()
@@ -269,14 +272,14 @@ export const envValidationSchema = Joi.object({
 })
   .unknown(true) // Allow additional environment variables (Docker, PostgreSQL, etc.)
   .custom((value, helpers) => {
-    // В production требуется хотя бы один токен (BOT_TOKEN или ADMIN_BOT_TOKEN)
+    // В production требуется хотя бы один токен (ADMIN_BOT_TOKEN или BOT_TOKEN)
     if (value.NODE_ENV === 'production') {
-      const hasBotToken = value.BOT_TOKEN && value.BOT_TOKEN.trim() !== '';
       const hasAdminBotToken = value.ADMIN_BOT_TOKEN && value.ADMIN_BOT_TOKEN.trim() !== '';
+      const hasBotToken = value.BOT_TOKEN && value.BOT_TOKEN.trim() !== '';
       
-      if (!hasBotToken && !hasAdminBotToken) {
+      if (!hasAdminBotToken && !hasBotToken) {
         return helpers.error('any.custom', {
-          message: 'Either BOT_TOKEN or ADMIN_BOT_TOKEN must be set in production',
+          message: 'В production требуется указать ADMIN_BOT_TOKEN (рекомендуется) или BOT_TOKEN. Можно продублировать ADMIN_BOT_TOKEN в BOT_TOKEN.',
         });
       }
     }
