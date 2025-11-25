@@ -3,7 +3,9 @@ import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+  // Base path for production - admin is served from /admin/
+  base: command === 'build' ? '/admin/' : '/',
   plugins: [
     react(),
     VitePWA({
@@ -46,7 +48,7 @@ export default defineConfig({
       '@ui': path.resolve(__dirname, '../../packages/ui/src'),
     },
   },
-})
+}))
 
 
 

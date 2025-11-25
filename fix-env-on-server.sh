@@ -1,111 +1,80 @@
 #!/bin/bash
 
-# Скрипт для выполнения НА СЕРВЕРЕ
-# Исправляет проблему с отсутствующими переменными окружения
+# Скрипт для исправления .env.production на сервере
+# Использование: ./fix-env-on-server.sh
 
-PROJECT_DIR="/opt/ritual-app"
-ENV_FILE="${PROJECT_DIR}/.env"
+SERVER="root@94.241.141.194"
+APP_DIR="/opt/ritual-app"
+ENV_FILE="$APP_DIR/.env.production"
 
-echo "🔧 Исправление переменных окружения"
+echo "🔧 Исправление .env.production на сервере..."
 echo ""
 
-cd "$PROJECT_DIR" || exit 1
+# Подключаемся к серверу и исправляем .env
+ssh $SERVER << 'ENDSSH'
+cd /opt/ritual-app
 
-# Проверка существования .env файла
-if [ ! -f "$ENV_FILE" ]; then
-    echo "⚠ Файл .env не найден. Создаю из шаблона..."
-    if [ -f "env.production.template" ]; then
-        cp env.production.template "$ENV_FILE"
-        echo "✓ Файл .env создан из шаблона"
-    else
-        echo "✗ Шаблон env.production.template не найден"
-        exit 1
-    fi
-fi
-
-echo "Текущие значения CUSTOMER_BOT_TOKEN и ADMIN_BOT_TOKEN:"
-grep -E "CUSTOMER_BOT_TOKEN|ADMIN_BOT_TOKEN" "$ENV_FILE" || echo "  Переменные не найдены"
+echo "📝 Текущий .env.production:"
+echo "---"
+cat .env.production | grep -E "(CUSTOMER_BOT_TOKEN|ADMIN_BOT_TOKEN|DATABASE_URL)" || echo "Переменные не найдены"
+echo "---"
 echo ""
 
-# Проверка, есть ли BOT_TOKEN
-BOT_TOKEN=$(grep "^BOT_TOKEN=" "$ENV_FILE" | cut -d'=' -f2- | tr -d '"' | tr -d "'")
+# Создаем резервную копию
+cp .env.production .env.production.backup.$(date +%Y%m%d_%H%M%S)
+echo "✅ Создана резервная копия"
 
-if [ -z "$BOT_TOKEN" ] || [ "$BOT_TOKEN" = "123456789:ABCdefGHIjklMNOpqrsTUVwxyz" ]; then
-    echo "⚠ BOT_TOKEN не установлен или имеет значение по умолчанию"
-    echo "  Установите реальный токен от @BotFather"
-    echo ""
+# Исправляем CUSTOMER_BOT_TOKEN - если не установлен или пустой, устанавливаем пустую строку
+if ! grep -q "^CUSTOMER_BOT_TOKEN=" .env.production; then
+    echo "CUSTOMER_BOT_TOKEN=" >> .env.production
+    echo "✓ Добавлен CUSTOMER_BOT_TOKEN="
+elif grep -q "^CUSTOMER_BOT_TOKEN=$" .env.production || grep -q "^CUSTOMER_BOT_TOKEN=\"\"" .env.production; then
+    echo "✓ CUSTOMER_BOT_TOKEN уже пустой"
+else
+    # Если установлен, но нужно сделать пустым, комментируем или заменяем
+    sed -i 's/^CUSTOMER_BOT_TOKEN=.*/CUSTOMER_BOT_TOKEN=/' .env.production
+    echo "✓ CUSTOMER_BOT_TOKEN установлен как пустой"
 fi
 
-# Если CUSTOMER_BOT_TOKEN отсутствует или пустой, используем BOT_TOKEN
-if ! grep -q "^CUSTOMER_BOT_TOKEN=" "$ENV_FILE" || grep "^CUSTOMER_BOT_TOKEN=$" "$ENV_FILE" || grep "^CUSTOMER_BOT_TOKEN=\"\"" "$ENV_FILE"; then
-    echo "Добавляю CUSTOMER_BOT_TOKEN..."
-    if [ -n "$BOT_TOKEN" ] && [ "$BOT_TOKEN" != "123456789:ABCdefGHIjklMNOpqrsTUVwxyz" ]; then
-        # Если есть BOT_TOKEN, используем его
-        if grep -q "^CUSTOMER_BOT_TOKEN=" "$ENV_FILE"; then
-            sed -i "s|^CUSTOMER_BOT_TOKEN=.*|CUSTOMER_BOT_TOKEN=$BOT_TOKEN|" "$ENV_FILE"
-        else
-            echo "CUSTOMER_BOT_TOKEN=$BOT_TOKEN" >> "$ENV_FILE"
-        fi
-        echo "✓ CUSTOMER_BOT_TOKEN установлен в значение BOT_TOKEN"
-    else
-        # Иначе устанавливаем временное значение (API будет падать, но это лучше чем пустая строка)
-        if grep -q "^CUSTOMER_BOT_TOKEN=" "$ENV_FILE"; then
-            sed -i 's|^CUSTOMER_BOT_TOKEN=.*|CUSTOMER_BOT_TOKEN=PLACEHOLDER_REPLACE_WITH_REAL_TOKEN|' "$ENV_FILE"
-        else
-            echo "CUSTOMER_BOT_TOKEN=PLACEHOLDER_REPLACE_WITH_REAL_TOKEN" >> "$ENV_FILE"
-        fi
-        echo "⚠ CUSTOMER_BOT_TOKEN установлен в PLACEHOLDER - замените на реальный токен!"
-    fi
-fi
-
-# Если ADMIN_BOT_TOKEN отсутствует или пустой, устанавливаем значение
-if ! grep -q "^ADMIN_BOT_TOKEN=" "$ENV_FILE" || grep "^ADMIN_BOT_TOKEN=$" "$ENV_FILE" || grep "^ADMIN_BOT_TOKEN=\"\"" "$ENV_FILE"; then
-    echo "Добавляю ADMIN_BOT_TOKEN..."
-    if [ -n "$BOT_TOKEN" ] && [ "$BOT_TOKEN" != "123456789:ABCdefGHIjklMNOpqrsTUVwxyz" ]; then
-        # Если есть BOT_TOKEN, используем его
-        if grep -q "^ADMIN_BOT_TOKEN=" "$ENV_FILE"; then
-            sed -i "s|^ADMIN_BOT_TOKEN=.*|ADMIN_BOT_TOKEN=$BOT_TOKEN|" "$ENV_FILE"
-        else
-            echo "ADMIN_BOT_TOKEN=$BOT_TOKEN" >> "$ENV_FILE"
-        fi
-        echo "✓ ADMIN_BOT_TOKEN установлен в значение BOT_TOKEN"
-    else
-        # Иначе устанавливаем временное значение
-        if grep -q "^ADMIN_BOT_TOKEN=" "$ENV_FILE"; then
-            sed -i 's|^ADMIN_BOT_TOKEN=.*|ADMIN_BOT_TOKEN=PLACEHOLDER_REPLACE_WITH_REAL_TOKEN|' "$ENV_FILE"
-        else
-            echo "ADMIN_BOT_TOKEN=PLACEHOLDER_REPLACE_WITH_REAL_TOKEN" >> "$ENV_FILE"
-        fi
-        echo "⚠ ADMIN_BOT_TOKEN установлен в PLACEHOLDER - замените на реальный токен!"
-    fi
+# Исправляем ADMIN_BOT_TOKEN
+if ! grep -q "^ADMIN_BOT_TOKEN=" .env.production; then
+    echo "ADMIN_BOT_TOKEN=" >> .env.production
+    echo "✓ Добавлен ADMIN_BOT_TOKEN="
+elif grep -q "^ADMIN_BOT_TOKEN=$" .env.production || grep -q "^ADMIN_BOT_TOKEN=\"\"" .env.production; then
+    echo "✓ ADMIN_BOT_TOKEN уже пустой"
+else
+    sed -i 's/^ADMIN_BOT_TOKEN=.*/ADMIN_BOT_TOKEN=/' .env.production
+    echo "✓ ADMIN_BOT_TOKEN установлен как пустой"
 fi
 
 echo ""
-echo "Проверка результата:"
-grep -E "CUSTOMER_BOT_TOKEN|ADMIN_BOT_TOKEN" "$ENV_FILE"
+echo "📝 Обновленный .env.production:"
+echo "---"
+cat .env.production | grep -E "(CUSTOMER_BOT_TOKEN|ADMIN_BOT_TOKEN|DATABASE_URL)" || echo "Переменные не найдены"
+echo "---"
 echo ""
 
-# Проверка на PLACEHOLDER
-if grep -q "PLACEHOLDER_REPLACE_WITH_REAL_TOKEN" "$ENV_FILE"; then
-    echo "⚠ ВНИМАНИЕ: В файле есть PLACEHOLDER значения!"
-    echo "  Замените их на реальные токены от @BotFather"
-    echo ""
-    echo "  Для редактирования:"
-    echo "    nano $ENV_FILE"
-    echo ""
-fi
+echo "🔄 Перезапуск контейнеров..."
+docker-compose -f docker-compose.production.yml down
+docker-compose -f docker-compose.production.yml up -d
 
-echo "=========================================="
-echo "📋 СЛЕДУЮЩИЕ ШАГИ"
-echo "=========================================="
 echo ""
-echo "1. Если есть PLACEHOLDER, замените на реальные токены:"
-echo "   nano $ENV_FILE"
-echo ""
-echo "2. Перезапустите API контейнер:"
-echo "   docker-compose -f docker-compose.production.yml restart api"
-echo ""
-echo "3. Проверьте логи:"
-echo "   docker-compose -f docker-compose.production.yml logs -f api"
-echo ""
+echo "⏳ Ожидание запуска API (10 секунд)..."
+sleep 10
 
+echo ""
+echo "📊 Статус контейнеров:"
+docker-compose -f docker-compose.production.yml ps
+
+echo ""
+echo "📋 Последние логи API:"
+docker-compose -f docker-compose.production.yml logs api --tail 20
+
+ENDSSH
+
+echo ""
+echo "✅ Готово! Проверьте логи выше."
+echo ""
+echo "💡 Если API все еще не запускается, проверьте:"
+echo "   1. ssh $SERVER 'cd $APP_DIR && docker-compose -f docker-compose.production.yml logs api'"
+echo "   2. ssh $SERVER 'cd $APP_DIR && docker-compose -f docker-compose.production.yml ps'"

@@ -17,25 +17,49 @@ export class AuthService {
 
   /**
    * Валидация Telegram initData по HMAC и TTL
+   * Пробует использовать ADMIN_BOT_TOKEN, затем BOT_TOKEN
    * Использует утилиту verifyTelegramInitData
    */
   validateInitData(initData: string): boolean {
     try {
+      // Список токенов для проверки (приоритет: ADMIN_BOT_TOKEN, затем BOT_TOKEN)
+      const tokens: string[] = [];
+      
+      // Сначала пробуем ADMIN_BOT_TOKEN (если указан)
+      const adminBotToken = process.env.ADMIN_BOT_TOKEN;
+      if (adminBotToken && adminBotToken.trim() !== '') {
+        tokens.push(adminBotToken);
+      }
+      
+      // Затем пробуем BOT_TOKEN
       const botToken = process.env.BOT_TOKEN;
-      if (!botToken) {
-        // В development режиме разрешаем работу без BOT_TOKEN
+      if (botToken && botToken.trim() !== '') {
+        tokens.push(botToken);
+      }
+
+      // Если нет токенов
+      if (tokens.length === 0) {
+        // В development режиме разрешаем работу без токенов
         if (process.env.NODE_ENV === 'development') {
-          this.logger.warn('BOT_TOKEN is not configured, skipping validation in development mode');
+          this.logger.warn('No bot tokens configured, skipping validation in development mode');
           return true;
         }
-        throw new Error('BOT_TOKEN is not configured');
+        throw new Error('No bot tokens configured (ADMIN_BOT_TOKEN or BOT_TOKEN required)');
       }
 
       // Используем готовый валидатор (maxAgeSec = 300 = 5 минут по умолчанию)
       const maxAgeSec = parseInt(process.env.INIT_DATA_MAX_AGE_SEC || '300', 10);
-      const result = verifyTelegramInitData(initData, botToken, maxAgeSec);
       
-      return result.ok;
+      // Пробуем каждый токен по очереди
+      for (const token of tokens) {
+        const result = verifyTelegramInitData(initData, token, maxAgeSec);
+        if (result.ok) {
+          return true;
+        }
+      }
+      
+      // Если ни один токен не подошел
+      return false;
     } catch (error) {
       this.logger.error({
         message: 'Error validating initData',
@@ -204,6 +228,94 @@ export class AuthService {
     return {
       token: accessToken,
       message: `Dev token generated for telegramId: ${telegramId}. Role: ${user.role}`,
+    };
+  }
+
+  /**
+   * Генерация токена администратора для production
+   * Работает через initData или telegramId (если в whitelist)
+   */
+  async generateAdminToken(
+    initData?: string,
+    telegramId?: string,
+  ): Promise<{ token: string; message: string }> {
+    let targetTelegramId: string | null = null;
+
+    // Если передан initData - валидируем и извлекаем telegramId
+    if (initData) {
+      if (!this.validateInitData(initData)) {
+        throw new UnauthorizedException('Invalid initData');
+      }
+
+      const userData = this.parseInitData(initData);
+      if (!userData || !userData.id) {
+        throw new UnauthorizedException('Invalid user data in initData');
+      }
+
+      targetTelegramId = String(userData.id);
+    } else if (telegramId) {
+      // Если передан telegramId - проверяем whitelist
+      const adminWhitelist = process.env.ADMIN_WHITELIST?.split(',').map(Number) || [];
+      if (!adminWhitelist.includes(Number(telegramId))) {
+        throw new UnauthorizedException('Telegram ID not in admin whitelist');
+      }
+      targetTelegramId = String(telegramId);
+    } else {
+      throw new UnauthorizedException('Either initData or telegramId must be provided');
+    }
+
+    if (!targetTelegramId) {
+      throw new UnauthorizedException('Could not determine Telegram ID');
+    }
+
+    // Проверяем whitelist
+    const adminWhitelist = process.env.ADMIN_WHITELIST?.split(',').map(Number) || [];
+    const isInWhitelist = adminWhitelist.includes(Number(targetTelegramId));
+
+    if (!isInWhitelist) {
+      throw new UnauthorizedException('User is not in admin whitelist');
+    }
+
+    // Ищем или создаем пользователя
+    let user = await this.prisma.user.findUnique({
+      where: { telegramId: targetTelegramId },
+    });
+
+    if (!user) {
+      // Создаем нового пользователя с ролью ADMIN
+      user = await this.prisma.user.create({
+        data: {
+          telegramId: targetTelegramId,
+          firstName: 'Admin',
+          lastName: 'User',
+          username: `admin_${targetTelegramId}`,
+          role: 'ADMIN',
+        },
+      });
+    } else {
+      // Обновляем роль на ADMIN
+      user = await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          role: 'ADMIN',
+        },
+      });
+    }
+
+    // Генерация JWT токена
+    const payload = {
+      sub: user.id,
+      telegramId: user.telegramId.toString(),
+      role: user.role,
+    };
+
+    const accessToken = this.jwtService.sign(payload, {
+      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    });
+
+    return {
+      token: accessToken,
+      message: `Admin token generated for telegramId: ${targetTelegramId}. Role: ${user.role}`,
     };
   }
 }

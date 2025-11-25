@@ -441,8 +441,8 @@ export default function ProductForm() {
                 return value !== undefined;
               })
             );
-            if (cleaned.values) {
-              cleaned.values = cleaned.values.map((val: any) => 
+            if (cleaned.values && Array.isArray(cleaned.values)) {
+              cleaned.values = (cleaned.values as any[]).map((val: any) => 
                 Object.fromEntries(
                   Object.entries(val).filter(([_, v]) => v !== undefined)
                 )
@@ -765,7 +765,7 @@ export default function ProductForm() {
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
                   Категория *
-                  <HelpCircle className="h-3 w-3 inline-block ml-1 text-white/70" title="Выберите категорию товара" />
+                  <span title="Выберите категорию товара"><HelpCircle className="h-3 w-3 inline-block ml-1 text-white/70" /></span>
                 </label>
                 <select
                   {...register('categoryId', { required: 'Категория обязательна', valueAsNumber: true })}
@@ -784,7 +784,7 @@ export default function ProductForm() {
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
                   Тип товара *
-                  <HelpCircle className="h-3 w-3 inline-block ml-1 text-white/70" title="Выберите тип товара в зависимости от сложности ценообразования" />
+                  <span title="Выберите тип товара в зависимости от сложности ценообразования"><HelpCircle className="h-3 w-3 inline-block ml-1 text-white/70" /></span>
                 </label>
                 <select
                   {...register('productType', { required: true })}
@@ -801,7 +801,7 @@ export default function ProductForm() {
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
                   Единица измерения
-                  <HelpCircle className="h-3 w-3 inline-block ml-1 text-white/70" title="Единица измерения для цены и остатков" />
+                  <span title="Единица измерения для цены и остатков"><HelpCircle className="h-3 w-3 inline-block ml-1 text-white/70" /></span>
                 </label>
                 <select
                   {...register('unit')}
@@ -816,7 +816,7 @@ export default function ProductForm() {
               <div>
                 <label className="block text-sm font-medium text-white mb-2">
                   Материал
-                  <HelpCircle className="h-3 w-3 inline-block ml-1 text-white/70" title="Тип материала: мрамор или гранит" />
+                  <span title="Тип материала: мрамор или гранит"><HelpCircle className="h-3 w-3 inline-block ml-1 text-white/70" /></span>
                 </label>
                 <select
                   {...register('material')}

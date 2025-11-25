@@ -18,10 +18,14 @@ const queryClient = new QueryClient({
   },
 });
 
+// Determine base path for production
+const basename = import.meta.env.PROD ? '/admin' : '';
+
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter
+        basename={basename}
         future={{
           v7_startTransition: true,
           v7_relativeSplatPath: true,

@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// Use relative path in production, absolute URL in development
+const API_URL = import.meta.env.VITE_API_URL || 
+  (import.meta.env.PROD ? '/api' : 'http://localhost:3000/api');
 
 const api = axios.create({
   baseURL: API_URL,
@@ -26,9 +28,13 @@ api.interceptors.response.use(
       // Удаляем невалидный токен
       localStorage.removeItem('authToken');
       
+      // Определяем базовый путь для редиректа
+      const basePath = import.meta.env.PROD ? '/admin' : '';
+      const loginPath = `${basePath}/login`;
+      
       // Перенаправляем на страницу логина, если мы не на ней уже
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login';
+      if (!window.location.pathname.endsWith('/login')) {
+        window.location.href = loginPath;
       }
     }
     return Promise.reject(error);

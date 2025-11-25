@@ -31,11 +31,9 @@ export const envValidationSchema = Joi.object({
   // ============================================
   DATABASE_URL: Joi.string()
     .required()
-    .uri()
     .description('PostgreSQL database connection string')
     .messages({
       'any.required': 'DATABASE_URL is required',
-      'string.uri': 'DATABASE_URL must be a valid URI',
     }),
 
   // ============================================
@@ -60,6 +58,7 @@ export const envValidationSchema = Joi.object({
   REDIS_URL: Joi.string()
     .uri()
     .optional()
+    .allow('')
     .description('Redis connection URL (optional, used in production)'),
 
   REDIS_HOST: Joi.string()
@@ -82,22 +81,19 @@ export const envValidationSchema = Joi.object({
   // Telegram Bot Configuration
   // ============================================
   BOT_TOKEN: Joi.string()
-    .when('NODE_ENV', {
-      is: Joi.string().valid('production'),
-      then: Joi.required().messages({
-        'any.required': 'BOT_TOKEN is required in production',
-      }),
-      otherwise: Joi.optional().allow('').default(''),
-    })
-    .description('Telegram bot token'),
+    .optional()
+    .allow('')
+    .description('Telegram bot token (optional if ADMIN_BOT_TOKEN is set, used as fallback for initData validation)'),
 
   CUSTOMER_BOT_TOKEN: Joi.string()
     .optional()
+    .allow('')
     .description('Customer bot token (optional, falls back to BOT_TOKEN)'),
 
   ADMIN_BOT_TOKEN: Joi.string()
     .optional()
-    .description('Admin bot token (optional)'),
+    .allow('')
+    .description('Admin bot token (used for initData validation, preferred over BOT_TOKEN)'),
 
   TELEGRAM_MANAGER_CHAT_ID: Joi.string()
     .optional()
@@ -106,11 +102,13 @@ export const envValidationSchema = Joi.object({
   CUSTOMER_BOT_API_URL: Joi.string()
     .uri()
     .optional()
+    .allow('')
     .description('Customer bot API URL (for local development)'),
 
   ADMIN_BOT_API_URL: Joi.string()
     .uri()
     .optional()
+    .allow('')
     .description('Admin bot API URL (for local development)'),
 
   INIT_DATA_MAX_AGE_SEC: Joi.number()
@@ -126,6 +124,7 @@ export const envValidationSchema = Joi.object({
   FRONTEND_URL: Joi.string()
     .uri()
     .optional()
+    .allow('')
     .description('Frontend application URL'),
 
   CLOUDFLARE_TUNNEL_URL: Joi.string()
@@ -135,7 +134,8 @@ export const envValidationSchema = Joi.object({
     .description('Cloudflare tunnel URL (optional, leave empty if not using Cloudflare Tunnel)'),
 
   PUBLIC_URL: Joi.string()
-    .uri()
+    .optional()
+    .allow('')
     .default('http://localhost:3000')
     .description('Public URL for file serving'),
 
@@ -182,27 +182,31 @@ export const envValidationSchema = Joi.object({
     .description('Enable file logging in development'),
 
   // ============================================
-  // Sentry Configuration
+  // Sentry Configuration (all optional)
   // ============================================
   SENTRY_DSN: Joi.string()
     .uri()
     .optional()
-    .description('Sentry DSN for error tracking'),
+    .allow('')
+    .description('Sentry DSN for error tracking (optional, leave empty to disable)'),
 
   SENTRY_TRACES_SAMPLE_RATE: Joi.number()
     .min(0)
     .max(1)
     .default(1.0)
+    .optional()
     .description('Sentry traces sample rate (0.0 to 1.0)'),
 
   SENTRY_PROFILES_SAMPLE_RATE: Joi.number()
     .min(0)
     .max(1)
     .default(1.0)
+    .optional()
     .description('Sentry profiles sample rate (0.0 to 1.0)'),
 
   APP_VERSION: Joi.string()
     .default('1.0.0')
+    .optional()
     .description('Application version for release tracking'),
 
   // ============================================
@@ -263,8 +267,23 @@ export const envValidationSchema = Joi.object({
     .default(false)
     .description('Enable metrics collection'),
 })
-  .unknown(false) // Reject unknown environment variables
+  .unknown(true) // Allow additional environment variables (Docker, PostgreSQL, etc.)
+  .custom((value, helpers) => {
+    // В production требуется хотя бы один токен (BOT_TOKEN или ADMIN_BOT_TOKEN)
+    if (value.NODE_ENV === 'production') {
+      const hasBotToken = value.BOT_TOKEN && value.BOT_TOKEN.trim() !== '';
+      const hasAdminBotToken = value.ADMIN_BOT_TOKEN && value.ADMIN_BOT_TOKEN.trim() !== '';
+      
+      if (!hasBotToken && !hasAdminBotToken) {
+        return helpers.error('any.custom', {
+          message: 'Either BOT_TOKEN or ADMIN_BOT_TOKEN must be set in production',
+        });
+      }
+    }
+    return value;
+  })
   .messages({
     'object.unknown': 'Unknown environment variable: {{#label}}',
+    'any.custom': '{{#error.message}}',
   });
 

@@ -34,6 +34,44 @@ export class AuthController {
 
     return this.authService.generateDevToken(targetTelegramId);
   }
+
+  /**
+   * Production endpoint для получения токена администратора
+   * Работает через initData (Telegram WebApp) или telegramId (если в whitelist)
+   * 
+   * Использование:
+   * 1. POST /api/auth/admin-token с initData:
+   *    POST /api/auth/admin-token
+   *    Body: { "initData": "YOUR_TELEGRAM_INIT_DATA" }
+   * 
+   * 2. GET /api/auth/admin-token?telegramId=YOUR_TELEGRAM_ID
+   *    (только если telegramId в ADMIN_WHITELIST)
+   */
+  @Post('admin-token')
+  @HttpCode(HttpStatus.OK)
+  async getAdminToken(
+    @Body() body?: { initData?: string; telegramId?: string },
+    @Query('telegramId') telegramIdQuery?: string,
+  ): Promise<{ token: string; message: string }> {
+    const initData = body?.initData;
+    const telegramId = body?.telegramId || telegramIdQuery;
+
+    return this.authService.generateAdminToken(initData, telegramId);
+  }
+
+  /**
+   * GET версия для удобства использования с телефона
+   * GET /api/auth/admin-token?telegramId=YOUR_TELEGRAM_ID
+   */
+  @Get('admin-token')
+  @HttpCode(HttpStatus.OK)
+  async getAdminTokenGet(@Query('telegramId') telegramId?: string): Promise<{ token: string; message: string }> {
+    if (!telegramId) {
+      throw new Error('telegramId query parameter is required');
+    }
+
+    return this.authService.generateAdminToken(undefined, telegramId);
+  }
 }
 
 
