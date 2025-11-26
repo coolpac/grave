@@ -1176,9 +1176,22 @@ a.granite-button:hover {
 
 /* Полноэкранный режим для Telegram Mini App */
 html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  position: relative;
   overscroll-behavior: none;
+  overscroll-behavior-y: none;
   -webkit-overflow-scrolling: touch;
-  touch-action: pan-y;
+  touch-action: pan-x pan-y;
+  /* Отключаем трансформации для корректной работы position: fixed на iOS */
+  transform: none !important;
+  filter: none !important;
+  perspective: none !important;
 }
 
 /* Отключаем выделение текста для интерактивных элементов */
@@ -1212,19 +1225,22 @@ button, a, .touch-manipulation {
   padding-right: var(--tg-content-safe-area-inset-right, 0);
 }
 
-/* Убираем резиновый эффект на iOS */
-body {
-  position: fixed;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-}
-
+/* #root использует Telegram viewport переменные */
 #root {
-  height: 100%;
-  overflow-y: auto;
+  width: 100%;
+  max-width: none;
+  /* Используем Telegram viewport для высоты приложения */
+  height: var(--tg-viewport-height, 100dvh);
+  min-height: var(--tg-viewport-stable-height, 100svh);
   overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
+  position: relative;
+  margin: 0;
+  padding: 0;
+  /* Отключаем трансформации для корректной работы position: fixed на iOS */
+  transform: none !important;
+  filter: none !important;
+  perspective: none !important;
+  overscroll-behavior: none;
 }
 
 /* ============================================
@@ -1246,8 +1262,8 @@ button, a, input, textarea, select {
     box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Убираем задержку клика на мобильных */
-* {
+/* Убираем задержку клика на мобильных - НЕ применяем к контейнерам скролла */
+button, a, input, select, textarea {
   touch-action: manipulation;
 }
 

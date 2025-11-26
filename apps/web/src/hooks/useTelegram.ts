@@ -145,6 +145,33 @@ export const useTelegram = (): UseTelegramReturn => {
 
       expandApp()
 
+      // Добавляем системные стили для Telegram WebApp
+      const addSystemStyles = () => {
+        const style = document.createElement('style')
+        style.textContent = `
+          html, body { overscroll-behavior-y: none; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; }
+          body.telegram-webapp { position: relative; width: 100%; min-height: 100%; }
+        `
+        document.head.appendChild(style)
+        document.body.classList.add('telegram-webapp')
+      }
+      addSystemStyles()
+
+      // Устанавливаем CSS переменные viewport
+      const applyViewportVars = () => {
+        const stable = WebApp.viewportStableHeight || window.innerHeight
+        const safeBottom = (WebApp as any).safeAreaInset?.bottom ?? 0
+        const safeTop = (WebApp as any).safeAreaInset?.top ?? 0
+        document.documentElement.style.setProperty('--vh', `${stable}px`)
+        document.documentElement.style.setProperty('--tg-viewport-height', `${WebApp.viewportHeight || window.innerHeight}px`)
+        document.documentElement.style.setProperty('--tg-viewport-stable-height', `${stable}px`)
+        document.documentElement.style.setProperty('--safe-bottom', `${safeBottom}px`)
+        document.documentElement.style.setProperty('--safe-top', `${safeTop}px`)
+      }
+      applyViewportVars()
+      WebApp.onEvent('viewportChanged', applyViewportVars)
+      window.addEventListener('resize', applyViewportVars, { passive: true })
+
       // Disable vertical swipes to prevent closing by swipe (Bot API 7.7+)
       if (typeof (WebApp as any).disableVerticalSwipes === 'function') {
         try {
@@ -153,6 +180,23 @@ export const useTelegram = (): UseTelegramReturn => {
           console.warn('Failed to disable vertical swipes:', error)
         }
       }
+
+      // Prevent collapse when scrolling to top (iOS TMA fix)
+      const preventCollapse = () => {
+        if (window.scrollY === 0) {
+          window.scrollTo(0, 1)
+        }
+      }
+      document.addEventListener('touchstart', preventCollapse, { passive: true })
+
+      // Ensure document is scrollable
+      const ensureScrollable = () => {
+        if (document.documentElement.scrollHeight <= window.innerHeight) {
+          document.documentElement.style.setProperty('min-height', 'calc(100vh + 1px)', 'important')
+        }
+      }
+      ensureScrollable()
+      window.addEventListener('resize', ensureScrollable)
 
       // Enable closing confirmation (if supported)
       if (typeof (WebApp as any).enableClosingConfirmation === 'function') {

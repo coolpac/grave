@@ -181,11 +181,15 @@ export default function Checkout() {
       // Получаем токен если его еще нет
       let token = authToken || localStorage.getItem('token')
       
+      // Получаем Telegram WebApp напрямую из window
+      const tgWebApp = (window as any).Telegram?.WebApp
+      const initData = tgWebApp?.initData || webApp?.initData
+      
       // Если токена нет, пытаемся получить через Telegram
-      if (!token && typeof webApp !== 'undefined' && webApp?.initData) {
+      if (!token && initData) {
         try {
           const authResponse = await axios.post(`${API_URL}/auth/validate`, {
-            initData: webApp.initData,
+            initData: initData,
           })
           // API возвращает accessToken
           const newToken = (authResponse.data?.accessToken || authResponse.data?.token) as string | undefined
@@ -199,10 +203,17 @@ export default function Checkout() {
         }
       }
 
+      // Проверяем доступность Telegram и токена
+      const isTelegramAvailable = !!tgWebApp || !!webApp
+      
       // Проверяем, что токен есть перед отправкой заказа
       if (!token) {
         setIsSubmitting(false)
-        toast.error('Требуется авторизация. Пожалуйста, откройте приложение через Telegram.')
+        if (!isTelegramAvailable) {
+          toast.error('Требуется авторизация. Пожалуйста, откройте приложение через Telegram.')
+        } else {
+          toast.error('Ошибка авторизации. Попробуйте перезапустить приложение.')
+        }
         return
       }
 
@@ -229,9 +240,21 @@ export default function Checkout() {
         paymentMethod: paymentMethod || 'invoice',
       }
 
+      // Используем уже полученные Telegram данные для авторизации
+      const tgUserId = tgWebApp?.initDataUnsafe?.user?.id
+
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
+      }
+      
+      // Добавляем Telegram хедеры для серверной валидации
+      if (initData) {
+        headers['X-Telegram-Init-Data'] = initData
+      }
+      if (tgUserId) {
+        headers['X-Tg-Id'] = String(tgUserId)
+        headers['X-Tg-User-Id'] = String(tgUserId)
       }
 
       const response = await axios.post(`${API_URL}/orders`, orderData, { headers })

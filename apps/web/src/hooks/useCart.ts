@@ -49,7 +49,7 @@ interface LocalCartItem {
 }
 
 /**
- * Сохранение корзины в localStorage
+ * Сохранение корзины в localStorage (из CartItem[])
  */
 const saveCartToStorage = (items: CartItem[]): void => {
   try {
@@ -70,6 +70,17 @@ const saveCartToStorage = (items: CartItem[]): void => {
     localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(localItems));
   } catch (error) {
     console.warn('Failed to save cart to localStorage:', error);
+  }
+};
+
+/**
+ * Сохранение локальной корзины напрямую в localStorage (из LocalCartItem[])
+ */
+const saveLocalCartToStorage = (items: LocalCartItem[]): void => {
+  try {
+    localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
+  } catch (error) {
+    console.warn('Failed to save local cart to localStorage:', error);
   }
 };
 
@@ -121,6 +132,20 @@ const createCartAxios = () => {
       if (token) {
         config.headers.Authorization = `Bearer ${token}`;
       }
+      
+      // Добавляем Telegram initData для серверной валидации
+      const tgWebApp = (window as any).Telegram?.WebApp;
+      const initData = tgWebApp?.initData;
+      const tgUserId = tgWebApp?.initDataUnsafe?.user?.id;
+      
+      if (initData) {
+        config.headers['X-Telegram-Init-Data'] = initData;
+      }
+      if (tgUserId) {
+        config.headers['X-Tg-Id'] = String(tgUserId);
+        config.headers['X-Tg-User-Id'] = String(tgUserId);
+      }
+      
       return config;
     },
     (error) => {
@@ -610,7 +635,7 @@ export function useCart() {
             }, 0);
           }
           
-          saveCartToStorage(updated as any);
+          saveLocalCartToStorage(updated);
           return updated;
         });
       } else {
@@ -666,7 +691,7 @@ export function useCart() {
       
       if (hasChanges) {
         setLocalCart(updatedItems);
-        saveCartToStorage(updatedItems as any);
+        saveLocalCartToStorage(updatedItems);
       }
     };
 
@@ -709,11 +734,15 @@ export function useCart() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverCart?.items?.length, localCart.length]); // Используем конкретные значения вместо объектов
 
-  const cart = mergedCart();
+  // Мемоизируем корзину для стабильных ссылок
+  const cart = useMemo(() => mergedCart(), [mergedCart]);
+  
+  // Мемоизированные items для стабильных ссылок в компонентах
+  const items = useMemo(() => cart.items, [cart.items]);
   
   // Мемоизированное вычисление общей суммы
   const total = useMemo(() => {
-    return cart.items.reduce((sum, item) => {
+    return items.reduce((sum, item) => {
       // Правильно определяем цену: сначала вариант, потом базовая цена продукта
       const price = item.variant?.price ?? item.product?.basePrice ?? 0;
       // Пропускаем элементы с невалидной ценой
@@ -722,23 +751,23 @@ export function useCart() {
       }
       return sum + price * item.quantity;
     }, 0);
-  }, [cart.items]);
+  }, [items]);
   
   // Мемоизированное вычисление количества товаров
   const itemsCount = useMemo(() => {
-    return cart.items.reduce((sum, item) => sum + item.quantity, 0);
-  }, [cart.items]);
+    return items.reduce((sum, item) => sum + item.quantity, 0);
+  }, [items]);
 
   return {
     cart,
-    items: cart.items,
+    items, // Используем мемоизированные items
     total,
     itemsCount,
     isLoading,
     isOffline,
     error,
     updateQuantity: (itemId: number, delta: number) => {
-      const item = cart.items.find((i) => i.id === itemId);
+      const item = items.find((i) => i.id === itemId);
       if (!item) return;
 
       const newQuantity = Math.max(1, item.quantity + delta);
@@ -755,7 +784,7 @@ export function useCart() {
                 ? { ...localItem, quantity: newQuantity }
                 : localItem,
             ).filter((localItem) => localItem.quantity > 0);
-            saveCartToStorage(updated as any);
+            saveLocalCartToStorage(updated);
             return updated;
           });
         }
@@ -788,12 +817,13 @@ export function useCart() {
         // Удаляем локально
         if (itemId < 0) {
           setLocalCart((prev) => {
+            const itemToRemove = items.find((i) => i.id === itemId);
             const updated = prev.filter(
               (localItem) =>
                 `${localItem.productId}-${localItem.variantId || 'default'}` !==
-                `${cart.items.find((i) => i.id === itemId)?.productId}-${cart.items.find((i) => i.id === itemId)?.variantId || 'default'}`,
+                `${itemToRemove?.productId}-${itemToRemove?.variantId || 'default'}`,
             );
-            saveCartToStorage(updated as any);
+            saveLocalCartToStorage(updated);
             return updated;
           });
         }

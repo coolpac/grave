@@ -20,7 +20,6 @@ function Layout({ children }: LayoutProps) {
     () => ({
       backgroundColor: 'transparent',
       color: 'var(--tg-theme-text-color, hsl(var(--text)))',
-      height: 'var(--vh, 100vh)',
       minHeight: '100vh',
     }),
     [] // Стили не зависят от props/state
@@ -66,19 +65,18 @@ function Layout({ children }: LayoutProps) {
 
   return (
     <div
-      className="flex flex-col w-full overflow-hidden relative z-10"
+      className="flex flex-col w-full relative z-10"
       style={{
         ...containerStyle,
         paddingLeft: 'env(safe-area-inset-left, 0px)',
         paddingRight: 'env(safe-area-inset-right, 0px)',
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
-        // Не добавляем padding-top здесь, т.к. GraniteHeader сам управляет safe-area-inset-top
       }}
     >
       {/* Empty Granite Header with safe area top */}
       <GraniteHeader />
       
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1">
         {children}
       </main>
     </div>

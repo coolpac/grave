@@ -68,18 +68,9 @@ export default function Cart() {
       }
     }
 
-    if (items.length > 0) {
-      if (MainButton && typeof MainButton.setText === 'function') {
-        MainButton.setText(`Оформить заказ • ${total.toLocaleString('ru-RU')} ₽`)
-        MainButton.show()
-        MainButton.onClick(() => {
-          navigate('/checkout')
-        })
-      }
-    } else {
-      if (MainButton && typeof MainButton.hide === 'function') {
-        MainButton.hide()
-      }
+    // Скрываем Telegram MainButton - используем только нашу кастомную кнопку
+    if (MainButton && typeof MainButton.hide === 'function') {
+      MainButton.hide()
     }
 
     return () => {
@@ -91,12 +82,8 @@ export default function Cart() {
           // Игнорируем ошибки при очистке
         }
       }
-      if (MainButton && typeof MainButton.hide === 'function') {
-        MainButton.hide()
-        MainButton.clearHandlers()
-      }
     }
-  }, [BackButton, MainButton, navigate, items.length, total])
+  }, [BackButton, MainButton, navigate])
 
   if (isLoading) {
     return (
