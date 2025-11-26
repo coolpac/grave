@@ -3,7 +3,7 @@ import { StoneCard } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
 import { useCart } from '../hooks/useCart'
 import { useTelegramAnalytics } from '../hooks/useTelegramAnalytics'
-import { ArrowLeft, User, Phone, Mail, MessageSquare, CheckCircle, MapPin } from 'lucide-react'
+import { User, Phone, Mail, MessageSquare, CheckCircle, MapPin } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -28,7 +28,7 @@ type CheckoutFormData = z.infer<typeof checkoutSchema>
 export default function Checkout() {
   const navigate = useNavigate()
   const { BackButton, MainButton, user, webApp } = useTelegram()
-  const { items, isLoading: isCartLoading, total } = useCart()
+  const { items, isLoading: isCartLoading, total, syncCart } = useCart()
   const analytics = useTelegramAnalytics()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('invoice')
@@ -82,9 +82,11 @@ export default function Checkout() {
             initData: webApp.initData,
           })
           
-          if (response.data?.token) {
-            localStorage.setItem('token', response.data.token)
-            setAuthToken(response.data.token)
+          // API возвращает accessToken
+          const token = response.data?.accessToken || response.data?.token
+          if (token) {
+            localStorage.setItem('token', token)
+            setAuthToken(token)
           }
         }
       } catch (error) {
@@ -124,6 +126,19 @@ export default function Checkout() {
     }
   }, [user, setValue])
 
+  // ВАЖНО: Скрываем Telegram MainButton - у нас своя кнопка оформления
+  useEffect(() => {
+    // Сразу скрываем MainButton при входе на страницу Checkout
+    if (MainButton && typeof MainButton.hide === 'function') {
+      try {
+        MainButton.hide()
+        MainButton.clearHandlers()
+      } catch (error) {
+        console.debug('MainButton hide error:', error)
+      }
+    }
+  }, [MainButton])
+
   useEffect(() => {
     if (BackButton && typeof BackButton.show === 'function') {
       try {
@@ -141,10 +156,6 @@ export default function Checkout() {
               // Игнорируем ошибки при очистке
             }
           }
-          if (MainButton && typeof MainButton.hide === 'function') {
-            MainButton.hide()
-            MainButton.clearHandlers()
-          }
         }
       } catch (error) {
         console.debug('BackButton not supported:', error)
@@ -160,12 +171,8 @@ export default function Checkout() {
           // Игнорируем ошибки при очистке
         }
       }
-      if (MainButton && typeof MainButton.hide === 'function') {
-        MainButton.hide()
-        MainButton.clearHandlers()
-      }
     }
-  }, [BackButton, MainButton, navigate])
+  }, [BackButton, navigate])
 
   const onSubmit = async (data: CheckoutFormData) => {
     setIsSubmitting(true)
@@ -180,7 +187,8 @@ export default function Checkout() {
           const authResponse = await axios.post(`${API_URL}/auth/validate`, {
             initData: webApp.initData,
           })
-          const newToken = authResponse.data?.token as string | undefined
+          // API возвращает accessToken
+          const newToken = (authResponse.data?.accessToken || authResponse.data?.token) as string | undefined
           if (newToken) {
             token = newToken
             localStorage.setItem('token', newToken)
@@ -193,8 +201,23 @@ export default function Checkout() {
 
       // Проверяем, что токен есть перед отправкой заказа
       if (!token) {
-        throw new Error('Требуется авторизация. Пожалуйста, войдите через Telegram.')
+        setIsSubmitting(false)
+        toast.error('Требуется авторизация. Пожалуйста, откройте приложение через Telegram.')
+        return
       }
+
+      // ВАЖНО: Синхронизируем корзину с сервером перед оформлением заказа
+      console.log('Syncing cart before order...')
+      const cartSynced = await syncCart()
+      
+      if (!cartSynced) {
+        setIsSubmitting(false)
+        toast.error('Корзина пуста. Добавьте товары перед оформлением заказа.')
+        navigate('/')
+        return
+      }
+      
+      console.log('Cart synced successfully, creating order...')
 
       // Отправка заказа на сервер
       const orderData = {
@@ -250,9 +273,9 @@ export default function Checkout() {
       
       // Обработка различных типов ошибок
       if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
-        // Если API недоступен, создаем моковый заказ для демонстрации
+        // Если API недоступен
         if (import.meta.env.DEV) {
-          // Сохраняем данные клиента даже при ошибке сети (для демонстрации)
+          // В dev режиме создаём моковый заказ
           const customerData = {
             name: data.name,
             phone: data.phone,
@@ -263,27 +286,31 @@ export default function Checkout() {
           
           const mockOrderNumber = `ORD-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`
           console.warn('API недоступен, используем моковый заказ:', mockOrderNumber)
+          toast.success('Заказ создан (dev mode)')
           navigate(`/order-success/${mockOrderNumber}`)
           return
         }
-        alert('Сервер недоступен. Проверьте подключение к интернету и попробуйте позже.')
+        toast.error('Сервер недоступен. Проверьте подключение к интернету.')
       } else if (error.response?.status === 401) {
-        // Токен недействителен или отсутствует
+        // Токен недействителен - пытаемся обновить
         localStorage.removeItem('token')
         setAuthToken(null)
         
-        // Пытаемся получить новый токен через Telegram и повторить запрос
         if (typeof webApp !== 'undefined' && webApp?.initData) {
           try {
             const authResponse = await axios.post(`${API_URL}/auth/validate`, {
               initData: webApp.initData,
             })
-            if (authResponse.data?.token) {
-              const newToken = authResponse.data.token
+            // API возвращает accessToken
+            const newToken = authResponse.data?.accessToken || authResponse.data?.token
+            if (newToken) {
               localStorage.setItem('token', newToken)
               setAuthToken(newToken)
               
-              // Повторяем отправку заказа с новым токеном
+              // Синхронизируем корзину с новым токеном
+              await syncCart()
+              
+              // Повторяем отправку заказа
               const orderData = {
                 customerName: data.name,
                 customerPhone: data.phone,
@@ -302,57 +329,45 @@ export default function Checkout() {
                 })
                 
                 const orderNumber = retryResponse.data.orderNumber || retryResponse.data.id
+                toast.success('Заказ успешно оформлен!')
                 navigate(`/order-success/${orderNumber}`)
                 return
               } catch (retryError: any) {
                 console.error('Failed to retry order creation:', retryError)
-                alert('Ошибка при создании заказа. Пожалуйста, попробуйте снова.')
+                toast.error('Не удалось создать заказ. Попробуйте снова.')
               }
             } else {
-              alert('Ошибка авторизации. Пожалуйста, обновите страницу.')
+              toast.error('Ошибка авторизации. Обновите страницу.')
             }
           } catch (authError) {
             console.error('Failed to re-authenticate:', authError)
-            alert('Ошибка авторизации. Пожалуйста, обновите страницу и попробуйте снова.')
+            toast.error('Ошибка авторизации. Откройте приложение через Telegram.')
           }
         } else {
-          alert('Ошибка авторизации. Пожалуйста, обновите страницу.')
+          toast.error('Требуется авторизация через Telegram.')
         }
       } else if (error.response?.status === 400) {
-        alert(error.response.data?.message || 'Ошибка при оформлении заказа. Проверьте данные.')
+        // Ошибка валидации или пустая корзина
+        const message = error.response.data?.message || 'Ошибка при оформлении заказа'
+        if (message.includes('empty') || message.includes('Cart')) {
+          toast.error('Корзина пуста. Добавьте товары.')
+          navigate('/')
+        } else {
+          toast.error(message)
+        }
       } else {
-        alert('Ошибка при оформлении заказа. Попробуйте позже.')
+        toast.error('Ошибка при оформлении заказа. Попробуйте позже.')
       }
     }
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pb-32">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-2">
-        <motion.button
-          onClick={() => navigate(-1)}
-          className="p-2.5 rounded-lg transition-all duration-200 shadow-sm"
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          style={{
-            background: 'linear-gradient(135deg, hsl(220 15% 18%) 0%, hsl(220 15% 16%) 25%, hsl(220 15% 14%) 50%, hsl(220 15% 16%) 75%, hsl(220 15% 18%) 100%)',
-            boxShadow: `
-              inset 0 2px 4px rgba(255, 255, 255, 0.1),
-              inset 0 -2px 4px rgba(0, 0, 0, 0.5),
-              inset 2px 0 2px rgba(255, 255, 255, 0.08),
-              inset -2px 0 2px rgba(0, 0, 0, 0.4),
-              0 2px 8px rgba(0, 0, 0, 0.3)
-            `,
-            border: '1px solid rgba(139, 107, 63, 0.3)',
-          }}
-        >
-          <ArrowLeft className="w-5 h-5 text-gray-200" />
-        </motion.button>
-      </div>
+      {/* Используем Telegram BackButton */}
+      <div className="h-2" />
 
       {/* Title */}
-      <div className="px-4 pb-4">
+      <div className="px-4 pb-4 pt-2">
         <motion.h1
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}

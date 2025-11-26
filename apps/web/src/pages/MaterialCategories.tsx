@@ -1,7 +1,7 @@
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { StoneCard, Skeleton } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
-import { Package, Sparkles, Star, TrendingUp, ArrowLeft, LucideIcon } from 'lucide-react'
+import { Package, Sparkles, Star, TrendingUp, LucideIcon } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useEffect, useCallback, useMemo, memo } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -224,41 +224,32 @@ export default function MaterialCategories() {
     
     return categoriesConfig.map(config => {
       const categoryData = categoriesData.find((cat: any) => cat.slug === config.slug)
-      return {
-        ...config,
-        count: categoryData?._count?.products || 0,
-      }
-    })
+    return {
+      ...config,
+      count: categoryData?._count?.products || 0,
+    }
+  })
   }, [categoriesConfig, categoriesData])
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      {/* Используем Telegram BackButton */}
+      <div className="h-2" />
+      
       {/* Header */}
-      <div className="px-4 pt-4 pb-6">
+      <div className="px-4 pt-2 pb-6">
         <motion.div
           variants={getAnimationVariants(shouldReduceMotion, 'slideInFromTop')}
           initial="hidden"
           animate="visible"
         >
-          <div className="flex items-center gap-3 mb-4">
-            <motion.button
-              onClick={() => navigate(-1)}
-              className="granite-button w-10 h-10 rounded-lg flex items-center justify-center touch-manipulation"
-              whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
-              whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
-              transition={getTransition(shouldReduceMotion, 'fast')}
-              aria-label="Назад"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </motion.button>
-            <div className="flex-1">
-              <h1 className="text-2xl font-inscription text-gray-900">
-                {info.name}
-              </h1>
-              <p className="text-sm font-body text-gray-600 mt-1">
-                {info.description}
-              </p>
-            </div>
+          <div className="mb-4">
+            <h1 className="text-2xl font-inscription text-gray-900">
+              {info.name}
+            </h1>
+            <p className="text-sm font-body text-gray-600 mt-1">
+              {info.description}
+            </p>
           </div>
         </motion.div>
       </div>
@@ -280,12 +271,12 @@ export default function MaterialCategories() {
             ))}
           </div>
         ) : (
-          <motion.div
-            variants={shouldReduceMotion ? undefined : staggerContainer}
-            initial="hidden"
-            animate="visible"
-            className="grid grid-cols-2 gap-4"
-          >
+        <motion.div
+          variants={shouldReduceMotion ? undefined : staggerContainer}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-2 gap-4"
+        >
             {categories.map((category, index) => (
               <CategoryCard
                 key={category.slug}
@@ -295,8 +286,8 @@ export default function MaterialCategories() {
                 onHover={handleCategoryHover}
               />
             ))}
-          </motion.div>
-        )}
+                    </motion.div>
+                  )}
       </div>
     </div>
   )

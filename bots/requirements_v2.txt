@@ -1,0 +1,38 @@
+# Telegram Bot Dependencies v2.0
+# Современный стек для production
+
+# Telegram Bot API
+python-telegram-bot[webhooks]==21.6
+
+# Web Framework (async)
+fastapi==0.115.0
+uvicorn[standard]==0.31.0
+
+# HTTP Client (async)
+aiohttp==3.10.5
+httpx==0.27.2
+
+# Scheduler
+apscheduler==3.10.4
+
+# Environment
+python-dotenv==1.0.1
+
+# Validation
+pydantic==2.9.2
+
+# Database (опционально)
+sqlalchemy[asyncio]==2.0.35
+asyncpg==0.29.0
+
+# Logging
+structlog==24.4.0
+
+# Retry logic
+tenacity==9.0.0
+
+# Rate limiting
+slowapi==0.1.9
+
+# Caching
+aiocache==0.12.2

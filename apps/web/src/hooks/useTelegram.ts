@@ -145,7 +145,7 @@ export const useTelegram = (): UseTelegramReturn => {
 
       expandApp()
 
-      // Disable vertical swipes to prevent empty space above header (iOS fix)
+      // Disable vertical swipes to prevent closing by swipe (Bot API 7.7+)
       if (typeof (WebApp as any).disableVerticalSwipes === 'function') {
         try {
           ;(WebApp as any).disableVerticalSwipes()
@@ -160,6 +160,24 @@ export const useTelegram = (): UseTelegramReturn => {
           ;(WebApp as any).enableClosingConfirmation()
         } catch (error) {
           console.warn('Failed to enable closing confirmation:', error)
+        }
+      }
+
+      // Request fullscreen mode for immersive experience (Bot API 8.0+)
+      if (typeof (WebApp as any).requestFullscreen === 'function') {
+        try {
+          ;(WebApp as any).requestFullscreen()
+        } catch (error) {
+          console.warn('Failed to request fullscreen:', error)
+        }
+      }
+
+      // Lock orientation to portrait for better UX
+      if (typeof (WebApp as any).lockOrientation === 'function') {
+        try {
+          ;(WebApp as any).lockOrientation()
+        } catch (error) {
+          console.warn('Failed to lock orientation:', error)
         }
       }
 
@@ -215,9 +233,8 @@ export const useTelegram = (): UseTelegramReturn => {
           return true
         }
 
-        const endpoint = import.meta.env.DEV
-          ? '/api/validate-init-data-dev'
-          : '/api/validate-init-data'
+        // Используем правильный эндпоинт API
+        const endpoint = '/api/auth/validate'
 
         const response = await fetch(endpoint, {
           method: 'POST',
@@ -236,7 +253,17 @@ export const useTelegram = (): UseTelegramReturn => {
         }
 
         const result = await response.json()
-        return result.success === true
+        
+        // ВАЖНО: Сохраняем токен при успешной авторизации
+        // API возвращает accessToken (или token для совместимости)
+        const token = result.accessToken || result.token
+        if (token) {
+          localStorage.setItem('token', token)
+          console.log('Auth token saved successfully')
+        }
+        
+        // Возвращаем true если есть токен
+        return !!token
       } catch (error) {
         console.error('Error sending initData to server:', error)
         if (import.meta.env.DEV) {

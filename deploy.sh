@@ -27,6 +27,10 @@ print_error() {
     echo -e "${RED}✗${NC} $1"
 }
 
+print_info() {
+    echo -e "${YELLOW}ℹ${NC} $1"
+}
+
 # Check if .env.production exists
 if [ ! -f ".env.production" ]; then
     print_error ".env.production file not found!"
@@ -54,7 +58,7 @@ rsync -avz --exclude 'node_modules' \
     ./ ${DEPLOY_USER}@${SERVER_IP}:${PROJECT_DIR}/
 
 # НЕ копируем .env файл - он должен быть настроен один раз на сервере
-print_info "ℹ️  .env файл на сервере НЕ обновляется (сохраняются ваши настройки)"
+print_info ".env файл на сервере НЕ обновляется (сохраняются ваши настройки)"
 
 # Deploy on server
 print_status "Executing deployment on server..."
@@ -93,6 +97,11 @@ ssh ${DEPLOY_USER}@${SERVER_IP} << 'ENDSSH'
     echo "🏗️  Building Web (Frontend)..."
     echo "------------------------------------------------"
     DOCKER_BUILDKIT=1 docker-compose -f docker-compose.production.yml build web
+    
+    echo "------------------------------------------------"
+    echo "🤖 Building Bots..."
+    echo "------------------------------------------------"
+    DOCKER_BUILDKIT=1 docker-compose -f docker-compose.production.yml build customer-bot || echo "Bot build skipped"
     
     # Start services
     echo "🚀 Starting services..."

@@ -137,7 +137,7 @@ export default function VariantSelector({ product, onAddToCart, onPriceChange }:
         </div>
       ))}
 
-      {price !== null && selectedVariant && (
+      {price !== null && selectedVariant ? (
         <StoneCard className="p-4">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -166,6 +166,30 @@ export default function VariantSelector({ product, onAddToCart, onPriceChange }:
           >
             <ShoppingCart className="w-5 h-5" />
             <span>В корзину</span>
+          </motion.button>
+        </StoneCard>
+      ) : (
+        // Fallback: если вариант не найден, показываем кнопку "Узнать цену"
+        <StoneCard className="p-4">
+          <p className="text-sm font-body text-gray-600 mb-3">
+            Выберите параметры для расчёта цены
+          </p>
+          <motion.button
+            onClick={() => {
+              // Используем первый доступный вариант или null
+              const fallbackVariant = product.variants?.[0]
+              if (fallbackVariant) {
+                onAddToCart(fallbackVariant.id, selectedAttributes)
+              }
+            }}
+            disabled={!product.variants?.length}
+            className="granite-button w-full py-3 rounded-lg font-body font-semibold flex items-center justify-center gap-2 disabled:opacity-50"
+            whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+            transition={getTransition(shouldReduceMotion, 'fast')}
+          >
+            <ShoppingCart className="w-5 h-5" />
+            <span>Добавить в корзину</span>
           </motion.button>
         </StoneCard>
       )}

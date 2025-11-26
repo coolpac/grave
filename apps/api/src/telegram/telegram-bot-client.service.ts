@@ -362,6 +362,66 @@ export class TelegramBotClientService implements OnModuleInit {
   }
 
   /**
+   * Отправка кастомного уведомления клиенту
+   */
+  async sendCustomNotification(
+    telegramId: string,
+    message: string,
+    buttons?: Array<{ text: string; url?: string; callback?: string }>,
+  ): Promise<boolean> {
+    try {
+      const payload = {
+        telegramId: telegramId.toString(),
+        message,
+        buttons,
+      };
+
+      const result = await this.retryRequest(() =>
+        this.customerBotClient.post('/notify/custom', payload),
+      );
+
+      if (result) {
+        this.logger.log(`Custom notification sent to ${telegramId}`);
+        return true;
+      }
+
+      return false;
+    } catch (error: any) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 403) {
+        this.logger.warn(`User ${telegramId} blocked the bot`);
+      } else {
+        this.logger.error(`Failed to send custom notification: ${error.message}`);
+      }
+      return false;
+    }
+  }
+
+  /**
+   * Рассылка сообщений нескольким пользователям
+   */
+  async broadcastMessage(
+    userIds: string[],
+    message: string,
+    buttons?: Array<{ text: string; url?: string }>,
+  ): Promise<{ sent: number; failed: number }> {
+    const results = { sent: 0, failed: 0 };
+
+    for (const userId of userIds) {
+      const success = await this.sendCustomNotification(userId, message, buttons);
+      if (success) {
+        results.sent++;
+      } else {
+        results.failed++;
+      }
+      // Небольшая задержка между сообщениями (rate limiting)
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+
+    return results;
+  }
+
+  /**
    * Проверка доступности ботов
    */
   async checkBotsAvailability(): Promise<{

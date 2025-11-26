@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { StoneCard, StoneButton, Skeleton } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
-import { ArrowLeft, Package, Clock, CheckCircle, XCircle, ShoppingBag } from 'lucide-react'
+import { Package, Clock, CheckCircle, XCircle, ShoppingBag } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
@@ -47,43 +47,43 @@ export default function Orders() {
   const { data: orders = [], isLoading, isError } = useQuery({
     queryKey: ['orders'],
     queryFn: async () => {
-      const token = localStorage.getItem('token')
-      
-      if (!token) {
+    const token = localStorage.getItem('token')
+    
+    if (!token) {
         return []
+    }
+    
+    try {
+      const response = await axios.get(`${API_URL}/orders`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+          validateStatus: (status) => status < 500,
+      })
+      
+      // Проверяем статус ответа
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem('token')
+          return []
       }
       
-      try {
-        const response = await axios.get(`${API_URL}/orders`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-          validateStatus: (status) => status < 500,
-        })
-        
-        // Проверяем статус ответа
-        if (response.status === 401 || response.status === 403) {
-          localStorage.removeItem('token')
-          return []
-        }
-        
-        // Проверяем, что данные - массив
-        if (Array.isArray(response.data)) {
+      // Проверяем, что данные - массив
+      if (Array.isArray(response.data)) {
           return response.data
-        } else if (response.data && Array.isArray(response.data.orders)) {
+      } else if (response.data && Array.isArray(response.data.orders)) {
           return response.data.orders
-        }
-        
+      }
+      
         return []
-      } catch (error: any) {
-        // Обрабатываем только сетевые ошибки, не 401/403
-        if (error.response?.status === 401 || error.response?.status === 403) {
-          localStorage.removeItem('token')
+    } catch (error: any) {
+      // Обрабатываем только сетевые ошибки, не 401/403
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        localStorage.removeItem('token')
           return []
         }
         console.error('Error loading orders:', error)
         return []
-      }
+    }
     },
     staleTime: 30 * 1000, // Кэш на 30 секунд
     gcTime: 5 * 60 * 1000, // Хранить в кэше 5 минут
@@ -133,16 +133,8 @@ export default function Orders() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-        <div className="px-4 pt-6 pb-4">
-          <motion.button
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            onClick={() => navigate(-1)}
-            className="granite-button p-2.5 rounded-lg mb-4 touch-manipulation"
-            aria-label="Назад"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-200" aria-hidden="true" />
-          </motion.button>
+        <div className="px-4 pt-4 pb-4">
+          {/* Используем Telegram BackButton */}
           <Skeleton variant="text" width="40%" height={32} className="mb-6" />
         </div>
         <div className="px-4 space-y-4">
@@ -176,18 +168,8 @@ export default function Orders() {
   if (!isLoading && sortedOrders.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-        <div className="px-4 pt-6 pb-8">
-          <motion.button
-            variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
-            initial="hidden"
-            animate="visible"
-            onClick={() => navigate(-1)}
-            className="granite-button p-2.5 rounded-lg mb-6 touch-manipulation"
-            aria-label="Назад"
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-200" aria-hidden="true" />
-          </motion.button>
-          
+        <div className="px-4 pt-4 pb-8">
+          {/* Используем Telegram BackButton */}
           <motion.div
             variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
             initial="hidden"
@@ -195,13 +177,13 @@ export default function Orders() {
             className="flex flex-col items-center justify-center min-h-[60vh] text-center"
           >
             {!shouldReduceMotion ? (
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
                 transition={getTransition(shouldReduceMotion, 'normal')}
-                className="mb-6"
-              >
-                <div className="w-24 h-24 rounded-full granite-button flex items-center justify-center mx-auto">
+              className="mb-6"
+            >
+              <div className="w-24 h-24 rounded-full granite-button flex items-center justify-center mx-auto">
                   <Package className="w-12 h-12 text-gray-200" aria-hidden="true" />
                 </div>
               </motion.div>
@@ -241,19 +223,11 @@ export default function Orders() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pb-24">
-      {/* Header */}
-      <div className="px-4 pt-6 pb-4">
-        <motion.button
-          variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
-          initial="hidden"
-          animate="visible"
-          onClick={() => navigate(-1)}
-          className="granite-button p-2.5 rounded-lg mb-4 touch-manipulation"
-          aria-label="Назад"
-        >
-          <ArrowLeft className="w-5 h-5 text-gray-200" aria-hidden="true" />
-        </motion.button>
+      {/* Используем Telegram BackButton */}
+      <div className="h-2" />
 
+      {/* Header */}
+      <div className="px-4 pt-2 pb-4">
         <motion.h1
           variants={getAnimationVariants(shouldReduceMotion, 'slideInFromTop')}
           initial="hidden"
@@ -329,24 +303,24 @@ export default function Orders() {
                     {order.items.map((item: any, itemIndex: number) => {
                       const itemTotal = item.price * item.quantity
                       return (
-                        <motion.div
-                          key={itemIndex}
+                      <motion.div
+                        key={itemIndex}
                           variants={shouldReduceMotion ? undefined : getAnimationVariants(shouldReduceMotion, 'slideIn')}
                           initial="hidden"
                           animate="visible"
-                          className="flex items-center justify-between py-1.5"
+                        className="flex items-center justify-between py-1.5"
                           role="listitem"
-                        >
-                          <div className="flex items-center gap-2">
+                      >
+                        <div className="flex items-center gap-2">
                             <div className="w-1.5 h-1.5 rounded-full bg-bronze-500 opacity-60" aria-hidden="true" />
                             <span className="text-sm font-body text-gray-700" aria-label={`${item.name}, количество: ${item.quantity}`}>
-                              {item.name} × {item.quantity}
-                            </span>
-                          </div>
+                            {item.name} × {item.quantity}
+                          </span>
+                        </div>
                           <span className="text-sm font-body font-semibold text-gray-900" aria-label={`Цена: ${itemTotal.toLocaleString('ru-RU')} рублей`}>
                             {itemTotal.toLocaleString('ru-RU')} ₽
-                          </span>
-                        </motion.div>
+                        </span>
+                      </motion.div>
                       )
                     })}
                   </div>
@@ -360,9 +334,9 @@ export default function Orders() {
                       Итого:
                     </span>
                     <div className="flex items-baseline gap-1" aria-label={`Итоговая сумма заказа: ${order.total.toLocaleString('ru-RU')} рублей`}>
-                      <span className="text-2xl font-inscription text-gray-900">
+                    <span className="text-2xl font-inscription text-gray-900">
                         {order.total.toLocaleString('ru-RU')}
-                      </span>
+                    </span>
                       <span className="text-base font-body text-gray-600" aria-hidden="true">₽</span>
                     </div>
                   </div>

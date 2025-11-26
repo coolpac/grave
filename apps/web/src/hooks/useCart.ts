@@ -840,6 +840,45 @@ export function useCart() {
       clearCartFromStorage();
       queryClient.setQueryData(['cart'], { id: 0, items: [] });
     },
+    /**
+     * Принудительная синхронизация локальной корзины с сервером
+     * Вызывайте перед оформлением заказа!
+     */
+    syncCart: async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.warn('Cannot sync cart: no auth token');
+        return false;
+      }
+
+      // Если есть локальные товары, синхронизируем их
+      if (localCart.length > 0) {
+        try {
+          const promises = localCart.map((item) =>
+            cartAxios.post('/cart/add', {
+              productId: item.productId,
+              variantId: item.variantId,
+              quantity: item.quantity,
+            }),
+          );
+          await Promise.allSettled(promises);
+          
+          // Очищаем локальную корзину после синхронизации
+          setLocalCart([]);
+          clearCartFromStorage();
+        } catch (error) {
+          console.error('Failed to sync local cart:', error);
+          return false;
+        }
+      }
+
+      // Обновляем данные с сервера
+      await refetch();
+      
+      // Проверяем что корзина не пуста
+      const updatedCart = queryClient.getQueryData<Cart>(['cart']);
+      return (updatedCart?.items?.length || 0) > 0;
+    },
     refetch,
   };
 }

@@ -232,6 +232,31 @@ export default function MatrixSelector({ product, onAddToCart, onPriceChange }: 
         </StoneCard>
       )}
 
+      {/* Fallback: если все атрибуты выбраны, но вариант не найден */}
+      {!isCalculating && allSelected && !selectedVariant && product.variants?.length > 0 && (
+        <StoneCard className="p-4">
+          <p className="text-sm font-body text-gray-600 mb-3">
+            Вариант для выбранных параметров не найден. Используем ближайший доступный.
+          </p>
+          <motion.button
+            onClick={() => {
+              // Используем первый доступный вариант
+              const fallbackVariant = product.variants[0]
+              if (fallbackVariant) {
+                onAddToCart(fallbackVariant.id, selectedAttributes)
+              }
+            }}
+            className="granite-button w-full py-3 rounded-lg font-body font-semibold flex items-center justify-center gap-2"
+            whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
+            whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
+            transition={getTransition(shouldReduceMotion, 'fast')}
+          >
+            <ShoppingCart className="w-5 h-5" />
+            <span>Добавить в корзину</span>
+          </motion.button>
+        </StoneCard>
+      )}
+
       {!isCalculating && !allSelected && (
         <StoneCard className="p-4">
           <div className="flex items-center gap-2 text-sm font-body text-gray-600">

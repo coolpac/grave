@@ -264,6 +264,125 @@ services:
     profiles:
       - monitoring
 
+  # ============================================
+  # TELEGRAM BOTS
+  # ============================================
+  
+  # Customer Bot - уведомления клиентам
+  customer-bot:
+    build:
+      context: ./bots
+      dockerfile: Dockerfile
+    container_name: ritual_customer_bot
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 256M
+        reservations:
+          cpus: '0.05'
+          memory: 128M
+    environment:
+      # Fallback: использует BOT_TOKEN если CUSTOMER_BOT_TOKEN не задан
+      CUSTOMER_BOT_TOKEN: ${CUSTOMER_BOT_TOKEN:-${BOT_TOKEN}}
+      BOT_TOKEN: ${BOT_TOKEN:-}
+      WEBAPP_URL: ${PUBLIC_URL:-https://optmramor.ru}
+      PUBLIC_URL: ${PUBLIC_URL:-https://optmramor.ru}
+      API_URL: http://api:3000/api
+      CUSTOMER_BOT_PORT: 8001
+      USE_WEBHOOK: 'false'
+    ports:
+      - "127.0.0.1:8001:8001"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - ritual_network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    command: ["python", "customer_bot_v2.py"]
+
+  # Admin Bot - уведомления администраторам
+  admin-bot:
+    build:
+      context: ./bots
+      dockerfile: Dockerfile
+    container_name: ritual_admin_bot
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 256M
+        reservations:
+          cpus: '0.05'
+          memory: 128M
+    environment:
+      # Admin Bot требует отдельный токен
+      ADMIN_BOT_TOKEN: ${ADMIN_BOT_TOKEN:-}
+      ADMIN_CHAT_ID: ${TELEGRAM_MANAGER_CHAT_ID:-}
+      TELEGRAM_MANAGER_CHAT_ID: ${TELEGRAM_MANAGER_CHAT_ID:-}
+      ADMIN_WHITELIST: ${ADMIN_WHITELIST:-}
+      API_URL: http://api:3000/api
+      ADMIN_BOT_PORT: 8002
+      USE_WEBHOOK: 'false'
+    ports:
+      - "127.0.0.1:8002:8002"
+    depends_on:
+      api:
+        condition: service_healthy
+    networks:
+      - ritual_network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    command: ["python", "admin_bot_v2.py"]
+
+  # Abandoned Cart Bot - напоминания о брошенных корзинах
+  abandoned-cart-bot:
+    build:
+      context: ./bots
+      dockerfile: Dockerfile
+    container_name: ritual_abandoned_cart_bot
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 128M
+        reservations:
+          cpus: '0.02'
+          memory: 64M
+    environment:
+      API_URL: http://api:3000/api
+      CUSTOMER_BOT_API_URL: http://customer-bot:8001
+      CART_CHECK_INTERVAL_MINUTES: 60
+      REMINDER_DELAY_HOURS: 2
+      MAX_REMINDERS: 3
+      ABANDONED_CART_BOT_PORT: 8003
+    ports:
+      - "127.0.0.1:8003:8003"
+    depends_on:
+      - customer-bot
+      - api
+    networks:
+      - ritual_network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    command: ["python", "abandoned_cart_bot_v2.py"]
+
 volumes:
   postgres_data:
     driver: local

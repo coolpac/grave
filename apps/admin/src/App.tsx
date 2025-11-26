@@ -5,6 +5,7 @@ import Login from './pages/Login';
 import AdminHome from './pages/AdminHome';
 import Products from './pages/Products';
 import ProductForm from './pages/ProductForm';
+import Categories from './pages/Categories';
 import Banners from './pages/Banners';
 import Newsletters from './pages/Newsletters';
 import AbandonedCarts from './pages/AbandonedCarts';
@@ -42,6 +43,7 @@ function App() {
                   <Route path="/products" element={<Products />} />
                   <Route path="/products/new" element={<ProductForm />} />
                   <Route path="/products/:id/edit" element={<ProductForm />} />
+                  <Route path="/categories" element={<Categories />} />
                   <Route path="/banners" element={<Banners />} />
                   <Route path="/newsletters" element={<Newsletters />} />
                   <Route path="/abandoned-carts" element={<AbandonedCarts />} />

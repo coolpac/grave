@@ -120,16 +120,13 @@ export default function ProductForm() {
   const [activeTab, setActiveTab] = useState<'basic' | 'attributes' | 'variants' | 'specifications' | 'media'>('basic');
   const [showTemplates, setShowTemplates] = useState(false);
 
-  // Получение категорий (только активные, без ритуальных)
+  // Получение категорий (все активные)
   const { data: categories } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
       const { data } = await api.get('/catalog/categories?activeOnly=true');
-      // Фильтруем только основные категории (marble-* и granite-*), исключаем ritual-*
-      return data.filter((cat: any) => 
-        cat.isActive && 
-        (cat.slug.startsWith('marble-') || cat.slug.startsWith('granite-'))
-      );
+      // Возвращаем все активные категории
+      return Array.isArray(data) ? data.filter((cat: any) => cat.isActive) : [];
     },
   });
 

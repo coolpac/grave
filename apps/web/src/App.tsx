@@ -18,12 +18,50 @@ const Checkout = lazy(() => import('./pages/Checkout'))
 const OrderSuccess = lazy(() => import('./pages/OrderSuccess'))
 const Orders = lazy(() => import('./pages/Orders'))
 
-// Page loading fallback component
+// Premium page loading fallback component
 const PageLoadingFallback = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
-    <div className="flex flex-col items-center gap-4">
-      <div className="w-8 h-8 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
-      <p className="text-sm text-white/60">Загрузка...</p>
+    <div className="flex flex-col items-center gap-6">
+      {/* Granite-style loading spinner */}
+      <div className="relative w-12 h-12">
+        {/* Outer ring */}
+        <div 
+          className="absolute inset-0 rounded-full animate-spin"
+          style={{
+            background: 'conic-gradient(from 0deg, transparent 0%, rgba(139, 107, 63, 0.4) 50%, transparent 100%)',
+            animationDuration: '1.2s',
+          }}
+        />
+        {/* Inner circle */}
+        <div 
+          className="absolute inset-1 rounded-full"
+          style={{
+            background: 'linear-gradient(135deg, #0a0a0a 0%, #111111 100%)',
+          }}
+        />
+        {/* Center dot */}
+        <div 
+          className="absolute inset-0 flex items-center justify-center"
+        >
+          <div 
+            className="w-1.5 h-1.5 rounded-full animate-pulse"
+            style={{
+              background: 'rgba(139, 107, 63, 0.6)',
+              animationDuration: '1s',
+            }}
+          />
+        </div>
+      </div>
+      
+      {/* Loading text with shimmer effect */}
+      <div className="flex items-center gap-1">
+        <span className="text-sm font-body text-white/40">Загрузка</span>
+        <span className="flex gap-0.5">
+          <span className="w-1 h-1 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '0ms' }} />
+          <span className="w-1 h-1 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '150ms' }} />
+          <span className="w-1 h-1 rounded-full bg-white/30 animate-bounce" style={{ animationDelay: '300ms' }} />
+        </span>
+      </div>
     </div>
   </div>
 )

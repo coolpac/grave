@@ -21,7 +21,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:seed": "ts-node prisma/seed.ts",
+    "prisma:seed": "npx tsx prisma/seed.ts",
+    "seed": "npx tsx prisma/seed.ts",
     "prisma:studio": "prisma studio",
     "tunnel": "cloudflared tunnel --url http://localhost:3000",
     "create:categories": "ts-node scripts/create-categories.ts",
@@ -67,6 +68,7 @@
     "redis": "^4.6.12",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.8.1",
+    "tsx": "^4.20.0",
     "winston": "^3.18.3",
     "winston-daily-rotate-file": "^5.0.0"
   },

@@ -314,7 +314,7 @@ export default function Home() {
               index={0}
               shouldReduceMotion={shouldReduceMotion}
               onPrefetch={handleMarblePrefetch}
-            />
+                    />
 
             {/* Гранитные изделия */}
             <MaterialCard
@@ -327,7 +327,7 @@ export default function Home() {
               index={1}
               shouldReduceMotion={shouldReduceMotion}
               onPrefetch={handleGranitePrefetch}
-            />
+                    />
           </div>
         )}
       </div>

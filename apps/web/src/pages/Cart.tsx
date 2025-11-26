@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { StoneCard } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
 import { useCart } from '../hooks/useCart'
-import { ArrowLeft, Trash2, Plus, Minus, ShoppingCart, Loader2, WifiOff } from 'lucide-react'
+import { Trash2, Plus, Minus, ShoppingCart, Loader2, WifiOff } from 'lucide-react'
 import { useEffect, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
@@ -113,28 +113,8 @@ export default function Cart() {
   if (!isLoading && items.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-        <div className="px-4 pt-4 pb-2">
-          <motion.button
-            onClick={() => navigate(-1)}
-            className="p-2.5 rounded-lg transition-all duration-200 shadow-sm"
-            whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
-            whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
-            transition={getTransition(shouldReduceMotion, 'fast')}
-            style={{
-              background: 'linear-gradient(135deg, hsl(220 15% 18%) 0%, hsl(220 15% 16%) 25%, hsl(220 15% 14%) 50%, hsl(220 15% 16%) 75%, hsl(220 15% 18%) 100%)',
-              boxShadow: `
-                inset 0 2px 4px rgba(255, 255, 255, 0.1),
-                inset 0 -2px 4px rgba(0, 0, 0, 0.5),
-                inset 2px 0 2px rgba(255, 255, 255, 0.08),
-                inset -2px 0 2px rgba(0, 0, 0, 0.4),
-                0 2px 8px rgba(0, 0, 0, 0.3)
-              `,
-              border: '1px solid rgba(139, 107, 63, 0.3)',
-            }}
-          >
-            <ArrowLeft className="w-5 h-5 text-gray-200" />
-          </motion.button>
-        </div>
+        {/* Используем Telegram BackButton */}
+        <div className="h-4" />
         <motion.div
           variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
           initial="hidden"
@@ -207,22 +187,11 @@ export default function Cart() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      {/* Header */}
-      <div className="px-4 pt-4 pb-2">
-        <motion.button
-          onClick={() => navigate(-1)}
-          className="granite-button p-2.5 rounded-lg touch-manipulation"
-          whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
-          whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
-          transition={getTransition(shouldReduceMotion, 'fast')}
-          aria-label="Назад"
-        >
-          <ArrowLeft className="w-5 h-5 text-gray-200" aria-hidden="true" />
-        </motion.button>
-      </div>
+      {/* Используем Telegram BackButton */}
+      <div className="h-2" />
 
       {/* Title */}
-      <div className="px-4 pb-4">
+      <div className="px-4 pb-4 pt-2">
         <div className="flex items-center justify-between">
           <motion.h1
             variants={getAnimationVariants(shouldReduceMotion, 'slideInFromTop')}

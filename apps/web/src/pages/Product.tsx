@@ -3,7 +3,7 @@ import { StoneCard } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
 import { useCart } from '../hooks/useCart'
 import { useTelegramAnalytics } from '../hooks/useTelegramAnalytics'
-import { ArrowLeft, ShoppingCart, Plus, Minus, Check, Calculator, Truck, MapPin, User, Phone } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, Check, Calculator, Truck, MapPin, User, Phone, X } from 'lucide-react'
 import { useEffect, useState, useRef, useMemo, useCallback, Suspense, lazy } from 'react'
 // Lazy load ProductImageGallery (heavy component with react-zoom-pan-pinch)
 const ProductImageGallery = lazy(() => import('../components/ProductImageGallery'))
@@ -399,9 +399,38 @@ export default function Product() {
   if (isLoadingProduct) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-bronze-500 mb-4" />
-          <p className="text-gray-600">Загрузка товара...</p>
+        <div className="flex flex-col items-center gap-6">
+          {/* Premium loading spinner */}
+          <div className="relative w-14 h-14">
+            <motion.div
+              className="absolute inset-0 rounded-full"
+              style={{
+                background: 'conic-gradient(from 0deg, transparent 0%, rgba(139, 107, 63, 0.5) 40%, transparent 80%)',
+              }}
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1.2, repeat: Infinity, ease: 'linear' }}
+            />
+            <div 
+              className="absolute inset-[3px] rounded-full"
+              style={{ background: 'linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%)' }}
+            />
+            <motion.div 
+              className="absolute inset-0 flex items-center justify-center"
+              animate={{ opacity: [0.4, 1, 0.4] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+            >
+              <div className="w-2 h-2 rounded-full bg-bronze-500/60" />
+            </motion.div>
+          </div>
+          
+          <motion.p 
+            className="text-sm font-body text-gray-500"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            Загрузка товара...
+          </motion.p>
         </div>
       </div>
     )
@@ -410,44 +439,38 @@ export default function Product() {
   if (productError || !product) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white flex items-center justify-center px-4">
-        <div className="text-center">
-          <p className="text-gray-600 mb-4">Товар не найден</p>
-          <button
+        <motion.div 
+          className="text-center"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <div 
+            className="w-20 h-20 mx-auto mb-6 rounded-full flex items-center justify-center"
+            style={{
+              background: 'linear-gradient(135deg, rgba(139, 107, 63, 0.1) 0%, rgba(139, 107, 63, 0.05) 100%)',
+              border: '1px solid rgba(139, 107, 63, 0.2)',
+            }}
+          >
+            <span className="text-3xl">📦</span>
+          </div>
+          <p className="text-gray-600 mb-6 font-body">Товар не найден</p>
+          <motion.button
             onClick={() => navigate(-1)}
-            className="px-4 py-2 bg-bronze-500 text-white rounded-lg"
+            className="granite-button px-6 py-3 rounded-xl font-body font-medium"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
             Вернуться назад
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
       </div>
     )
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
-      {/* Header with Back Button */}
-      <div className="px-4 pt-4 pb-2">
-        <motion.button
-          onClick={() => navigate(-1)}
-          className="p-2.5 rounded-lg transition-all duration-200 shadow-sm"
-          whileHover={shouldReduceMotion ? undefined : { scale: 1.05 }}
-          whileTap={shouldReduceMotion ? undefined : { scale: 0.95 }}
-          transition={getTransition(shouldReduceMotion, 'fast')}
-          style={{
-            background: 'linear-gradient(135deg, hsl(220 15% 18%) 0%, hsl(220 15% 16%) 25%, hsl(220 15% 14%) 50%, hsl(220 15% 16%) 75%, hsl(220 15% 18%) 100%)',
-            boxShadow: `
-              inset 0 2px 4px rgba(255, 255, 255, 0.1),
-              inset 0 -2px 4px rgba(0, 0, 0, 0.5),
-              inset 2px 0 2px rgba(255, 255, 255, 0.08),
-              inset -2px 0 2px rgba(0, 0, 0, 0.4),
-              0 2px 8px rgba(0, 0, 0, 0.3)
-            `,
-            border: '1px solid rgba(139, 107, 63, 0.3)',
-          }}
-        >
-          <ArrowLeft className="w-5 h-5 text-gray-200" />
-        </motion.button>
-      </div>
+      {/* Используем Telegram BackButton вместо кастомной кнопки */}
+      <div className="h-2" />
 
       {/* Product Image - гранитный стиль */}
       <div className="px-4 pb-4">
@@ -722,7 +745,7 @@ export default function Product() {
                     onClick={() => setShowCalculationForm(false)}
                     className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
                   >
-                    <ArrowLeft className="w-5 h-5 text-gray-600" />
+                    <X className="w-5 h-5 text-gray-600" />
                   </button>
                 </div>
 

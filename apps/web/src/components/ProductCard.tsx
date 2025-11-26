@@ -141,17 +141,17 @@ function ProductCard({ product, index = 0, onAddToCart }: ProductCardProps) {
             objectFit="cover"
             placeholder="blur"
           />
-          {/* Add to Cart Button - темный гранитный стиль с мраморной текстурой */}
-          <button
-            ref={buttonRef}
-            onClick={handleAddToCart}
+            {/* Add to Cart Button - темный гранитный стиль с мраморной текстурой */}
+            <button
+              ref={buttonRef}
+              onClick={handleAddToCart}
             className="granite-button absolute bottom-2 right-2 w-10 h-10 rounded-full flex items-center justify-center z-10 touch-manipulation shadow-lg hover:shadow-xl transition-shadow duration-200"
-            style={{ position: 'absolute' }}
+              style={{ position: 'absolute' }}
             aria-label={`Добавить ${product.name} в корзину`}
             type="button"
-          >
+            >
             <ShoppingCart className="w-5 h-5 text-gray-200" aria-hidden="true" />
-          </button>
+            </button>
         </div>
         <div className="p-3">
           <h3 
