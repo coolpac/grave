@@ -18,6 +18,23 @@ api.interceptors.request.use(
     const token = localStorage.getItem('authToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+      // Логируем только в development для отладки
+      if (import.meta.env.DEV) {
+        console.log('🔑 Adding auth token to request:', {
+          url: config.url,
+          method: config.method,
+          tokenLength: token.length,
+          tokenPreview: token.substring(0, 20) + '...',
+        });
+      }
+    } else {
+      // Логируем отсутствие токена только в development
+      if (import.meta.env.DEV) {
+        console.warn('⚠️ No auth token found for request:', {
+          url: config.url,
+          method: config.method,
+        });
+      }
     }
     // Всегда добавляем X-App-Client для правильной валидации токена
     if (!config.headers['X-App-Client']) {

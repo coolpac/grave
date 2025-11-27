@@ -14,6 +14,35 @@ export interface Response<T> {
   method: string;
 }
 
+/**
+ * Рекурсивно преобразует BigInt значения в строки для JSON сериализации
+ */
+function transformBigInt(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  if (typeof obj === 'bigint') {
+    return obj.toString();
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(transformBigInt);
+  }
+
+  if (typeof obj === 'object' && obj.constructor === Object) {
+    const transformed: any = {};
+    for (const key in obj) {
+      if (Object.prototype.hasOwnProperty.call(obj, key)) {
+        transformed[key] = transformBigInt(obj[key]);
+      }
+    }
+    return transformed;
+  }
+
+  return obj;
+}
+
 @Injectable()
 export class TransformInterceptor<T>
   implements NestInterceptor<T, Response<T>>
@@ -27,20 +56,23 @@ export class TransformInterceptor<T>
 
     return next.handle().pipe(
       map((data) => {
+        // Преобразуем BigInt в строки перед сериализацией
+        const transformedData = transformBigInt(data);
+
         // Если ответ уже имеет структуру с meta (пагинация), не оборачиваем
-        if (data && typeof data === 'object' && 'meta' in data) {
-          return data;
+        if (transformedData && typeof transformedData === 'object' && 'meta' in transformedData) {
+          return transformedData;
         }
 
         // Если это массив или простой объект без обертки, возвращаем как есть
         // (для обратной совместимости)
-        if (Array.isArray(data) || (data && typeof data === 'object' && !('data' in data))) {
-          return data;
+        if (Array.isArray(transformedData) || (transformedData && typeof transformedData === 'object' && !('data' in transformedData))) {
+          return transformedData;
         }
 
         // Оборачиваем только если это не стандартный ответ
         return {
-          data,
+          data: transformedData,
           timestamp: new Date().toISOString(),
           path: url,
           method,

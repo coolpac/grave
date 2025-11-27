@@ -61,15 +61,43 @@ export default function Orders() {
     queryFn: async () => {
       try {
         const params = statusFilter !== 'all' ? { status: statusFilter } : {};
-        const { data } = await api.get('/orders', { params });
-        return Array.isArray(data) ? data : [];
+        console.log('📦 Fetching orders with params:', params);
+        console.log('🔑 Auth token exists:', !!localStorage.getItem('authToken'));
+        
+        const response = await api.get('/orders', { params });
+        console.log('✅ Orders response:', {
+          status: response.status,
+          dataType: Array.isArray(response.data) ? 'array' : typeof response.data,
+          dataLength: Array.isArray(response.data) ? response.data.length : 'N/A',
+          firstOrder: Array.isArray(response.data) && response.data.length > 0 ? response.data[0] : null,
+        });
+        
+        const data = Array.isArray(response.data) ? response.data : [];
+        console.log(`📊 Loaded ${data.length} orders`);
+        return data;
       } catch (err: any) {
-        console.error('Error fetching orders:', err);
+        console.error('❌ Error fetching orders:', {
+          error: err,
+          message: err.message,
+          response: err.response,
+          status: err.response?.status,
+          data: err.response?.data,
+          config: err.config,
+        });
+        
         // Если ошибка 401, токен истек - перезагружаем страницу для редиректа на логин
         if (err.response?.status === 401) {
+          console.warn('⚠️ 401 Unauthorized - redirecting to login');
           localStorage.removeItem('authToken');
           window.location.href = import.meta.env.PROD ? '/admin/login' : '/login';
+          return [];
         }
+        
+        // Если ошибка 500, возможно проблема с BigInt сериализацией
+        if (err.response?.status === 500) {
+          console.error('💥 Server error 500 - possible BigInt serialization issue');
+        }
+        
         throw err;
       }
     },
@@ -77,8 +105,15 @@ export default function Orders() {
     retry: (failureCount, error: any) => {
       // Не повторяем при 401/403 ошибках
       if (error?.response?.status === 401 || error?.response?.status === 403) {
+        console.log('🛑 Not retrying due to auth error');
         return false;
       }
+      // Не повторяем при 500 ошибках (возможно проблема с данными)
+      if (error?.response?.status === 500 && failureCount >= 1) {
+        console.log('🛑 Not retrying due to server error');
+        return false;
+      }
+      console.log(`🔄 Retrying (attempt ${failureCount + 1}/3)`);
       return failureCount < 3;
     },
   });
@@ -149,12 +184,56 @@ export default function Orders() {
   }
 
   if (error) {
+    const errorMessage = error instanceof Error 
+      ? error.message 
+      : (error as any)?.response?.data?.message 
+        || (error as any)?.message 
+        || 'Неизвестная ошибка';
+    const errorStatus = (error as any)?.response?.status;
+    const errorDetails = (error as any)?.response?.data;
+
+    console.error('Orders page error:', {
+      error,
+      message: errorMessage,
+      status: errorStatus,
+      details: errorDetails,
+      response: (error as any)?.response,
+    });
+
     return (
       <div className="p-6">
         <Card className="border-red-500/30 bg-red-500/10">
-          <CardContent className="p-6">
-            <p className="text-red-400">Ошибка загрузки заказов. Проверьте авторизацию.</p>
-            <Button onClick={() => refetch()} className="mt-4">Повторить</Button>
+          <CardContent className="p-6 space-y-4">
+            <div>
+              <p className="text-red-400 font-semibold mb-2">Ошибка загрузки заказов</p>
+              <p className="text-red-300 text-sm mb-1">
+                {errorStatus ? `Статус: ${errorStatus}` : ''}
+              </p>
+              <p className="text-red-300 text-sm">
+                {errorMessage}
+              </p>
+              {errorDetails && typeof errorDetails === 'object' && (
+                <details className="mt-2">
+                  <summary className="text-red-300 text-xs cursor-pointer">Детали ошибки</summary>
+                  <pre className="mt-2 text-xs text-red-200 bg-red-900/20 p-2 rounded overflow-auto">
+                    {JSON.stringify(errorDetails, null, 2)}
+                  </pre>
+                </details>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button onClick={() => refetch()} className="mt-4">Повторить</Button>
+              <Button 
+                onClick={() => {
+                  console.log('Current auth token:', localStorage.getItem('authToken')?.substring(0, 20) + '...');
+                  console.log('API URL:', import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3000/api'));
+                }} 
+                variant="outline" 
+                className="mt-4"
+              >
+                Проверить токен
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

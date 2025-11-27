@@ -116,7 +116,8 @@ export class OrdersService {
       createDto.paymentMethod || 'unknown',
     );
 
-    return order;
+    // Преобразуем BigInt в строки перед возвратом
+    return this.transformBigInt(order);
   }
 
   /**
@@ -233,6 +234,35 @@ export class OrdersService {
     }, 1000);
   }
 
+  /**
+   * Преобразует BigInt значения в строки для JSON сериализации
+   */
+  private transformBigInt(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
+
+    if (typeof obj === 'bigint') {
+      return obj.toString();
+    }
+
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.transformBigInt(item));
+    }
+
+    if (typeof obj === 'object' && obj.constructor === Object) {
+      const transformed: any = {};
+      for (const key in obj) {
+        if (Object.prototype.hasOwnProperty.call(obj, key)) {
+          transformed[key] = this.transformBigInt(obj[key]);
+        }
+      }
+      return transformed;
+    }
+
+    return obj;
+  }
+
   async findAllOrders(userId?: number, status?: OrderStatus) {
     const where: any = {};
     if (userId) {
@@ -242,25 +272,37 @@ export class OrdersService {
       where.status = status;
     }
 
-    return this.prisma.order.findMany({
-      where,
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            telegramId: true,
+    try {
+      const orders = await this.prisma.order.findMany({
+        where,
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              telegramId: true,
+            },
+          },
+          items: {
+            include: {
+              variant: true,
+            },
           },
         },
-        items: {
-          include: {
-            variant: true,
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+      });
+
+      // Преобразуем BigInt в строки перед возвратом
+      return this.transformBigInt(orders);
+    } catch (error) {
+      this.logger.error('Error fetching orders', {
+        error: error instanceof Error ? error.message : String(error),
+        userId,
+        status,
+      });
+      throw error;
+    }
   }
 
   async findOrderById(id: number, userId?: number) {
@@ -292,7 +334,8 @@ export class OrdersService {
       throw new NotFoundException(`Order with ID "${id}" not found`);
     }
 
-    return order;
+    // Преобразуем BigInt в строки перед возвратом
+    return this.transformBigInt(order);
   }
 
   async findOrderByNumber(orderNumber: string, userId?: number) {
@@ -324,7 +367,8 @@ export class OrdersService {
       throw new NotFoundException(`Order with number "${orderNumber}" not found`);
     }
 
-    return order;
+    // Преобразуем BigInt в строки перед возвратом
+    return this.transformBigInt(order);
   }
 
   async updateOrderStatus(id: number, updateDto: UpdateOrderStatusDto) {
@@ -398,7 +442,8 @@ export class OrdersService {
         });
     }
 
-    return updatedOrder;
+    // Преобразуем BigInt в строки перед возвратом
+    return this.transformBigInt(updatedOrder);
   }
 
   async handlePaymentWebhook(paymentData: any) {
