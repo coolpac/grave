@@ -123,6 +123,7 @@ const createCartAxios = () => {
     timeout: 10000, // Увеличено до 10 секунд
     headers: {
       'Content-Type': 'application/json',
+      'X-App-Client': 'customer',
     },
   });
 
@@ -665,8 +666,11 @@ export function useCart() {
       const updatedItems = await Promise.all(
         localCart.map(async (item) => {
           try {
+            if (!item.productSlug) {
+              return item
+            }
             // Запрашиваем актуальные данные товара
-            const response = await axios.get(`${API_URL}/products/${item.productId}`, {
+            const response = await axios.get(`${API_URL}/catalog/products/${item.productSlug}`, {
               timeout: 3000,
             });
             const product = response.data;
@@ -859,20 +863,32 @@ export function useCart() {
     },
     clearCart: async () => {
       const token = localStorage.getItem('token');
+      
+      // Очищаем серверную корзину (если есть токен)
       if (token) {
         try {
           await cartAxios.delete('/cart/clear');
         } catch (error) {
-          console.error('Failed to clear cart:', error);
+          // Игнорируем ошибки - корзина могла быть уже очищена на сервере при создании заказа
+          console.warn('Failed to clear cart on server (may already be cleared):', error);
         }
       }
+      
+      // Очищаем локальное состояние СРАЗУ (синхронно)
       setLocalCart([]);
       clearCartFromStorage();
+      
+      // Инвалидируем и обновляем React Query кеш
       queryClient.setQueryData(['cart'], { id: 0, items: [] });
+      queryClient.invalidateQueries({ queryKey: ['cart'] });
+      
+      // Принудительно обновляем корзину с сервера
+      await queryClient.refetchQueries({ queryKey: ['cart'] });
     },
     /**
      * Принудительная синхронизация локальной корзины с сервером
      * Вызывайте перед оформлением заказа!
+     * ИСПРАВЛЕНО: Использует правильную логику для обновления количества существующих товаров
      */
     syncCart: async () => {
       const token = localStorage.getItem('token');
@@ -884,14 +900,36 @@ export function useCart() {
       // Если есть локальные товары, синхронизируем их
       if (localCart.length > 0) {
         try {
-          const promises = localCart.map((item) =>
-            cartAxios.post('/cart/add', {
-              productId: item.productId,
-              variantId: item.variantId,
-              quantity: item.quantity,
-            }),
-          );
-          await Promise.allSettled(promises);
+          // Сначала получаем текущую корзину с сервера
+          const currentCartResponse = await cartAxios.get('/cart');
+          const currentCart: Cart = currentCartResponse.data;
+          
+          // Синхронизируем каждый локальный товар
+          const syncPromises = localCart.map(async (localItem) => {
+            // Проверяем, есть ли уже такой товар в серверной корзине
+            const existingItem = currentCart.items?.find(
+              (item) =>
+                item.productId === localItem.productId &&
+                (item.variantId || null) === (localItem.variantId || null)
+            );
+            
+            if (existingItem) {
+              // Если товар уже есть, обновляем количество (не добавляем!)
+              // Используем PATCH для обновления, а не POST для добавления
+              return cartAxios.patch(`/cart/items/${existingItem.id}`, {
+                quantity: localItem.quantity, // Устанавливаем точное количество, а не добавляем
+              });
+            } else {
+              // Если товара нет, добавляем новый
+              return cartAxios.post('/cart/add', {
+                productId: localItem.productId,
+                variantId: localItem.variantId,
+                quantity: localItem.quantity,
+              });
+            }
+          });
+          
+          await Promise.allSettled(syncPromises);
           
           // Очищаем локальную корзину после синхронизации
           setLocalCart([]);

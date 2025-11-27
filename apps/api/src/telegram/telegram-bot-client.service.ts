@@ -34,12 +34,16 @@ export class TelegramBotClientService implements OnModuleInit {
   private readonly retryDelay = 1000; // 1 секунда
 
   constructor(private configService: ConfigService) {
+    const isProduction = this.configService.get<string>('NODE_ENV') === 'production';
+    const defaultCustomerUrl = isProduction ? 'http://customer-bot:8001' : 'http://localhost:8001';
+    const defaultAdminUrl = isProduction ? 'http://admin-bot:8002' : 'http://localhost:8002';
+
     this.customerBotUrl =
       this.configService.get<string>('CUSTOMER_BOT_API_URL') ||
-      'http://localhost:8001';
+      defaultCustomerUrl;
     this.adminBotUrl =
       this.configService.get<string>('ADMIN_BOT_API_URL') ||
-      'http://localhost:8002';
+      defaultAdminUrl;
     this.enabled = true; // Всегда включен, но проверяет доступность при использовании
 
     // Создаем axios клиенты с таймаутами
@@ -173,22 +177,36 @@ export class TelegramBotClientService implements OnModuleInit {
             : orderData.createdAt,
       };
 
+      this.logger.log(
+        `Sending admin notification for order #${orderData.orderNumber} to ${this.adminBotUrl}/notify/admin`,
+      );
+
       const result = await this.retryRequest(() =>
         this.adminBotClient.post('/notify/admin', payload),
       );
 
-      if (result) {
+      if (result && result.data) {
         this.logger.log(
           `Admin notification sent for order #${orderData.orderNumber}`,
+          result.data,
         );
         return true;
       }
 
+      this.logger.warn(
+        `Admin notification returned no result for order #${orderData.orderNumber}`,
+      );
       return false;
     } catch (error: any) {
+      const axiosError = error as AxiosError;
       this.logger.error(
         `Failed to send admin notification: ${error.message}`,
-        error.stack,
+        {
+          status: axiosError.response?.status,
+          statusText: axiosError.response?.statusText,
+          data: axiosError.response?.data,
+          url: `${this.adminBotUrl}/notify/admin`,
+        },
       );
       return false;
     }

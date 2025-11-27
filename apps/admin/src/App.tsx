@@ -9,6 +9,7 @@ import Categories from './pages/Categories';
 import Banners from './pages/Banners';
 import Newsletters from './pages/Newsletters';
 import AbandonedCarts from './pages/AbandonedCarts';
+import Orders from './pages/Orders';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -40,6 +41,7 @@ function App() {
               <Layout>
                 <Routes>
                   <Route path="/" element={<AdminHome />} />
+                  <Route path="/orders" element={<Orders />} />
                   <Route path="/products" element={<Products />} />
                   <Route path="/products/new" element={<ProductForm />} />
                   <Route path="/products/:id/edit" element={<ProductForm />} />

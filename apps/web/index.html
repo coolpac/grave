@@ -225,7 +225,7 @@
       }
     </style>
   </head>
-  <body>
+  <body class="loading">
     <!-- Premium Splash Screen -->
     <div id="splash-screen">
       <!-- Decorative particles -->
@@ -271,6 +271,7 @@
             splash.remove();
           }, 400);
         }
+        document.body.classList.remove('loading');
       };
       
       // Fallback: remove splash after max 4 seconds

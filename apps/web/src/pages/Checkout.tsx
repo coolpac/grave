@@ -28,7 +28,7 @@ type CheckoutFormData = z.infer<typeof checkoutSchema>
 export default function Checkout() {
   const navigate = useNavigate()
   const { BackButton, MainButton, user, webApp } = useTelegram()
-  const { items, isLoading: isCartLoading, total, syncCart } = useCart()
+  const { items, isLoading: isCartLoading, total, syncCart, clearCart } = useCart()
   const analytics = useTelegramAnalytics()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('invoice')
@@ -78,9 +78,11 @@ export default function Checkout() {
       // Если токена нет, пытаемся получить через Telegram initData
       try {
         if (typeof webApp !== 'undefined' && webApp?.initData) {
-          const response = await axios.post(`${API_URL}/auth/validate`, {
-            initData: webApp.initData,
-          })
+          const response = await axios.post(
+            `${API_URL}/auth/validate`,
+            { initData: webApp.initData },
+            { headers: { 'X-App-Client': 'customer' } },
+          )
           
           // API возвращает accessToken
           const token = response.data?.accessToken || response.data?.token
@@ -188,9 +190,11 @@ export default function Checkout() {
       // Если токена нет, пытаемся получить через Telegram
       if (!token && initData) {
         try {
-          const authResponse = await axios.post(`${API_URL}/auth/validate`, {
-            initData: initData,
-          })
+          const authResponse = await axios.post(
+            `${API_URL}/auth/validate`,
+            { initData: initData },
+            { headers: { 'X-App-Client': 'customer' } },
+          )
           // API возвращает accessToken
           const newToken = (authResponse.data?.accessToken || authResponse.data?.token) as string | undefined
           if (newToken) {
@@ -256,6 +260,7 @@ export default function Checkout() {
         headers['X-Tg-Id'] = String(tgUserId)
         headers['X-Tg-User-Id'] = String(tgUserId)
       }
+      headers['X-App-Client'] = 'customer'
 
       const response = await axios.post(`${API_URL}/orders`, orderData, { headers })
 
@@ -279,13 +284,20 @@ export default function Checkout() {
         })
       }
 
-      // Показываем успешное уведомление (откладываем, чтобы избежать обновления состояния во время рендера)
-      setTimeout(() => {
-        toast.success('Заказ успешно оформлен!', {
-          icon: '✅',
-          duration: 3000,
-        })
-      }, 0)
+      // Очищаем корзину СРАЗУ после успешного создания заказа (до навигации)
+      // Сервер уже очистил корзину в транзакции, но нужно очистить клиентский кеш
+      try {
+        await clearCart()
+      } catch (clearError) {
+        console.warn('Failed to clear cart on client, but order was created:', clearError)
+        // Не блокируем успешный заказ из-за ошибки очистки корзины
+      }
+
+      // Показываем успешное уведомление
+      toast.success('Заказ успешно оформлен!', {
+        icon: '✅',
+        duration: 3000,
+      })
 
       // Переход на экран успеха с номером заказа
       const orderNumber = response.data.orderNumber || response.data.id
@@ -321,9 +333,11 @@ export default function Checkout() {
         
         if (typeof webApp !== 'undefined' && webApp?.initData) {
           try {
-            const authResponse = await axios.post(`${API_URL}/auth/validate`, {
-              initData: webApp.initData,
-            })
+            const authResponse = await axios.post(
+              `${API_URL}/auth/validate`,
+              { initData: webApp.initData },
+              { headers: { 'X-App-Client': 'customer' } },
+            )
             // API возвращает accessToken
             const newToken = authResponse.data?.accessToken || authResponse.data?.token
             if (newToken) {
@@ -348,6 +362,7 @@ export default function Checkout() {
                   headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${newToken}`,
+                    'X-App-Client': 'customer',
                   },
                 })
                 

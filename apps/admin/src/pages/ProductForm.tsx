@@ -221,32 +221,57 @@ export default function ProductForm() {
 
     setUploading(true);
     try {
-      const uploadPromises = Array.from(files).map(async (file) => {
+      const currentLength = mediaItems.length;
+      
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('order', String(currentLength + i));
 
-        const { data } = await api.post('/upload/image', formData, {
-          headers: {
-            'Content-Type': 'multipart/form-data',
-          },
-        });
-
-        return {
-          url: data.url,
-          order: mediaItems.length,
-          file,
-        };
-      });
-
-      const newMedia = await Promise.all(uploadPromises);
-      setMediaItems((prev) => [...prev, ...newMedia]);
-    } catch (error) {
+        // Если редактируем товар - сразу привязываем к нему
+        if (isEditMode && id) {
+          try {
+            const { data } = await api.post(`/upload/product/${id}/media`, formData, {
+              headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            setMediaItems((prev) => [...prev, { 
+              id: data.id, 
+              url: data.url, 
+              order: data.order 
+            }]);
+          } catch (err: any) {
+            console.error('Upload to product error:', err);
+            // Fallback: загружаем просто как image
+            const { data } = await api.post('/upload/image', formData, {
+              headers: { 'Content-Type': 'multipart/form-data' },
+            });
+            setMediaItems((prev) => [...prev, { 
+              url: data.url, 
+              order: currentLength + i, 
+              file 
+            }]);
+          }
+        } else {
+          // Новый товар - загружаем и сохраняем file для привязки позже
+          const { data } = await api.post('/upload/image', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          setMediaItems((prev) => [...prev, { 
+            url: data.url, 
+            order: currentLength + i, 
+            file 
+          }]);
+        }
+      }
+    } catch (error: any) {
       console.error('Upload error:', error);
-      alert('Ошибка загрузки изображений');
+      const message = error.response?.data?.message || error.message || 'Ошибка загрузки';
+      alert(`Ошибка загрузки изображений: ${message}`);
     } finally {
       setUploading(false);
     }
-  }, [mediaItems.length]);
+  }, [mediaItems.length, isEditMode, id]);
 
   const removeMedia = async (index: number) => {
     const item = mediaItems[index];
@@ -489,9 +514,10 @@ export default function ProductForm() {
         productId = result.id;
       }
 
-      // Загрузка новых изображений для товара
-      const newMediaFiles = mediaItems.filter((item) => !item.id && item.file);
-      if (newMediaFiles.length > 0) {
+      // Загрузка новых изображений для товара (только для новых товаров)
+      // При редактировании изображения уже привязываются в handleFileUpload
+      if (!isEditMode) {
+        const newMediaFiles = mediaItems.filter((item) => !item.id && item.file);
         for (let i = 0; i < newMediaFiles.length; i++) {
           const item = newMediaFiles[i];
           if (item.file) {

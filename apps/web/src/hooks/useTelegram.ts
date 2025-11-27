@@ -284,6 +284,7 @@ export const useTelegram = (): UseTelegramReturn => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'X-App-Client': 'customer',
           },
           body: JSON.stringify({ initData }),
         })

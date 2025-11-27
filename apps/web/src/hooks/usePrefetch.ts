@@ -10,6 +10,20 @@ import { API_URL } from '../config/api'
  */
 export function usePrefetch() {
   const queryClient = useQueryClient()
+  const fetchCategory = async (slug: string) => {
+    const { data } = await axios.get(`${API_URL}/catalog/categories/${slug}`)
+    return data
+  }
+
+  const ensureCategory = async (slug: string) => {
+    const cached = queryClient.getQueryData<any>(queryKeys.categories.detail(slug))
+    if (cached?.id) {
+      return cached
+    }
+    const data = await fetchCategory(slug)
+    queryClient.setQueryData(queryKeys.categories.detail(slug), data)
+    return data
+  }
 
   /**
    * Prefetch товара по slug
@@ -18,7 +32,7 @@ export function usePrefetch() {
     await queryClient.prefetchQuery({
       queryKey: queryKeys.products.detail(slug),
       queryFn: async () => {
-        const response = await axios.get(`${API_URL}/products/${slug}`)
+        const response = await axios.get(`${API_URL}/catalog/products/${slug}`)
         return response.data
       },
       staleTime: 5 * 60 * 1000, // 5 минут
@@ -31,20 +45,7 @@ export function usePrefetch() {
   const prefetchCategory = async (slug: string) => {
     await queryClient.prefetchQuery({
       queryKey: queryKeys.categories.detail(slug),
-      queryFn: async () => {
-        const response = await axios.get(`${API_URL}/categories/${slug}`)
-        return response.data
-      },
-      staleTime: 5 * 60 * 1000, // 5 минут
-    })
-
-    // Также prefetch товары категории
-    await queryClient.prefetchQuery({
-      queryKey: queryKeys.products.byCategory(slug),
-      queryFn: async () => {
-        const response = await axios.get(`${API_URL}/categories/${slug}/products`)
-        return response.data
-      },
+      queryFn: () => fetchCategory(slug),
       staleTime: 5 * 60 * 1000, // 5 минут
     })
   }
@@ -57,11 +58,23 @@ export function usePrefetch() {
     page: number,
     filters?: Record<string, any>,
   ) => {
+    const category = await ensureCategory(categorySlug)
+    if (!category?.id) {
+      return
+    }
+
     await queryClient.prefetchQuery({
       queryKey: queryKeys.products.byCategory(categorySlug, { ...filters, page }),
       queryFn: async () => {
-        const response = await axios.get(`${API_URL}/categories/${categorySlug}/products`, {
-          params: { ...filters, page },
+        const limit = filters?.limit ?? 12
+        const response = await axios.get(`${API_URL}/catalog/products`, {
+          params: {
+            categoryId: category.id,
+            activeOnly: 'true',
+            page,
+            limit,
+            ...filters,
+          },
         })
         return response.data
       },

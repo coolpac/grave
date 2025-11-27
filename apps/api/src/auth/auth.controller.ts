@@ -1,4 +1,4 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, Get, Query } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, Get, Query, Headers } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { ValidateInitDataDto } from './dto/validate-init-data.dto';
@@ -11,8 +11,11 @@ export class AuthController {
 
   @Post('validate')
   @HttpCode(HttpStatus.OK)
-  async validate(@Body() validateDto: ValidateInitDataDto): Promise<AuthResponseDto> {
-    return this.authService.authenticate(validateDto);
+  async validate(
+    @Body() validateDto: ValidateInitDataDto,
+    @Headers('x-app-client') clientType?: string,
+  ): Promise<AuthResponseDto> {
+    return this.authService.authenticate(validateDto, clientType);
   }
 
   /**
@@ -52,11 +55,12 @@ export class AuthController {
   async getAdminToken(
     @Body() body?: { initData?: string; telegramId?: string },
     @Query('telegramId') telegramIdQuery?: string,
+    @Headers('x-app-client') clientType?: string,
   ): Promise<{ token: string; message: string }> {
     const initData = body?.initData;
     const telegramId = body?.telegramId || telegramIdQuery;
 
-    return this.authService.generateAdminToken(initData, telegramId);
+    return this.authService.generateAdminToken(initData, telegramId, clientType);
   }
 
   /**
@@ -65,12 +69,15 @@ export class AuthController {
    */
   @Get('admin-token')
   @HttpCode(HttpStatus.OK)
-  async getAdminTokenGet(@Query('telegramId') telegramId?: string): Promise<{ token: string; message: string }> {
+  async getAdminTokenGet(
+    @Query('telegramId') telegramId?: string,
+    @Headers('x-app-client') clientType?: string,
+  ): Promise<{ token: string; message: string }> {
     if (!telegramId) {
       throw new Error('telegramId query parameter is required');
     }
 
-    return this.authService.generateAdminToken(undefined, telegramId);
+    return this.authService.generateAdminToken(undefined, telegramId, clientType);
   }
 }
 

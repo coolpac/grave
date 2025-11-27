@@ -332,10 +332,28 @@ export default function Product() {
     }
   }, [BackButton, MainButton, navigate])
 
-  // Оптимизированный обработчик добавления в корзину с useCallback
+  // Debounce ref для предотвращения множественных кликов
+  const addToCartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Очистка таймаута при размонтировании
+  useEffect(() => {
+    return () => {
+      if (addToCartTimeoutRef.current) {
+        clearTimeout(addToCartTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  // Оптимизированный обработчик добавления в корзину с useCallback и debounce
   const handleAddToCart = useCallback(() => {
     if (!product || isUpdatingCart) return
     
+    // Очищаем предыдущий таймаут если есть
+    if (addToCartTimeoutRef.current) {
+      clearTimeout(addToCartTimeoutRef.current)
+    }
+    
+    // Блокируем повторные клики на 500ms
     setIsUpdatingCart(true)
     
     // Определяем цену: если есть вариант, используем его цену, иначе базовую цену продукта
@@ -363,8 +381,11 @@ export default function Product() {
     })
     
     // Сбрасываем флаг обновления через небольшую задержку для UX
-    setTimeout(() => setIsUpdatingCart(false), 300)
-  }, [product, isUpdatingCart, selectedVariant, selectedPrice, currentPrice, addToCart])
+    addToCartTimeoutRef.current = setTimeout(() => {
+      setIsUpdatingCart(false)
+      addToCartTimeoutRef.current = null
+    }, 500) // Увеличено до 500ms для предотвращения множественных кликов
+  }, [product, isUpdatingCart, selectedVariant, selectedPrice, currentPrice, addToCart, analytics])
 
   // Удаление товара из корзины (уменьшение количества на 1)
   const handleRemoveFromCart = () => {

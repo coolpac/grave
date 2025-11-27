@@ -8,8 +8,9 @@ export function getThrottlerConfig(
   configService: ConfigService,
 ): ThrottlerModuleOptions {
   const isDevelopment = configService.get<string>('NODE_ENV') === 'development';
-  const throttleTtl = configService.get<number>('THROTTLE_TTL', 60000); // 1 minute
-  const throttleLimit = configService.get<number>('THROTTLE_LIMIT', 100); // 100 requests
+  // @nestjs/throttler expects TTL in seconds, не в миллисекундах
+  const throttleTtl = configService.get<number>('THROTTLE_TTL', 60); // 60 sec
+  const throttleLimit = configService.get<number>('THROTTLE_LIMIT', 100); // 100 req / ttl
 
   return [
     {
@@ -19,17 +20,17 @@ export function getThrottlerConfig(
     },
     {
       name: 'auth',
-      ttl: 60000, // 1 minute
+      ttl: 60, // 1 minute
       limit: 5, // Auth endpoints: 5 req/min (protection against brute force)
     },
     {
       name: 'orders',
-      ttl: 60000, // 1 minute
+      ttl: 60, // 1 minute
       limit: 10, // Orders endpoints: 10 req/min (protection against spam)
     },
     {
       name: 'strict',
-      ttl: 60000, // 1 minute
+      ttl: 60, // 1 minute
       limit: 3, // Very strict limit for sensitive operations
     },
   ];

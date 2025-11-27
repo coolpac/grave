@@ -1,6 +1,6 @@
 import { ReactNode, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Package, FolderTree, Image, Mail, ShoppingCart, Menu, X, Sparkles } from 'lucide-react';
+import { LayoutDashboard, Package, FolderTree, Image, Mail, ShoppingCart, Menu, X, Sparkles, ClipboardList } from 'lucide-react';
 import { clsx } from 'clsx';
 
 interface LayoutProps {
@@ -9,6 +9,7 @@ interface LayoutProps {
 
 const navigation = [
   { name: 'Дашборд', href: '/', icon: LayoutDashboard },
+  { name: 'Заказы', href: '/orders', icon: ClipboardList },
   { name: 'Категории', href: '/categories', icon: FolderTree },
   { name: 'Товары', href: '/products', icon: Package },
   { name: 'Баннеры', href: '/banners', icon: Image },

@@ -1,7 +1,9 @@
 import { Processor, Process } from '@nestjs/bull';
 import { Job } from 'bull';
-import { Injectable, LoggerService, Inject } from '@nestjs/common';
+import { Injectable, LoggerService, Inject, OnModuleInit } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { InjectQueue } from '@nestjs/bull';
+import { Queue } from 'bull';
 import {
   TELEGRAM_NOTIFICATION_QUEUE,
   TelegramNotificationJobData,
@@ -17,30 +19,77 @@ import { PrismaService } from '../../prisma/prisma.service';
  */
 @Processor(TELEGRAM_NOTIFICATION_QUEUE)
 @Injectable()
-export class TelegramNotificationProcessor {
+export class TelegramNotificationProcessor implements OnModuleInit {
   constructor(
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
     private readonly logger: LoggerService,
+    @InjectQueue(TELEGRAM_NOTIFICATION_QUEUE)
+    private readonly notificationQueue: Queue<TelegramNotificationJobData>,
     private readonly telegramBotClient: TelegramBotClientService,
     private readonly prisma: PrismaService,
   ) {}
 
+  async onModuleInit() {
+    // Логируем при инициализации модуля
+    this.logger.log({
+      message: '✅ TelegramNotificationProcessor initialized and ready',
+      queue: TELEGRAM_NOTIFICATION_QUEUE,
+    });
+
+    // Проверяем состояние очереди
+    try {
+      const [waiting, active, completed, failed] = await Promise.all([
+        this.notificationQueue.getWaitingCount(),
+        this.notificationQueue.getActiveCount(),
+        this.notificationQueue.getCompletedCount(),
+        this.notificationQueue.getFailedCount(),
+      ]);
+
+      this.logger.log({
+        message: 'Queue status on startup',
+        queue: TELEGRAM_NOTIFICATION_QUEUE,
+        waiting,
+        active,
+        completed,
+        failed,
+      });
+
+      // Если есть задачи в очереди, логируем
+      if (waiting > 0 || active > 0) {
+        this.logger.warn({
+          message: 'Queue has pending jobs on startup',
+          waiting,
+          active,
+        });
+      }
+    } catch (error) {
+      this.logger.error({
+        message: 'Failed to check queue status on startup',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  // Обрабатываем ВСЕ задачи из очереди (без указания имени)
   @Process({
-    name: 'telegram-notification',
     concurrency: 5, // Process up to 5 notifications concurrently
   })
   async handleTelegramNotification(job: Job<TelegramNotificationJobData>) {
     const { data } = job;
     const startTime = Date.now();
 
+    // Логируем начало обработки
+    this.logger.log({
+      message: '🔄 Processing Telegram notification job',
+      jobId: job.id,
+      jobName: job.name,
+      type: data.type,
+      recipient: data.recipient,
+      telegramId: data.telegramId,
+      attemptsMade: job.attemptsMade,
+    });
+
     try {
-      this.logger.log({
-        message: 'Processing Telegram notification',
-        jobId: job.id,
-        type: data.type,
-        recipient: data.recipient,
-        telegramId: data.telegramId,
-      });
 
       // Handle different notification types
       switch (data.type) {
@@ -91,6 +140,11 @@ export class TelegramNotificationProcessor {
     const orderData = data.data as any;
 
     if (!orderData) {
+      this.logger.error({
+        message: 'Order data is missing in notification job',
+        jobId: data.type,
+        data,
+      });
       throw new Error('Order data is missing');
     }
 
@@ -100,16 +154,53 @@ export class TelegramNotificationProcessor {
       orderId: orderData.orderId || orderData.id || 0,
       customerName: orderData.customerName || '',
       customerPhone: orderData.customerPhone || '',
+      customerEmail: orderData.customerEmail,
+      customerAddress: orderData.customerAddress,
+      comment: orderData.comment,
       total: orderData.total || 0,
       items: orderData.items || [],
       createdAt: orderData.createdAt || new Date(),
+      status: orderData.status,
+      paymentStatus: orderData.paymentStatus,
     };
+
+    this.logger.log({
+      message: 'Processing order_created notification',
+      orderNumber: notificationData.orderNumber,
+      orderId: notificationData.orderId,
+      recipient: data.recipient,
+      telegramId: data.telegramId,
+      itemsCount: notificationData.items.length,
+      total: notificationData.total,
+    });
 
     const promises: Promise<boolean>[] = [];
 
     // Send notification to admin
     if (data.recipient === 'admin' || data.recipient === 'both') {
-      promises.push(this.telegramBotClient.notifyAdminNewOrder(notificationData));
+      this.logger.log({
+        message: 'Sending admin notification',
+        orderNumber: notificationData.orderNumber,
+      });
+      promises.push(
+        this.telegramBotClient
+          .notifyAdminNewOrder(notificationData)
+          .then((success) => {
+            this.logger.log({
+              message: `Admin notification ${success ? 'sent' : 'failed'}`,
+              orderNumber: notificationData.orderNumber,
+            });
+            return success;
+          })
+          .catch((error) => {
+            this.logger.error({
+              message: 'Admin notification error',
+              orderNumber: notificationData.orderNumber,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            return false;
+          }),
+      );
     }
 
     // Send notification to customer if telegramId provided
@@ -117,15 +208,57 @@ export class TelegramNotificationProcessor {
       (data.recipient === 'customer' || data.recipient === 'both') &&
       data.telegramId
     ) {
+      this.logger.log({
+        message: 'Sending customer notification',
+        orderNumber: notificationData.orderNumber,
+        telegramId: data.telegramId,
+      });
       promises.push(
-        this.telegramBotClient.notifyCustomerNewOrder(
-          data.telegramId,
-          notificationData,
-        ),
+        this.telegramBotClient
+          .notifyCustomerNewOrder(data.telegramId, notificationData)
+          .then((success) => {
+            this.logger.log({
+              message: `Customer notification ${success ? 'sent' : 'failed'}`,
+              orderNumber: notificationData.orderNumber,
+              telegramId: data.telegramId,
+            });
+            return success;
+          })
+          .catch((error) => {
+            this.logger.error({
+              message: 'Customer notification error',
+              orderNumber: notificationData.orderNumber,
+              telegramId: data.telegramId,
+              error: error instanceof Error ? error.message : String(error),
+            });
+            return false;
+          }),
       );
+    } else if (data.recipient === 'customer' || data.recipient === 'both') {
+      this.logger.warn({
+        message: 'Customer notification skipped - no telegramId',
+        orderNumber: notificationData.orderNumber,
+        recipient: data.recipient,
+      });
     }
 
-    await Promise.allSettled(promises);
+    const results = await Promise.allSettled(promises);
+    
+    const successCount = results.filter(
+      (r) => r.status === 'fulfilled' && r.value === true,
+    ).length;
+    
+    this.logger.log({
+      message: 'Order notification processing completed',
+      orderNumber: notificationData.orderNumber,
+      totalPromises: promises.length,
+      successCount,
+      results: results.map((r) => ({
+        status: r.status,
+        value: r.status === 'fulfilled' ? r.value : undefined,
+        reason: r.status === 'rejected' ? String(r.reason) : undefined,
+      })),
+    });
   }
 
   private async handleOrderStatusChanged(data: TelegramNotificationJobData) {

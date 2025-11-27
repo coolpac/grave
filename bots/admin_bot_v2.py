@@ -33,12 +33,28 @@ logger = logging.getLogger(__name__)
 # Config
 # Admin Bot требует отдельный токен (ADMIN_BOT_TOKEN)
 BOT_TOKEN = os.getenv('ADMIN_BOT_TOKEN', '')
-ADMIN_CHAT_ID = os.getenv('ADMIN_CHAT_ID') or os.getenv('TELEGRAM_MANAGER_CHAT_ID', '')
-ADMIN_WHITELIST = [x.strip() for x in os.getenv('ADMIN_WHITELIST', '').split(',') if x.strip()]
+ADMIN_CHAT_ID_RAW = os.getenv('ADMIN_CHAT_ID') or os.getenv('TELEGRAM_MANAGER_CHAT_ID', '')
+ADMIN_WHITELIST_RAW = os.getenv('ADMIN_WHITELIST', '')
 API_URL = os.getenv('API_URL', 'http://localhost:3000/api')
 PORT = int(os.getenv('ADMIN_BOT_PORT', '8002'))
 USE_WEBHOOK = os.getenv('USE_WEBHOOK', 'false').lower() == 'true'
 WEBHOOK_URL = os.getenv('ADMIN_BOT_WEBHOOK_URL', '')
+
+# Игнорируем дефолтные значения (123456789 - это placeholder)
+DEFAULT_PLACEHOLDER_IDS = ['123456789', '123456', '0', '']
+
+# Обработка ADMIN_CHAT_ID - игнорируем дефолтные значения
+ADMIN_CHAT_ID = None
+if ADMIN_CHAT_ID_RAW and ADMIN_CHAT_ID_RAW not in DEFAULT_PLACEHOLDER_IDS:
+    ADMIN_CHAT_ID = ADMIN_CHAT_ID_RAW
+
+# Обработка ADMIN_WHITELIST - парсим и фильтруем дефолтные значения
+ADMIN_WHITELIST = []
+if ADMIN_WHITELIST_RAW:
+    for admin_id in ADMIN_WHITELIST_RAW.split(','):
+        admin_id = admin_id.strip()
+        if admin_id and admin_id not in DEFAULT_PLACEHOLDER_IDS:
+            ADMIN_WHITELIST.append(admin_id)
 
 if BOT_TOKEN:
     logger.info(f'✅ Admin Bot token loaded')
@@ -47,8 +63,15 @@ else:
 
 if ADMIN_CHAT_ID:
     logger.info(f'✅ Admin chat ID: {ADMIN_CHAT_ID}')
+elif ADMIN_CHAT_ID_RAW in DEFAULT_PLACEHOLDER_IDS:
+    logger.info(f'ℹ️  ADMIN_CHAT_ID is set to default placeholder - ignoring')
 else:
     logger.warning('⚠️ ADMIN_CHAT_ID not set')
+
+if ADMIN_WHITELIST:
+    logger.info(f'✅ Admin whitelist: {ADMIN_WHITELIST}')
+else:
+    logger.warning('⚠️ ADMIN_WHITELIST not set or contains only default values')
 
 # Models
 class OrderNotification(BaseModel):
@@ -68,15 +91,48 @@ class StatusNotification(BaseModel):
     status: str
     oldStatus: Optional[str] = None
 
-# Statuses
+# Statuses (для ритуальных товаров без доставки)
 STATUSES = {
     'NEW': ('🆕', 'Новый', ['CONFIRMED', 'CANCELLED']),
+    'PENDING': ('🆕', 'Новый', ['CONFIRMED', 'CANCELLED']),
     'CONFIRMED': ('✅', 'Подтверждён', ['PROCESSING', 'CANCELLED']),
-    'PROCESSING': ('🔄', 'В обработке', ['SHIPPED', 'CANCELLED']),
-    'SHIPPED': ('🚚', 'Отправлен', ['DELIVERED']),
-    'DELIVERED': ('🎉', 'Доставлен', []),
+    'PROCESSING': ('🔄', 'В работе', ['SHIPPED', 'CANCELLED']),
+    'SHIPPED': ('📦', 'Готов к выдаче', ['DELIVERED']),
+    'DELIVERED': ('🎉', 'Выдан', []),
     'CANCELLED': ('❌', 'Отменён', []),
 }
+
+# Список ID админов для уведомлений (из ADMIN_WHITELIST или ADMIN_CHAT_ID)
+def get_admin_ids() -> list:
+    """Получить список ID админов для отправки уведомлений"""
+    admin_ids = []
+    
+    # Сначала добавляем из ADMIN_WHITELIST (приоритет)
+    if ADMIN_WHITELIST:
+        for admin_id in ADMIN_WHITELIST:
+            try:
+                admin_id_int = int(admin_id)
+                # Проверяем, что это не дефолтное значение
+                if str(admin_id_int) not in DEFAULT_PLACEHOLDER_IDS:
+                    admin_ids.append(admin_id_int)
+                else:
+                    logger.warning(f"Skipping default placeholder ID: {admin_id}")
+            except ValueError:
+                logger.warning(f"Invalid admin ID in whitelist: {admin_id}")
+    
+    # Если ADMIN_CHAT_ID указан и его нет в списке - добавляем (только если не дефолтный)
+    if ADMIN_CHAT_ID:
+        try:
+            chat_id = int(ADMIN_CHAT_ID)
+            if str(chat_id) not in DEFAULT_PLACEHOLDER_IDS:
+                if chat_id not in admin_ids:
+                    admin_ids.append(chat_id)
+            else:
+                logger.warning(f"Skipping default placeholder ADMIN_CHAT_ID: {ADMIN_CHAT_ID}")
+        except ValueError:
+            logger.warning(f"Invalid ADMIN_CHAT_ID: {ADMIN_CHAT_ID}")
+    
+    return admin_ids
 
 application: Optional[Application] = None
 
@@ -149,10 +205,27 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Notifications
 async def send_order_notification(data: OrderNotification) -> bool:
-    if not ADMIN_CHAT_ID:
+    """Отправить уведомление о новом заказе ВСЕМ админам из ADMIN_WHITELIST"""
+    admin_ids = get_admin_ids()
+    
+    logger.info(f"🔄 Processing order notification for #{data.orderNumber}")
+    logger.info(f"📋 Admin IDs to notify: {admin_ids}")
+    
+    if not admin_ids:
+        logger.error("❌ No admin IDs configured - cannot send notification")
+        logger.error("   Set ADMIN_WHITELIST or ADMIN_CHAT_ID in environment")
         return False
+    
+    if not BOT_TOKEN:
+        logger.error("❌ BOT_TOKEN not set - cannot send notification")
+        return False
+    
     try:
         bot = get_bot()
+        if not bot:
+            logger.error("❌ Bot not initialized")
+            return False
+        
         msg = f"""
 🆕 <b>НОВЫЙ ЗАКАЗ!</b>
 
@@ -160,6 +233,9 @@ async def send_order_notification(data: OrderNotification) -> bool:
 
 👤 {data.customerName}
 📱 {data.customerPhone}
+{f'📧 {data.customerEmail}' if data.customerEmail else ''}
+{f'📍 {data.customerAddress}' if data.customerAddress else ''}
+{f'💬 Комментарий: {data.comment}' if data.comment else ''}
 
 📦 <b>Товары:</b>
 {data.items}
@@ -168,12 +244,66 @@ async def send_order_notification(data: OrderNotification) -> bool:
 
 ⚡️ Требуется обработка!
         """.strip()
-        await bot.send_message(chat_id=ADMIN_CHAT_ID, text=msg, parse_mode=ParseMode.HTML,
-            reply_markup=order_keyboard(data.orderNumber, 'NEW'))
-        logger.info(f"Order notification sent: #{data.orderNumber}")
-        return True
-    except TelegramError as e:
-        logger.error(f"Failed to send notification: {e}")
+        
+        # Отправляем уведомление КАЖДОМУ админу
+        success_count = 0
+        failed_count = 0
+        
+        for admin_id in admin_ids:
+            try:
+                logger.info(f"📤 Attempting to send notification to admin {admin_id} (type: {type(admin_id).__name__})")
+                
+                # Проверяем, может ли бот писать пользователю (получаем информацию о чате)
+                try:
+                    chat = await bot.get_chat(chat_id=admin_id)
+                    logger.info(f"✅ Chat info retrieved for {admin_id}: {chat.type if hasattr(chat, 'type') else 'user'}")
+                except Forbidden:
+                    logger.error(f"❌ Admin {admin_id}: Bot is blocked or user hasn't started the bot. User MUST send /start first!")
+                    failed_count += 1
+                    continue
+                except BadRequest as e:
+                    logger.error(f"❌ Admin {admin_id}: Invalid chat ID or chat not found: {e}")
+                    failed_count += 1
+                    continue
+                
+                # Отправляем сообщение
+                await bot.send_message(
+                    chat_id=admin_id, 
+                    text=msg, 
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=order_keyboard(data.orderNumber, 'NEW')
+                )
+                logger.info(f"✅ Notification sent successfully to admin {admin_id}")
+                success_count += 1
+                
+            except Forbidden as e:
+                logger.error(f"❌ Admin {admin_id}: Bot blocked or user hasn't started the bot. Error: {e}")
+                logger.error(f"   💡 User {admin_id} MUST send /start to the bot first!")
+                failed_count += 1
+            except BadRequest as e:
+                error_msg = str(e)
+                if "chat not found" in error_msg.lower():
+                    logger.error(f"❌ Admin {admin_id}: Chat not found - user hasn't started the bot!")
+                    logger.error(f"   💡 User {admin_id} MUST send /start to the bot first!")
+                else:
+                    logger.error(f"❌ Admin {admin_id}: Bad request: {e}")
+                failed_count += 1
+            except TelegramError as e:
+                logger.error(f"❌ Admin {admin_id}: Telegram error: {e}")
+                failed_count += 1
+            except Exception as e:
+                logger.exception(f"❌ Admin {admin_id}: Unexpected error: {e}")
+                failed_count += 1
+        
+        logger.info(f"📊 Notification results for #{data.orderNumber}: {success_count} sent, {failed_count} failed out of {len(admin_ids)} total")
+        
+        if failed_count > 0:
+            logger.warning(f"⚠️  {failed_count} admin(s) didn't receive notification. They must send /start to the bot first!")
+        
+        return success_count > 0
+        
+    except Exception as e:
+        logger.exception(f"❌ Unexpected error sending notifications: {e}")
         return False
 
 async def send_status_notification(data: StatusNotification) -> bool:
@@ -243,8 +373,15 @@ async def webhook(request: Request):
 
 @api.post("/notify/admin")
 async def notify_admin(data: OrderNotification, bg: BackgroundTasks):
+    logger.info(f"📥 Received admin notification request for order #{data.orderNumber}")
+    
+    if not ADMIN_CHAT_ID:
+        logger.error("❌ ADMIN_CHAT_ID not set - cannot send notification")
+        raise HTTPException(status_code=500, detail="ADMIN_CHAT_ID not configured")
+    
+    logger.info(f"📤 Queuing notification to admin chat ID: {ADMIN_CHAT_ID}")
     bg.add_task(send_order_notification, data)
-    return {"status": "queued"}
+    return {"status": "queued", "orderNumber": data.orderNumber, "adminChatId": ADMIN_CHAT_ID}
 
 @api.post("/notify/status")
 async def notify_status(data: StatusNotification, bg: BackgroundTasks):

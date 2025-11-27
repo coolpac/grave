@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, LoggerService, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, LoggerService, Inject, OnModuleInit } from '@nestjs/common';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -6,14 +6,52 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PaginationDto, createPaginatedResponse } from '../common/dto/pagination.dto';
+import { DEFAULT_CATEGORIES } from './catalog.defaults';
 
 @Injectable()
-export class CatalogService {
+export class CatalogService implements OnModuleInit {
   constructor(
     private prisma: PrismaService,
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
     private readonly logger: LoggerService,
   ) {}
+
+  async onModuleInit() {
+    await this.ensureDefaultCategories();
+  }
+
+  private async ensureDefaultCategories() {
+    try {
+      await Promise.all(
+        DEFAULT_CATEGORIES.map((category, index) =>
+          this.prisma.category.upsert({
+            where: { slug: category.slug },
+            update: {
+              name: category.name,
+              description: category.description,
+              image: category.image,
+              order: category.order ?? index,
+              isActive: category.isActive ?? true,
+            },
+            create: {
+              slug: category.slug,
+              name: category.name,
+              description: category.description,
+              image: category.image,
+              order: category.order ?? index,
+              isActive: category.isActive ?? true,
+            },
+          }),
+        ),
+      );
+      this.logger.log(`Ensured ${DEFAULT_CATEGORIES.length} default catalog categories are present`);
+    } catch (error) {
+      this.logger.error({
+        message: 'Failed to ensure default categories',
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 
   // Categories CRUD
   async createCategory(createDto: CreateCategoryDto) {

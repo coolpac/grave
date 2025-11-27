@@ -17,46 +17,47 @@ export class AuthService {
 
   /**
    * Валидация Telegram initData по HMAC и TTL
-   * Использует ADMIN_BOT_TOKEN (приоритет) или BOT_TOKEN (fallback)
-   * 
-   * Логика:
-   * 1. Если указан ADMIN_BOT_TOKEN - используем его
-   * 2. Если нет ADMIN_BOT_TOKEN, но есть BOT_TOKEN - используем BOT_TOKEN
-   * 3. Если оба пустые - ошибка (кроме development)
+   * Перебирает доступные токены (ADMIN_BOT_TOKEN, BOT_TOKEN, CUSTOMER_BOT_TOKEN)
+   * в указанном порядке до тех пор, пока проверка не пройдет.
    */
-  validateInitData(initData: string): boolean {
+  validateInitData(initData: string, clientType?: string): boolean {
     try {
-      // Приоритет: ADMIN_BOT_TOKEN, затем BOT_TOKEN
-      const adminBotToken = process.env.ADMIN_BOT_TOKEN?.trim();
-      const botToken = process.env.BOT_TOKEN?.trim();
-      
-      // Определяем токен для валидации
-      let tokenToUse: string | undefined;
-      
-      if (adminBotToken && adminBotToken !== '') {
-        tokenToUse = adminBotToken;
-        this.logger.debug('Using ADMIN_BOT_TOKEN for initData validation');
-      } else if (botToken && botToken !== '') {
-        tokenToUse = botToken;
-        this.logger.debug('Using BOT_TOKEN for initData validation (ADMIN_BOT_TOKEN not set)');
-      }
+      const preferredOrder = this.getTokenPriority(clientType);
+      const tokensToTry = preferredOrder
+        .map((label) => ({
+          label,
+          value: (process.env[label] || '').trim(),
+        }))
+        .filter((token) => token.value);
 
-      // Если нет токенов
-      if (!tokenToUse) {
-        // В development режиме разрешаем работу без токенов
+      if (tokensToTry.length === 0) {
         if (process.env.NODE_ENV === 'development') {
           this.logger.warn('No bot tokens configured, skipping validation in development mode');
           return true;
         }
-        throw new Error('No bot tokens configured. Set ADMIN_BOT_TOKEN (recommended) or BOT_TOKEN');
+        throw new Error('No bot tokens configured. Set ADMIN_BOT_TOKEN, BOT_TOKEN or CUSTOMER_BOT_TOKEN.');
       }
 
-      // Используем готовый валидатор (maxAgeSec = 300 = 5 минут по умолчанию)
       const maxAgeSec = parseInt(process.env.INIT_DATA_MAX_AGE_SEC || '300', 10);
-      
-      // Валидируем initData с выбранным токеном
-      const result = verifyTelegramInitData(initData, tokenToUse, maxAgeSec);
-      return result.ok;
+      let lastReason: string | undefined;
+
+      for (const token of tokensToTry) {
+        const result = verifyTelegramInitData(initData, token.value as string, maxAgeSec);
+        if (result.ok) {
+          this.logger.debug(`initData validated with ${token.label}`);
+          return true;
+        }
+
+        lastReason = result.reason;
+        this.logger.warn(`initData validation failed for ${token.label}`, {
+          reason: result.reason,
+        });
+      }
+
+      this.logger.warn('initData validation failed for all bot tokens', {
+        reason: lastReason,
+      });
+      return false;
     } catch (error) {
       this.logger.error({
         message: 'Error validating initData',
@@ -64,6 +65,18 @@ export class AuthService {
         stack: error instanceof Error ? error.stack : undefined,
       });
       return false;
+    }
+  }
+
+  private getTokenPriority(clientType?: string): Array<'ADMIN_BOT_TOKEN' | 'BOT_TOKEN' | 'CUSTOMER_BOT_TOKEN'> {
+    const normalized = clientType?.toLowerCase();
+    switch (normalized) {
+      case 'admin':
+        return ['ADMIN_BOT_TOKEN', 'BOT_TOKEN', 'CUSTOMER_BOT_TOKEN'];
+      case 'customer':
+        return ['CUSTOMER_BOT_TOKEN', 'BOT_TOKEN', 'ADMIN_BOT_TOKEN'];
+      default:
+        return ['ADMIN_BOT_TOKEN', 'BOT_TOKEN', 'CUSTOMER_BOT_TOKEN'];
     }
   }
 
@@ -88,9 +101,9 @@ export class AuthService {
   /**
    * Аутентификация пользователя через Telegram initData
    */
-  async authenticate(validateDto: ValidateInitDataDto): Promise<AuthResponseDto> {
+  async authenticate(validateDto: ValidateInitDataDto, clientType?: string): Promise<AuthResponseDto> {
     // Валидация initData
-    if (!this.validateInitData(validateDto.initData)) {
+    if (!this.validateInitData(validateDto.initData, clientType)) {
       this.logger.warn('Invalid initData provided');
       throw new UnauthorizedException('Invalid initData');
     }
@@ -259,12 +272,13 @@ export class AuthService {
   async generateAdminToken(
     initData?: string,
     telegramId?: string,
+    clientType?: string,
   ): Promise<{ token: string; message: string }> {
     let targetTelegramId: string | null = null;
 
     // Если передан initData - валидируем и извлекаем telegramId
     if (initData) {
-      if (!this.validateInitData(initData)) {
+      if (!this.validateInitData(initData, clientType || 'admin')) {
         throw new UnauthorizedException('Invalid initData');
       }
 
