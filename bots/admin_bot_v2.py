@@ -153,11 +153,18 @@ def get_admin_ids() -> list:
         except ValueError:
             logger.warning(f"⚠️ Invalid ADMIN_CHAT_ID: {ADMIN_CHAT_ID}")
     
-    # Логируем финальный список
+    # Логируем финальный список с детальной информацией
     if admin_ids:
-        logger.info(f"✅ Final admin IDs to notify: {admin_ids}")
+        logger.info(f"✅ Final admin IDs to notify: {admin_ids} (types: {[type(id).__name__ for id in admin_ids]})")
+        logger.info(f"   Total count: {len(admin_ids)}")
+        for idx, admin_id in enumerate(admin_ids, 1):
+            logger.info(f"   [{idx}] Admin ID: {admin_id} (type: {type(admin_id).__name__}, value: {repr(admin_id)})")
     else:
         logger.error("❌ No valid admin IDs found! Check ADMIN_WHITELIST or ADMIN_CHAT_ID")
+        logger.error(f"   ADMIN_WHITELIST_RAW: '{ADMIN_WHITELIST_RAW}'")
+        logger.error(f"   ADMIN_CHAT_ID_RAW: '{ADMIN_CHAT_ID_RAW}'")
+        logger.error(f"   ADMIN_CHAT_ID (after filter): {ADMIN_CHAT_ID}")
+        logger.error(f"   ADMIN_WHITELIST (after filter): {ADMIN_WHITELIST}")
     
     return admin_ids
 
@@ -280,22 +287,38 @@ async def send_order_notification(data: OrderNotification) -> bool:
         
         for admin_id in admin_ids:
             try:
-                logger.info(f"📤 Attempting to send notification to admin {admin_id} (type: {type(admin_id).__name__})")
+                # Убеждаемся, что admin_id - это int (не строка)
+                if isinstance(admin_id, str):
+                    try:
+                        admin_id = int(admin_id)
+                        logger.warning(f"⚠️ Converted admin_id from string to int: {admin_id}")
+                    except ValueError:
+                        logger.error(f"❌ Admin ID '{admin_id}' is not a valid integer!")
+                        failed_count += 1
+                        continue
+                
+                logger.info(f"📤 Attempting to send notification to admin {admin_id} (type: {type(admin_id).__name__}, value: {repr(admin_id)})")
                 
                 # Проверяем, может ли бот писать пользователю (получаем информацию о чате)
                 try:
                     chat = await bot.get_chat(chat_id=admin_id)
-                    logger.info(f"✅ Chat info retrieved for {admin_id}: {chat.type if hasattr(chat, 'type') else 'user'}")
-                except Forbidden:
-                    logger.error(f"❌ Admin {admin_id}: Bot is blocked or user hasn't started the bot. User MUST send /start first!")
+                    logger.info(f"✅ Chat info retrieved for {admin_id}: type={chat.type if hasattr(chat, 'type') else 'user'}, id={chat.id if hasattr(chat, 'id') else 'N/A'}")
+                except Forbidden as e:
+                    logger.error(f"❌ Admin {admin_id}: Bot is blocked or user hasn't started the bot. Error: {e}")
+                    logger.error(f"   💡 User {admin_id} MUST send /start to the bot first!")
                     failed_count += 1
                     continue
                 except BadRequest as e:
-                    logger.error(f"❌ Admin {admin_id}: Invalid chat ID or chat not found: {e}")
+                    error_msg = str(e)
+                    logger.error(f"❌ Admin {admin_id}: BadRequest error: {error_msg}")
+                    if "chat not found" in error_msg.lower():
+                        logger.error(f"   💡 Chat not found - user {admin_id} may not have started the bot or ID is incorrect")
+                        logger.error(f"   💡 Try: User should send /start to the bot first")
                     failed_count += 1
                     continue
                 
                 # Отправляем сообщение
+                logger.info(f"📨 Sending message to chat_id={admin_id} (type: {type(admin_id).__name__})")
                 await bot.send_message(
                     chat_id=admin_id, 
                     text=msg, 
