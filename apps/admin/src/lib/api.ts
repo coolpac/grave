@@ -13,13 +13,22 @@ const api = axios.create({
 });
 
 // Добавляем токен из localStorage к каждому запросу
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('authToken');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Всегда добавляем X-App-Client для правильной валидации токена
+    if (!config.headers['X-App-Client']) {
+      config.headers['X-App-Client'] = 'admin';
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
-  return config;
-});
+);
 
 // Обработка ошибок 401 - перенаправление на логин
 api.interceptors.response.use(

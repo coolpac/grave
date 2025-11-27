@@ -59,11 +59,28 @@ export default function Orders() {
   const { data: orders, isLoading, error, refetch } = useQuery({
     queryKey: ['orders-admin', statusFilter],
     queryFn: async () => {
-      const params = statusFilter !== 'all' ? { status: statusFilter } : {};
-      const { data } = await api.get('/orders', { params });
-      return Array.isArray(data) ? data : [];
+      try {
+        const params = statusFilter !== 'all' ? { status: statusFilter } : {};
+        const { data } = await api.get('/orders', { params });
+        return Array.isArray(data) ? data : [];
+      } catch (err: any) {
+        console.error('Error fetching orders:', err);
+        // Если ошибка 401, токен истек - перезагружаем страницу для редиректа на логин
+        if (err.response?.status === 401) {
+          localStorage.removeItem('authToken');
+          window.location.href = import.meta.env.PROD ? '/admin/login' : '/login';
+        }
+        throw err;
+      }
     },
     refetchInterval: 30000,
+    retry: (failureCount, error: any) => {
+      // Не повторяем при 401/403 ошибках
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        return false;
+      }
+      return failureCount < 3;
+    },
   });
 
   const updateStatusMutation = useMutation({

@@ -35,6 +35,17 @@ export class OrdersController {
   ) {
     // Админы видят все заказы, пользователи - только свои
     const userId = user.role === 'ADMIN' ? undefined : user.id;
+    
+    // Логируем для отладки
+    if (process.env.NODE_ENV === 'development' || process.env.LOG_LEVEL === 'debug') {
+      console.log('Orders request:', {
+        userId: user.id,
+        role: user.role,
+        filterUserId: userId,
+        status,
+      });
+    }
+    
     return this.ordersService.findAllOrders(userId, status);
   }
 
