@@ -61,17 +61,31 @@ if BOT_TOKEN:
 else:
     logger.warning('⚠️ ADMIN_BOT_TOKEN not set - Admin Bot disabled')
 
+# Логирование настроек админов
 if ADMIN_CHAT_ID:
     logger.info(f'✅ Admin chat ID: {ADMIN_CHAT_ID}')
-elif ADMIN_CHAT_ID_RAW in DEFAULT_PLACEHOLDER_IDS:
-    logger.info(f'ℹ️  ADMIN_CHAT_ID is set to default placeholder - ignoring')
+elif ADMIN_CHAT_ID_RAW:
+    if ADMIN_CHAT_ID_RAW in DEFAULT_PLACEHOLDER_IDS:
+        logger.info(f'ℹ️  ADMIN_CHAT_ID="{ADMIN_CHAT_ID_RAW}" is default placeholder - IGNORED')
+    else:
+        logger.warning(f'⚠️ ADMIN_CHAT_ID="{ADMIN_CHAT_ID_RAW}" is invalid')
 else:
-    logger.warning('⚠️ ADMIN_CHAT_ID not set')
+    logger.info('ℹ️  ADMIN_CHAT_ID not set (will use ADMIN_WHITELIST if available)')
 
 if ADMIN_WHITELIST:
-    logger.info(f'✅ Admin whitelist: {ADMIN_WHITELIST}')
+    logger.info(f'✅ Admin whitelist: {ADMIN_WHITELIST} (will be used for notifications)')
 else:
     logger.warning('⚠️ ADMIN_WHITELIST not set or contains only default values')
+
+# Проверяем финальную конфигурацию
+final_admin_ids = get_admin_ids()
+if final_admin_ids:
+    logger.info(f'✅ Final configuration: {len(final_admin_ids)} admin(s) will receive notifications: {final_admin_ids}')
+else:
+    logger.error('❌ CRITICAL: No valid admin IDs configured! Notifications will fail!')
+    logger.error(f'   ADMIN_WHITELIST_RAW: "{ADMIN_WHITELIST_RAW}"')
+    logger.error(f'   ADMIN_CHAT_ID_RAW: "{ADMIN_CHAT_ID_RAW}"')
+    logger.error(f'   ADMIN_CHAT_ID (after filter): {ADMIN_CHAT_ID}')
 
 # Models
 class OrderNotification(BaseModel):
@@ -107,30 +121,43 @@ def get_admin_ids() -> list:
     """Получить список ID админов для отправки уведомлений"""
     admin_ids = []
     
+    # ВАЖНО: ADMIN_WHITELIST имеет приоритет над ADMIN_CHAT_ID
+    # Если ADMIN_WHITELIST установлен, используем только его
+    
     # Сначала добавляем из ADMIN_WHITELIST (приоритет)
     if ADMIN_WHITELIST:
+        logger.info(f"📋 Using ADMIN_WHITELIST: {ADMIN_WHITELIST}")
         for admin_id in ADMIN_WHITELIST:
             try:
                 admin_id_int = int(admin_id)
                 # Проверяем, что это не дефолтное значение
                 if str(admin_id_int) not in DEFAULT_PLACEHOLDER_IDS:
-                    admin_ids.append(admin_id_int)
+                    if admin_id_int not in admin_ids:
+                        admin_ids.append(admin_id_int)
+                        logger.debug(f"✅ Added admin ID from whitelist: {admin_id_int}")
                 else:
-                    logger.warning(f"Skipping default placeholder ID: {admin_id}")
+                    logger.warning(f"⚠️ Skipping default placeholder ID from whitelist: {admin_id}")
             except ValueError:
-                logger.warning(f"Invalid admin ID in whitelist: {admin_id}")
+                logger.warning(f"⚠️ Invalid admin ID in whitelist: {admin_id}")
     
-    # Если ADMIN_CHAT_ID указан и его нет в списке - добавляем (только если не дефолтный)
-    if ADMIN_CHAT_ID:
+    # Если ADMIN_WHITELIST пуст, используем ADMIN_CHAT_ID (только если не дефолтный)
+    if not admin_ids and ADMIN_CHAT_ID:
+        logger.info(f"📋 ADMIN_WHITELIST empty, using ADMIN_CHAT_ID: {ADMIN_CHAT_ID}")
         try:
             chat_id = int(ADMIN_CHAT_ID)
             if str(chat_id) not in DEFAULT_PLACEHOLDER_IDS:
-                if chat_id not in admin_ids:
-                    admin_ids.append(chat_id)
+                admin_ids.append(chat_id)
+                logger.debug(f"✅ Added admin ID from ADMIN_CHAT_ID: {chat_id}")
             else:
-                logger.warning(f"Skipping default placeholder ADMIN_CHAT_ID: {ADMIN_CHAT_ID}")
+                logger.warning(f"⚠️ Skipping default placeholder ADMIN_CHAT_ID: {ADMIN_CHAT_ID}")
         except ValueError:
-            logger.warning(f"Invalid ADMIN_CHAT_ID: {ADMIN_CHAT_ID}")
+            logger.warning(f"⚠️ Invalid ADMIN_CHAT_ID: {ADMIN_CHAT_ID}")
+    
+    # Логируем финальный список
+    if admin_ids:
+        logger.info(f"✅ Final admin IDs to notify: {admin_ids}")
+    else:
+        logger.error("❌ No valid admin IDs found! Check ADMIN_WHITELIST or ADMIN_CHAT_ID")
     
     return admin_ids
 
@@ -206,10 +233,12 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Notifications
 async def send_order_notification(data: OrderNotification) -> bool:
     """Отправить уведомление о новом заказе ВСЕМ админам из ADMIN_WHITELIST"""
+    logger.info(f"🔄 Processing order notification for #{data.orderNumber}")
+    
+    # Получаем список админов (с логированием внутри функции)
     admin_ids = get_admin_ids()
     
-    logger.info(f"🔄 Processing order notification for #{data.orderNumber}")
-    logger.info(f"📋 Admin IDs to notify: {admin_ids}")
+    logger.info(f"📋 Admin IDs to notify (final): {admin_ids} (count: {len(admin_ids)})")
     
     if not admin_ids:
         logger.error("❌ No admin IDs configured - cannot send notification")
@@ -307,17 +336,41 @@ async def send_order_notification(data: OrderNotification) -> bool:
         return False
 
 async def send_status_notification(data: StatusNotification) -> bool:
-    if not ADMIN_CHAT_ID:
+    """Отправить уведомление об изменении статуса заказа ВСЕМ админам"""
+    admin_ids = get_admin_ids()
+    
+    if not admin_ids:
+        logger.error("❌ No admin IDs configured - cannot send status notification")
         return False
+    
+    if not BOT_TOKEN:
+        logger.error("❌ BOT_TOKEN not set - cannot send notification")
+        return False
+    
     try:
         bot = get_bot()
+        if not bot:
+            logger.error("❌ Bot not initialized")
+            return False
+        
         e1, t1, _ = STATUSES.get(data.oldStatus.upper() if data.oldStatus else 'NEW', ('📋', '?', []))
         e2, t2, _ = STATUSES.get(data.status.upper(), ('📋', data.status, []))
         msg = f"🔄 <b>Статус изменён</b>\n\n#{data.orderNumber}\n{e1} {t1} → {e2} {t2}"
-        await bot.send_message(chat_id=ADMIN_CHAT_ID, text=msg, parse_mode=ParseMode.HTML)
-        return True
-    except TelegramError as e:
-        logger.error(f"Failed: {e}")
+        
+        success_count = 0
+        for admin_id in admin_ids:
+            try:
+                await bot.send_message(chat_id=admin_id, text=msg, parse_mode=ParseMode.HTML)
+                logger.info(f"✅ Status notification sent to admin {admin_id}")
+                success_count += 1
+            except (Forbidden, BadRequest) as e:
+                logger.error(f"❌ Admin {admin_id}: Cannot send status notification - {e}")
+            except TelegramError as e:
+                logger.error(f"❌ Admin {admin_id}: Telegram error: {e}")
+        
+        return success_count > 0
+    except Exception as e:
+        logger.exception(f"❌ Unexpected error sending status notification: {e}")
         return False
 
 # Error Handler
@@ -375,13 +428,18 @@ async def webhook(request: Request):
 async def notify_admin(data: OrderNotification, bg: BackgroundTasks):
     logger.info(f"📥 Received admin notification request for order #{data.orderNumber}")
     
-    if not ADMIN_CHAT_ID:
-        logger.error("❌ ADMIN_CHAT_ID not set - cannot send notification")
-        raise HTTPException(status_code=500, detail="ADMIN_CHAT_ID not configured")
+    # Проверяем, что есть админы для уведомления
+    admin_ids = get_admin_ids()
+    if not admin_ids:
+        error_msg = "No valid admin IDs configured. Set ADMIN_WHITELIST or valid ADMIN_CHAT_ID"
+        logger.error(f"❌ {error_msg}")
+        logger.error(f"   ADMIN_WHITELIST_RAW: '{ADMIN_WHITELIST_RAW}'")
+        logger.error(f"   ADMIN_CHAT_ID_RAW: '{ADMIN_CHAT_ID_RAW}'")
+        raise HTTPException(status_code=500, detail=error_msg)
     
-    logger.info(f"📤 Queuing notification to admin chat ID: {ADMIN_CHAT_ID}")
+    logger.info(f"📤 Queuing notification to {len(admin_ids)} admin(s): {admin_ids}")
     bg.add_task(send_order_notification, data)
-    return {"status": "queued", "orderNumber": data.orderNumber, "adminChatId": ADMIN_CHAT_ID}
+    return {"status": "queued", "orderNumber": data.orderNumber, "adminIds": admin_ids, "adminCount": len(admin_ids)}
 
 @api.post("/notify/status")
 async def notify_status(data: StatusNotification, bg: BackgroundTasks):

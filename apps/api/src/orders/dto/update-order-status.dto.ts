@@ -1,12 +1,14 @@
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 
-// Enums для SQLite
+// Enums для заказов (должны совпадать с Prisma schema)
 export enum OrderStatus {
   PENDING = 'PENDING',
+  CONFIRMED = 'CONFIRMED',
   PROCESSING = 'PROCESSING',
   SHIPPED = 'SHIPPED',
   DELIVERED = 'DELIVERED',
   CANCELLED = 'CANCELLED',
+  REFUNDED = 'REFUNDED',
 }
 
 export enum PaymentStatus {
