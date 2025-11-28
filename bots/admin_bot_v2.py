@@ -240,12 +240,19 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Notifications
 async def send_order_notification(data: OrderNotification) -> bool:
     """Отправить уведомление о новом заказе ВСЕМ админам из ADMIN_WHITELIST"""
+    logger.info("=" * 60)
     logger.info(f"🔄 Processing order notification for #{data.orderNumber}")
+    logger.info(f"   Order ID: {data.orderId}")
+    logger.info(f"   Customer: {data.customerName} ({data.customerPhone})")
+    logger.info(f"   Total: {data.total:,.0f} ₽")
     
     # Получаем список админов (с логированием внутри функции)
+    logger.info("📋 Getting admin IDs from get_admin_ids()...")
     admin_ids = get_admin_ids()
     
     logger.info(f"📋 Admin IDs to notify (final): {admin_ids} (count: {len(admin_ids)})")
+    logger.info(f"   Types: {[type(id).__name__ for id in admin_ids]}")
+    logger.info(f"   Values: {[repr(id) for id in admin_ids]}")
     
     if not admin_ids:
         logger.error("❌ No admin IDs configured - cannot send notification")
@@ -256,11 +263,15 @@ async def send_order_notification(data: OrderNotification) -> bool:
         logger.error("❌ BOT_TOKEN not set - cannot send notification")
         return False
     
+    logger.info(f"🔑 BOT_TOKEN: {BOT_TOKEN[:10]}...{BOT_TOKEN[-5:]} (length: {len(BOT_TOKEN)})")
+    
     try:
         bot = get_bot()
         if not bot:
             logger.error("❌ Bot not initialized")
             return False
+        
+        logger.info(f"🤖 Bot initialized: {bot.username if hasattr(bot, 'username') else 'N/A'} (ID: {bot.id if hasattr(bot, 'id') else 'N/A'})")
         
         msg = f"""
 🆕 <b>НОВЫЙ ЗАКАЗ!</b>
