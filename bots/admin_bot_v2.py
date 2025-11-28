@@ -217,31 +217,184 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not is_admin(q.from_user.id):
         await q.answer("⛔ Доступ запрещён", show_alert=True)
         return
-    await q.answer()
+    
+    await q.answer()  # Отвечаем на callback сразу
     data = q.data
     
-    if data == "main":
-        await q.edit_message_text("🏠 <b>Меню</b>", parse_mode=ParseMode.HTML, reply_markup=main_keyboard())
-    elif data == "stats":
-        await q.edit_message_text("📊 <b>Статистика</b>\n\nЗагрузка...", parse_mode=ParseMode.HTML,
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Назад", callback_data="main")]]))
-    elif data == "orders":
-        await q.edit_message_text("📦 <b>Заказы</b>", parse_mode=ParseMode.HTML,
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("🆕 Новые", callback_data="ord_NEW")],
-                [InlineKeyboardButton("◀️ Назад", callback_data="main")]
-            ]))
-    elif data.startswith("st_"):
-        parts = data.split("_")
-        if len(parts) >= 3:
-            order_num, new_status = parts[1], parts[2]
-            emoji, text, _ = STATUSES.get(new_status, ('📋', new_status, []))
-            await q.answer(f"✅ Статус: {text}", show_alert=True)
-            # TODO: API call to update status
-    elif data.startswith("det_"):
-        order_num = data.replace("det_", "")
-        await q.edit_message_text(f"📦 <b>Заказ #{order_num}</b>\n\nЗагрузка...", parse_mode=ParseMode.HTML,
-            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Назад", callback_data="main")]]))
+    try:
+        if data == "main":
+            await q.edit_message_text(
+                "🏠 <b>Меню</b>\n\nВыберите действие:",
+                parse_mode=ParseMode.HTML,
+                reply_markup=main_keyboard()
+            )
+        elif data == "stats":
+            # TODO: Реализовать статистику
+            await q.edit_message_text(
+                "📊 <b>Статистика</b>\n\nФункция в разработке...",
+                parse_mode=ParseMode.HTML,
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Назад", callback_data="main")]])
+            )
+        elif data == "orders":
+            await q.edit_message_text(
+                "📦 <b>Заказы</b>\n\nВыберите статус:",
+                parse_mode=ParseMode.HTML,
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("🆕 Новые", callback_data="ord_NEW")],
+                    [InlineKeyboardButton("✅ Подтверждённые", callback_data="ord_CONFIRMED")],
+                    [InlineKeyboardButton("🔄 В работе", callback_data="ord_PROCESSING")],
+                    [InlineKeyboardButton("📦 Готов к выдаче", callback_data="ord_SHIPPED")],
+                    [InlineKeyboardButton("◀️ Назад", callback_data="main")]
+                ])
+            )
+        elif data.startswith("ord_"):
+            # Показать заказы по статусу
+            status = data.replace("ord_", "")
+            emoji, text, _ = STATUSES.get(status, ('📋', status, []))
+            
+            try:
+                async with aiohttp.ClientSession() as session:
+                    # Используем JWT_SECRET как API ключ (fallback на BOT_API_KEY если есть)
+                    api_key = os.getenv('BOT_API_KEY') or os.getenv('JWT_SECRET', '')
+                    headers = {
+                        'X-Bot-API-Key': api_key,
+                        'Content-Type': 'application/json',
+                    }
+                    url = f"{API_URL}/bots/orders?status={status}"
+                    
+                    async with session.get(url, headers=headers) as resp:
+                        if resp.status == 200:
+                            orders = await resp.json()
+                            if orders and len(orders) > 0:
+                                orders_text = "\n".join([
+                                    f"• #{o.get('orderNumber', 'N/A')} - {o.get('customerName', 'N/A')} - {o.get('total', 0):,.0f} ₽"
+                                    for o in orders[:10]  # Показываем первые 10
+                                ])
+                                if len(orders) > 10:
+                                    orders_text += f"\n\n... и ещё {len(orders) - 10} заказов"
+                                msg = f"📦 <b>{emoji} {text}</b>\n\n{orders_text}"
+                            else:
+                                msg = f"📦 <b>{emoji} {text}</b>\n\nЗаказы не найдены"
+                        else:
+                            error_text = await resp.text()
+                            logger.error(f"API error: {resp.status} - {error_text}")
+                            msg = f"❌ Ошибка загрузки заказов: {resp.status}"
+                            
+                await q.edit_message_text(
+                    msg,
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=InlineKeyboardMarkup([
+                        [InlineKeyboardButton("◀️ Назад", callback_data="orders")]
+                    ])
+                )
+            except Exception as e:
+                logger.exception(f"Error fetching orders: {e}")
+                await q.edit_message_text(
+                    f"❌ Ошибка: {str(e)}",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Назад", callback_data="orders")]])
+                )
+        elif data.startswith("st_"):
+            # Обновление статуса заказа
+            parts = data.split("_")
+            if len(parts) >= 3:
+                order_num, new_status = parts[1], parts[2]
+                emoji, text, _ = STATUSES.get(new_status, ('📋', new_status, []))
+                
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        api_key = os.getenv('BOT_API_KEY') or os.getenv('JWT_SECRET', '')
+                        headers = {
+                            'X-Bot-API-Key': api_key,
+                            'Content-Type': 'application/json',
+                        }
+                        url = f"{API_URL}/bots/orders/number/{order_num}/status"
+                        payload = {"status": new_status}
+                        
+                        async with session.patch(url, json=payload, headers=headers) as resp:
+                            if resp.status == 200:
+                                order_data = await resp.json()
+                                await q.answer(f"✅ Статус изменён на: {text}", show_alert=True)
+                                
+                                # Обновляем клавиатуру с новым статусом
+                                new_keyboard = order_keyboard(order_num, new_status)
+                                await q.edit_message_reply_markup(reply_markup=new_keyboard)
+                            else:
+                                error_text = await resp.text()
+                                logger.error(f"API error updating status: {resp.status} - {error_text}")
+                                await q.answer(f"❌ Ошибка: {resp.status}", show_alert=True)
+                except Exception as e:
+                    logger.exception(f"Error updating order status: {e}")
+                    await q.answer(f"❌ Ошибка: {str(e)}", show_alert=True)
+        elif data.startswith("det_"):
+            # Показать детали заказа
+            order_num = data.replace("det_", "")
+            
+            try:
+                async with aiohttp.ClientSession() as session:
+                    api_key = os.getenv('BOT_API_KEY') or os.getenv('JWT_SECRET', '')
+                    headers = {
+                        'X-Bot-API-Key': api_key,
+                        'Content-Type': 'application/json',
+                    }
+                    url = f"{API_URL}/bots/orders/number/{order_num}"
+                    
+                    async with session.get(url, headers=headers) as resp:
+                        if resp.status == 200:
+                            order = await resp.json()
+                            items_text = "\n".join([
+                                f"  • {item.get('productName', 'N/A')} {item.get('variantName', '')} - {item.get('quantity', 0)} шт. × {item.get('price', 0):,.0f} ₽"
+                                for item in order.get('items', [])
+                            ])
+                            
+                            status_emoji, status_text, _ = STATUSES.get(order.get('status', 'NEW'), ('📋', 'Новый', []))
+                            
+                            msg = f"""📦 <b>Заказ #{order.get('orderNumber', 'N/A')}</b>
+
+👤 <b>Клиент:</b>
+{order.get('customerName', 'N/A')}
+📱 {order.get('customerPhone', 'N/A')}
+{f"📧 {order.get('customerEmail', '')}" if order.get('customerEmail') else ''}
+{f"📍 {order.get('customerAddress', '')}" if order.get('customerAddress') else ''}
+
+📦 <b>Товары:</b>
+{items_text}
+
+💰 <b>Сумма:</b> {order.get('total', 0):,.0f} ₽
+
+📊 <b>Статус:</b> {status_emoji} {status_text}
+💳 <b>Оплата:</b> {'✅ Оплачен' if order.get('paymentStatus') == 'PAID' else '⏳ Не оплачен'}
+
+{f"💬 <b>Комментарий:</b> {order.get('comment', '')}" if order.get('comment') else ''}
+                            """.strip()
+                            
+                            await q.edit_message_text(
+                                msg,
+                                parse_mode=ParseMode.HTML,
+                                reply_markup=InlineKeyboardMarkup([
+                                    [InlineKeyboardButton("◀️ Назад", callback_data="main")]
+                                ])
+                            )
+                        else:
+                            error_text = await resp.text()
+                            logger.error(f"API error: {resp.status} - {error_text}")
+                            await q.edit_message_text(
+                                f"❌ Ошибка загрузки заказа: {resp.status}",
+                                parse_mode=ParseMode.HTML,
+                                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Назад", callback_data="main")]])
+                            )
+            except Exception as e:
+                logger.exception(f"Error fetching order details: {e}")
+                await q.edit_message_text(
+                    f"❌ Ошибка: {str(e)}",
+                    parse_mode=ParseMode.HTML,
+                    reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Назад", callback_data="main")]])
+                )
+        else:
+            await q.answer("❓ Неизвестная команда", show_alert=True)
+    except Exception as e:
+        logger.exception(f"Error in callback handler: {e}")
+        await q.answer(f"❌ Ошибка: {str(e)}", show_alert=True)
 
 # Notifications
 async def send_order_notification(data: OrderNotification) -> bool:
