@@ -9,6 +9,7 @@ import axios from 'axios'
 import { useReducedMotion } from '../hooks/useReducedMotion'
 import { getAnimationVariants, getTransition, hoverLift, staggerContainer, staggerItem } from '../utils/animation-variants'
 import { usePrefetch } from '../hooks/usePrefetch'
+import Header from '../components/Header'
 
 import { API_URL } from '../config/api'
 
@@ -233,6 +234,7 @@ export default function MaterialCategories() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <Header />
       {/* Используем Telegram BackButton */}
       <div className="h-2" />
       

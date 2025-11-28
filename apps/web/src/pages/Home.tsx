@@ -11,6 +11,7 @@ import { BannerCarousel, type BannerCarouselItem } from '../components/BannerCar
 import { usePrefetch } from '../hooks/usePrefetch'
 import { useReducedMotion } from '../hooks/useReducedMotion'
 import { getAnimationVariants, getTransition, hoverLift } from '../utils/animation-variants'
+import Header from '../components/Header'
 
 import { API_URL } from '../config/api'
 
@@ -254,6 +255,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <Header />
       {/* Hero Section - без анимации на критическом пути */}
       <div className="px-4 pt-6 pb-4">
         <div className="space-y-2">

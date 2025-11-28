@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import axios from 'axios'
 import { useReducedMotion } from '../hooks/useReducedMotion'
 import { getAnimationVariants, getTransition } from '../utils/animation-variants'
+import Header from '../components/Header'
 
 import { API_URL } from '../config/api'
 
@@ -372,6 +373,7 @@ export default function Orders() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pb-24">
+      <Header />
       {/* Используем Telegram BackButton */}
       <div className="h-2" />
 

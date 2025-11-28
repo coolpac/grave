@@ -364,11 +364,21 @@ body.loading {
   width: 100%;
   min-height: 72px;
   height: 96px;
-  position: relative;
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
   flex-shrink: 0;
   /* Учитываем Telegram safe area - фон начинается строго под верхним баром Telegram */
   padding-top: max(var(--tg-top-safe, env(safe-area-inset-top, 0px)), 0px);
   /* Базовые стили будут переопределены модификаторами темы (.granite-header-light/.granite-header-dark) */
+}
+
+/* Spacer для контента под фиксированным хедером */
+.granite-header-spacer {
+  height: calc(max(var(--tg-top-safe, env(safe-area-inset-top, 0px)), 0px) + 96px);
+  flex-shrink: 0;
 }
 
 /* 3D Stone Header для страницы категорий */
@@ -457,7 +467,7 @@ body.loading {
     0 12px 32px rgba(0, 0, 0, 0.15);
   /* Бронзовая рамка снизу */
   border-bottom: 3px solid rgba(139, 107, 63, 0.25);
-  position: relative;
+  /* position: fixed уже установлен в .granite-header, не переопределяем */
 }
 
 /* Верхний блик для 3D эффекта */
@@ -532,7 +542,7 @@ body.loading {
     0 12px 32px rgba(0, 0, 0, 0.3);
   /* Бронзовая рамка снизу */
   border-bottom: 3px solid rgba(139, 107, 63, 0.3);
-  position: relative;
+  /* position: fixed уже установлен в .granite-header, не переопределяем */
 }
 
 /* Верхний блик для 3D эффекта (темная тема) + каменная крошка + мраморные прожилки */

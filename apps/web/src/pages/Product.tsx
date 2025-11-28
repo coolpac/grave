@@ -18,6 +18,8 @@ import OptimizedImage from '../components/OptimizedImage'
 import { PLACEHOLDER_IMAGE } from '../utils/constants'
 import { useReducedMotion } from '../hooks/useReducedMotion'
 import { getTransition, getAnimationVariants } from '../utils/animation-variants'
+import Header from '../components/Header'
+import { debugLog } from '../components/DebugPanel'
 
 import { API_URL } from '../config/api'
 
@@ -201,14 +203,14 @@ export default function Product() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
   const { BackButton, MainButton } = useTelegram()
-  const { addToCart, updateQuantity, items: cartItems } = useCart()
+  const { addToCart, updateQuantity, items: cartItems, isAddingToCart, isUpdatingQuantity } = useCart()
   const analytics = useTelegramAnalytics()
   const { shouldReduceMotion } = useReducedMotion()
   const [showGallery, setShowGallery] = useState(false)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [selectedVariant, setSelectedVariant] = useState<number | null>(null)
   const [selectedPrice, setSelectedPrice] = useState<number | null>(null) // Цена выбранного варианта
-  const [isUpdatingCart, setIsUpdatingCart] = useState(false)
+  // isAddingToCart из useCart используется для блокировки кнопки во время мутации
   const [showCalculationForm, setShowCalculationForm] = useState(false)
   const [calculationData, setCalculationData] = useState({
     name: '',
@@ -332,79 +334,94 @@ export default function Product() {
     }
   }, [BackButton, MainButton, navigate])
 
-  // Debounce ref для предотвращения множественных кликов
-  const addToCartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Очистка таймаута при размонтировании
-  useEffect(() => {
-    return () => {
-      if (addToCartTimeoutRef.current) {
-        clearTimeout(addToCartTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  // Оптимизированный обработчик добавления в корзину с useCallback и debounce
+  // Оптимизированный обработчик добавления в корзину
+  // Использует isAddingToCart из useCart для блокировки множественных кликов
   const handleAddToCart = useCallback(() => {
-    if (!product || isUpdatingCart) return
+    debugLog.action('👆 handleAddToCart called', { 
+      productId: product?.id, 
+      productName: product?.name,
+      isAddingToCart,
+      selectedVariant,
+      selectedPrice,
+      currentCartQuantity: cartQuantity
+    })
     
-    // Очищаем предыдущий таймаут если есть
-    if (addToCartTimeoutRef.current) {
-      clearTimeout(addToCartTimeoutRef.current)
+    // Блокируем если нет товара или идёт добавление
+    if (!product || isAddingToCart) {
+      debugLog.warn('handleAddToCart blocked', { noProduct: !product, isAddingToCart })
+      return
     }
     
-    // Блокируем повторные клики на 500ms
-    setIsUpdatingCart(true)
+    // Определяем вариант для добавления
+    // Если вариант не выбран, но товар имеет варианты - берем первый активный
+    let variantToUse = selectedVariant
+    let priceToUse = selectedPrice
+    let variantName: string | undefined
     
-    // Определяем цену: если есть вариант, используем его цену, иначе базовую цену продукта
-    const priceToUse = selectedVariant && selectedPrice 
-      ? selectedPrice 
-      : (product.basePrice || currentPrice || 0)
+    if (!variantToUse && product.variants && product.variants.length > 0) {
+      // Берем первый активный вариант
+      const firstActiveVariant = product.variants.find((v: any) => v.isActive !== false)
+      if (firstActiveVariant) {
+        variantToUse = firstActiveVariant.id
+        priceToUse = firstActiveVariant.price
+        variantName = firstActiveVariant.name
+        debugLog.info('Auto-selected first variant', { variantId: variantToUse, price: priceToUse })
+        // Обновляем состояние для корректного отображения
+        setSelectedVariant(firstActiveVariant.id)
+        setSelectedPrice(firstActiveVariant.price)
+      }
+    } else if (variantToUse) {
+      variantName = product.variants?.find((v: any) => v.id === variantToUse)?.name
+    }
+    
+    // Если всё ещё нет цены, используем базовую
+    if (!priceToUse) {
+      priceToUse = product.basePrice || currentPrice || 0
+    }
+    
+    debugLog.info('Calling addToCart with params', {
+      productId: product.id,
+      variantId: variantToUse,
+      quantity: 1,
+      price: priceToUse
+    })
     
     // Track add to cart
     analytics.trackAddToCart(product.id, 1, {
-      variantId: selectedVariant,
+      variantId: variantToUse,
       price: priceToUse,
       productSlug: product.slug,
     })
     
-    // Используем хук useCart для добавления
+    // Используем хук useCart для добавления (quantity всегда 1!)
     addToCart(product.id, {
-      variantId: selectedVariant || undefined,
+      variantId: variantToUse || undefined,
       quantity: 1,
       productSlug: product.slug,
       productName: product.name,
-      productPrice: product.basePrice || priceToUse || 0, // Убеждаемся, что цена есть
-      variantPrice: selectedVariant && selectedPrice ? selectedPrice : undefined,
-      variantName: product.variants?.find((v: any) => v.id === selectedVariant)?.name,
+      productPrice: product.basePrice || priceToUse || 0,
+      variantPrice: variantToUse && priceToUse ? priceToUse : undefined,
+      variantName: variantName,
       imageUrl: product.media?.[0]?.url || product.images?.[0],
     })
-    
-    // Сбрасываем флаг обновления через небольшую задержку для UX
-    addToCartTimeoutRef.current = setTimeout(() => {
-      setIsUpdatingCart(false)
-      addToCartTimeoutRef.current = null
-    }, 500) // Увеличено до 500ms для предотвращения множественных кликов
-  }, [product, isUpdatingCart, selectedVariant, selectedPrice, currentPrice, addToCart, analytics])
+  }, [product, isAddingToCart, selectedVariant, selectedPrice, currentPrice, addToCart, analytics, cartQuantity])
 
   // Удаление товара из корзины (уменьшение количества на 1)
   const handleRemoveFromCart = () => {
-    if (!product || cartQuantity <= 0 || isUpdatingCart) return
+    if (!product || cartQuantity <= 0 || isUpdatingQuantity) return
     
     // Находим элемент корзины
     const cartItem = cartItems.find((item) => {
       const matchesProduct = item.product.id === product.id || item.product.slug === product.slug
       const matchesVariant = selectedVariant 
         ? item.variantId === selectedVariant 
-        : !item.variantId
+        : true // Если вариант не выбран, берём первый подходящий
       return matchesProduct && matchesVariant
     })
     
     if (cartItem) {
-      setIsUpdatingCart(true)
       // Используем updateQuantity для уменьшения количества на 1
       updateQuantity(cartItem.id, -1)
-      setTimeout(() => setIsUpdatingCart(false), 300)
     }
   }
 
@@ -490,6 +507,7 @@ export default function Product() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <Header />
       {/* Используем Telegram BackButton вместо кастомной кнопки */}
       <div className="h-2" />
 
@@ -602,31 +620,16 @@ export default function Product() {
                   setSelectedPrice(price)
                 }}
                 onAddToCart={(variantId, selectedAttrs) => {
+                  // Обновляем выбранный вариант (добавление в корзину через sticky footer)
                   setSelectedVariant(variantId)
+                  
                   // Находим вариант для получения цены
                   const variant = variantId 
                     ? product.variants?.find((v: any) => v.id === variantId)
                     : null
                   
-                  // Добавляем товар в корзину при выборе варианта
-                  if (product) {
-                    // Track add to cart
-                    analytics.trackAddToCart(product.id, 1, {
-                      variantId: variantId,
-                      price: variant?.price || currentPrice,
-                      productSlug: product.slug,
-                    })
-
-                    addToCart(product.id, {
-                      variantId: variantId || undefined,
-                      quantity: 1,
-                      productSlug: product.slug,
-                      productName: product.name,
-                      productPrice: product.basePrice,
-                      variantPrice: variant?.price || selectedPrice || undefined,
-                      variantName: variant?.name,
-                      imageUrl: product.media?.[0]?.url || product.images?.[0],
-                    })
+                  if (variant?.price) {
+                    setSelectedPrice(variant.price)
                   }
                 }}
               />
@@ -912,11 +915,11 @@ export default function Product() {
                   e.stopPropagation()
                   handleRemoveFromCart()
                 }}
-                disabled={isUpdatingCart || cartQuantity <= 0}
+                disabled={isAddingToCart || cartQuantity <= 0}
                 className="px-3 py-2 flex items-center justify-center transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed border-r"
                 style={{ borderColor: 'rgba(0, 0, 0, 0.1)' }}
-                whileHover={shouldReduceMotion || cartQuantity <= 0 || isUpdatingCart ? undefined : { scale: 1.05 }}
-                whileTap={shouldReduceMotion || cartQuantity <= 0 || isUpdatingCart ? undefined : { scale: 0.95 }}
+                whileHover={shouldReduceMotion || cartQuantity <= 0 || isAddingToCart ? undefined : { scale: 1.05 }}
+                whileTap={shouldReduceMotion || cartQuantity <= 0 || isAddingToCart ? undefined : { scale: 0.95 }}
                 transition={getTransition(shouldReduceMotion, 'fast')}
               >
                 <Minus className={`w-4 h-4 ${cartQuantity > 0 ? 'text-gray-900' : 'text-gray-400'}`} />
@@ -943,10 +946,10 @@ export default function Product() {
               )}
               <motion.button
                 onClick={handleAddToCart}
-                disabled={isUpdatingCart}
+                disabled={isAddingToCart}
                 className="px-3 py-2 flex items-center justify-center transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                whileHover={shouldReduceMotion || isUpdatingCart ? undefined : { scale: 1.05 }}
-                whileTap={shouldReduceMotion || isUpdatingCart ? undefined : { scale: 0.95 }}
+                whileHover={shouldReduceMotion || isAddingToCart ? undefined : { scale: 1.05 }}
+                whileTap={shouldReduceMotion || isAddingToCart ? undefined : { scale: 0.95 }}
                 transition={getTransition(shouldReduceMotion, 'fast')}
               >
                 <Plus className="w-4 h-4 text-gray-900" />
@@ -977,10 +980,10 @@ export default function Product() {
                 e.stopPropagation()
                 handleAddToCart()
               }}
-              disabled={isUpdatingCart}
+              disabled={isAddingToCart}
               className="granite-button w-full py-3 rounded-lg font-body font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              whileHover={shouldReduceMotion || isUpdatingCart ? undefined : { scale: 1.02 }}
-              whileTap={shouldReduceMotion || isUpdatingCart ? undefined : { scale: 0.98 }}
+              whileHover={shouldReduceMotion || isAddingToCart ? undefined : { scale: 1.02 }}
+              whileTap={shouldReduceMotion || isAddingToCart ? undefined : { scale: 0.98 }}
               transition={getTransition(shouldReduceMotion, 'fast')}
             >
               <ShoppingCart className="w-5 h-5" />

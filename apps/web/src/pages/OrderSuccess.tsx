@@ -4,6 +4,7 @@ import { useTelegram } from '../hooks/useTelegram'
 import { CheckCircle, Package, Sparkles, Clock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useEffect, useState } from 'react'
+import Header from '../components/Header'
 
 export default function OrderSuccess() {
   const { id } = useParams<{ id: string }>()
@@ -56,6 +57,7 @@ export default function OrderSuccess() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <Header />
       <AnimatePresence>
         <motion.div
           initial={{ opacity: 0 }}

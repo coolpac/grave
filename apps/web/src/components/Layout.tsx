@@ -3,7 +3,6 @@ import { useTelegram } from '../hooks/useTelegram'
 import { useTgViewport } from '../hooks/useTgViewport'
 import { useTelegramAnalytics } from '../hooks/useTelegramAnalytics'
 import { useLocation } from 'react-router-dom'
-import GraniteHeader from './GraniteHeader'
 
 interface LayoutProps {
   children: ReactNode
@@ -73,9 +72,6 @@ function Layout({ children }: LayoutProps) {
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
       }}
     >
-      {/* Empty Granite Header with safe area top */}
-      <GraniteHeader />
-      
       <main className="flex-1">
         {children}
       </main>

@@ -10,6 +10,7 @@ import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import ProductCard from '../components/ProductCard'
 import VirtualizedProductGrid from '../components/VirtualizedProductGrid'
 import FlyingElement from '../components/FlyingElement'
+import Header from '../components/Header'
 import toast from 'react-hot-toast'
 import axios from 'axios'
 
@@ -266,8 +267,14 @@ export default function Category() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pb-24">
-      {/* Header - простой поиск - фон как у страницы, но чуть темнее для видимости */}
-      <div className="sticky top-0 z-20 bg-gradient-to-b from-gray-100/50 via-gray-50 to-white border-b border-gray-200/50">
+      <Header />
+      {/* Header - простой поиск - фиксирован под GraniteHeader */}
+      <div 
+        className="fixed left-0 right-0 z-20 bg-gradient-to-b from-gray-100/50 via-gray-50 to-white border-b border-gray-200/50"
+        style={{
+          top: 'calc(max(var(--tg-top-safe, env(safe-area-inset-top, 0px)), 0px) + 96px)',
+        }}
+      >
         <div className="px-4 py-3">
           {/* Search bar */}
           <div className="flex items-center gap-2">
@@ -300,6 +307,9 @@ export default function Category() {
           </div>
         </div>
       </div>
+
+      {/* Spacer для фиксированного поискового хедера */}
+      <div style={{ height: 'calc(max(var(--tg-top-safe, env(safe-area-inset-top, 0px)), 0px) + 96px + 60px)' }} />
 
       {/* Category Name */}
       <div className="px-4 py-4">

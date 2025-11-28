@@ -12,6 +12,7 @@ import PaymentMethodSelect, { PaymentMethod } from '../components/PaymentMethod'
 import { motion } from 'framer-motion'
 import toast from 'react-hot-toast'
 import axios from 'axios'
+import Header from '../components/Header'
 
 import { API_URL } from '../config/api'
 
@@ -401,6 +402,7 @@ export default function Checkout() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white pb-32">
+      <Header />
       {/* Используем Telegram BackButton */}
       <div className="h-2" />
 

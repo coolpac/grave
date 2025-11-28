@@ -5,6 +5,8 @@ import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { Toaster } from 'react-hot-toast'
 import Layout from './components/Layout'
 import LoadingScreen from './components/LoadingScreen'
+import ScrollManager from './components/ScrollManager'
+import DebugPanel from './components/DebugPanel'
 import { useTelegram } from './hooks/useTelegram'
 import { queryClient } from './config/queryClient'
 
@@ -142,6 +144,7 @@ function AppContent() {
         v7_relativeSplatPath: true,
       }}
     >
+      <ScrollManager />
       <Layout>
         <Suspense fallback={<PageLoadingFallback />}>
           <Routes>
@@ -156,6 +159,8 @@ function AppContent() {
           </Routes>
         </Suspense>
       </Layout>
+      {/* Debug Panel - включаем везде для отладки проблемы с корзиной */}
+      <DebugPanel />
     </BrowserRouter>
   )
 }

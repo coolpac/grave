@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import axios from 'axios';
 
 import { API_URL } from '../config/api';
+import { debugLog } from '../components/DebugPanel';
 
 const CART_STORAGE_KEY = 'cart_items';
 const CART_SYNC_KEY = 'cart_sync_pending';
@@ -207,18 +208,30 @@ export function useCart() {
   } = useQuery<Cart>({
     queryKey: ['cart'],
     queryFn: async () => {
+      debugLog.info('📥 Fetching cart from server...');
       const token = localStorage.getItem('token');
       if (!token) {
-        // Если нет токена, возвращаем пустую корзину
+        debugLog.warn('No token - returning empty cart');
         return { id: 0, items: [] };
       }
 
       try {
         const response = await cartAxios.get<Cart>('/cart');
-        return response.data || { id: 0, items: [] };
+        const cart = response.data || { id: 0, items: [] };
+        debugLog.info('📥 Server cart received', { 
+          itemCount: cart.items?.length || 0,
+          items: cart.items?.map(i => ({ 
+            id: i.id, 
+            productId: i.productId, 
+            variantId: i.variantId,
+            qty: i.quantity,
+            name: i.product?.name?.substring(0, 20)
+          }))
+        });
+        return cart;
       } catch (err: any) {
+        debugLog.error('Cart fetch error', { status: err.response?.status, message: err.message });
         if (err.response?.status === 401 || err.response?.status === 403) {
-          // Не авторизован - возвращаем пустую корзину
           return { id: 0, items: [] };
         }
         throw err;
@@ -348,22 +361,13 @@ export function useCart() {
     },
   });
 
-  // Автоматическая синхронизация при авторизации
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token && localCart.length > 0 && serverCart && !isLoading) {
-      // Если пользователь авторизован и есть локальные элементы, синхронизируем
-      // Используем debounce для избежания множественных синхронизаций
-      const syncTimeout = setTimeout(() => {
-        if (localCart.length > 0) {
-          syncLocalCartToServer.mutate([...localCart]);
-        }
-      }, 1000);
-
-      return () => clearTimeout(syncTimeout);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [localCart.length, serverCart?.id, isLoading]);
+  // ПРИМЕЧАНИЕ: Автоматическая синхронизация отключена для предотвращения дублирования товаров
+  // Синхронизация происходит:
+  // 1. При успешном добавлении через addToCartMutation
+  // 2. При явном вызове syncCart() перед оформлением заказа
+  // 
+  // Старая логика вызывала syncLocalCartToServer при каждом изменении localCart,
+  // что приводило к многократному добавлению одного и того же товара на сервер.
 
   // Обновление количества товара
   const updateQuantityMutation = useMutation({
@@ -470,21 +474,27 @@ export function useCart() {
       imageUrl?: string;
       quantity?: number;
     }) => {
+      debugLog.action('🛒 addToCart mutationFn called', { productId, variantId, quantity, productName });
+      
       const token = localStorage.getItem('token');
+      debugLog.info('Token status', { hasToken: !!token });
       
       if (!token) {
-        // Если нет токена, сохраняем локально
+        debugLog.warn('No token - saving locally');
         return { local: true, productId, variantId, quantity };
       }
 
       try {
-        await cartAxios.post('/cart/add', {
+        debugLog.info('Sending POST /cart/add', { productId, variantId, quantity });
+        const response = await cartAxios.post('/cart/add', {
           productId,
           variantId,
           quantity,
         });
+        debugLog.info('POST /cart/add response', response.data);
         return { local: false };
       } catch (error: any) {
+        debugLog.error('POST /cart/add error', { message: error.message, code: error.code });
         // Если ошибка сети, сохраняем локально
         if (!error.response || error.code === 'ERR_NETWORK') {
           return { local: true, productId, variantId, quantity };
@@ -494,11 +504,21 @@ export function useCart() {
     },
     // Optimistic update для добавления в корзину
     onMutate: async (variables) => {
+      debugLog.action('🔄 addToCart onMutate', { 
+        productId: variables.productId, 
+        variantId: variables.variantId,
+        quantity: variables.quantity 
+      });
+      
       // Отменяем текущие запросы корзины
       await queryClient.cancelQueries({ queryKey: ['cart'] });
       
       // Сохраняем предыдущее состояние
       const previousCart = queryClient.getQueryData<Cart>(['cart']);
+      debugLog.info('Previous cart state', { 
+        itemCount: previousCart?.items?.length || 0,
+        items: previousCart?.items?.map(i => ({ id: i.id, productId: i.productId, qty: i.quantity }))
+      });
       
       // Оптимистично обновляем корзину только для авторизованных пользователей
       const token = localStorage.getItem('token');
@@ -588,7 +608,10 @@ export function useCart() {
       }, 0);
     },
     onSuccess: async (data, variables) => {
+      debugLog.action('✅ addToCart onSuccess', { isLocal: data.local, productId: variables.productId });
+      
       if (data.local) {
+        debugLog.info('Saving to local cart');
         // Сохраняем локально
         const newItem: LocalCartItem = {
           productId: variables.productId,
@@ -640,8 +663,8 @@ export function useCart() {
           return updated;
         });
       } else {
-        // Обновляем серверную корзину
-        await refetch();
+        // НЕ вызываем refetch() - оптимистичного обновления достаточно
+        // refetch будет сделан в onSettled через invalidateQueries
         // Откладываем toast, чтобы избежать обновления состояния во время рендера
         setTimeout(() => {
           toast.success(`${variables.productName || 'Товар'} добавлен в корзину!`, {
@@ -650,8 +673,14 @@ export function useCart() {
         }, 0);
       }
     },
+    // onSettled вызывается после успеха или ошибки - здесь синхронизируем с сервером
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['cart'] });
+      debugLog.action('🏁 addToCart onSettled - invalidating queries');
+      // Используем небольшую задержку чтобы избежать race condition
+      setTimeout(() => {
+        debugLog.info('Calling invalidateQueries for cart');
+        queryClient.invalidateQueries({ queryKey: ['cart'] });
+      }, 100);
     },
   });
 
@@ -770,6 +799,10 @@ export function useCart() {
     isLoading,
     isOffline,
     error,
+    // Флаг для блокировки множественных кликов - true если идёт добавление
+    isAddingToCart: addToCartMutation.isPending,
+    // Флаг для блокировки изменения количества
+    isUpdatingQuantity: updateQuantityMutation.isPending,
     updateQuantity: (itemId: number, delta: number) => {
       const item = items.find((i) => i.id === itemId);
       if (!item) return;
@@ -795,24 +828,9 @@ export function useCart() {
         return;
       }
 
-      // Для уменьшения количества используем updateQuantityMutation
-      if (delta < 0) {
-        updateQuantityMutation.mutate({ itemId, quantity: newQuantity });
-      } else {
-        // Для увеличения количества используем addToCart с теми же характеристиками
-        // Это гарантирует правильную работу с вариантами
-        addToCartMutation.mutate({
-          productId: item.productId,
-          variantId: item.variantId,
-          quantity: 1, // Добавляем 1 единицу
-          productSlug: item.product.slug,
-          productName: item.product.name,
-          productPrice: item.product.basePrice,
-          variantPrice: item.variant?.price,
-          variantName: item.variant?.name,
-          imageUrl: item.product.media?.[0]?.url,
-        });
-      }
+      // Используем updateQuantityMutation для ЛЮБОГО изменения количества
+      // Это предотвращает дублирование товаров
+      updateQuantityMutation.mutate({ itemId, quantity: newQuantity });
     },
     removeItem: (itemId: number) => {
       const token = localStorage.getItem('token');

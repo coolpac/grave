@@ -9,6 +9,7 @@ import toast from 'react-hot-toast'
 import OptimizedImage from '../components/OptimizedImage'
 import { useReducedMotion } from '../hooks/useReducedMotion'
 import { getAnimationVariants, getTransition } from '../utils/animation-variants'
+import Header from '../components/Header'
 
 export default function Cart() {
   const navigate = useNavigate()
@@ -174,6 +175,7 @@ export default function Cart() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white">
+      <Header />
       {/* Используем Telegram BackButton */}
       <div className="h-2" />
 
@@ -218,7 +220,8 @@ export default function Cart() {
                 initial="hidden"
                 animate="visible"
                 exit="exit"
-                layout
+                layout={false}
+                layoutId={undefined}
               >
                 <StoneCard className="cart-item-card touch-manipulation">
                   <div className="flex gap-4">
@@ -277,7 +280,7 @@ export default function Cart() {
                       {/* Quantity Controls */}
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3" role="group" aria-label="Управление количеством">
-                          <button
+                          <motion.button
                             onClick={() => {
                               if (item.quantity > 1) {
                                 handleUpdateQuantity(item.id, -1)
@@ -289,33 +292,46 @@ export default function Cart() {
                             className="granite-button w-9 h-9 rounded-lg flex items-center justify-center touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
                             aria-label={`Уменьшить количество ${item.product.name}`}
                             type="button"
+                            whileHover={shouldReduceMotion || item.quantity <= 1 ? undefined : { scale: 1.1 }}
+                            whileTap={shouldReduceMotion || item.quantity <= 1 ? undefined : { scale: 0.9 }}
+                            transition={getTransition(shouldReduceMotion, 'fast')}
                           >
                             <Minus className="w-4 h-4 text-gray-200" aria-hidden="true" />
-                          </button>
-                          <span 
+                          </motion.button>
+                          <motion.span 
+                            key={item.quantity}
+                            initial={shouldReduceMotion ? false : { scale: 1.2, opacity: 0.7 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={getTransition(shouldReduceMotion, 'fast')}
                             className="text-lg font-inscription text-gray-900 w-8 text-center"
                             aria-label={`Количество: ${item.quantity}`}
                           >
                             {item.quantity}
-                          </span>
-                          <button
+                          </motion.span>
+                          <motion.button
                             onClick={() => handleUpdateQuantity(item.id, 1)}
                             disabled={isLoading}
                             className="granite-button w-9 h-9 rounded-lg flex items-center justify-center touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
                             aria-label={`Увеличить количество ${item.product.name}`}
                             type="button"
+                            whileHover={shouldReduceMotion ? undefined : { scale: 1.1 }}
+                            whileTap={shouldReduceMotion ? undefined : { scale: 0.9 }}
+                            transition={getTransition(shouldReduceMotion, 'fast')}
                           >
                             <Plus className="w-4 h-4 text-gray-200" aria-hidden="true" />
-                          </button>
+                          </motion.button>
                         </div>
-                        <button
+                        <motion.button
                           onClick={() => handleRemoveItem(item.id, item.product.name)}
                           className="granite-button w-9 h-9 rounded-lg flex items-center justify-center touch-manipulation"
                           aria-label={`Удалить ${item.product.name} из корзины`}
                           type="button"
+                          whileHover={shouldReduceMotion ? undefined : { scale: 1.1, rotate: 5 }}
+                          whileTap={shouldReduceMotion ? undefined : { scale: 0.9 }}
+                          transition={getTransition(shouldReduceMotion, 'fast')}
                         >
                           <Trash2 className="w-4 h-4 text-gray-200" aria-hidden="true" />
-                        </button>
+                        </motion.button>
                       </div>
 
                       {/* Item Total */}
