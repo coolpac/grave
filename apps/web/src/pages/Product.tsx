@@ -3,7 +3,7 @@ import { StoneCard } from '@monorepo/ui'
 import { useTelegram } from '../hooks/useTelegram'
 import { useCart } from '../hooks/useCart'
 import { useTelegramAnalytics } from '../hooks/useTelegramAnalytics'
-import { ShoppingCart, Plus, Minus, Check, Calculator, Truck, MapPin, User, Phone, X } from 'lucide-react'
+import { ShoppingCart, Plus, Minus, Check, Truck, MapPin, User, Phone, X } from 'lucide-react'
 import { useEffect, useState, useRef, useMemo, useCallback, Suspense, lazy } from 'react'
 // Lazy load ProductImageGallery (heavy component with react-zoom-pan-pinch)
 const ProductImageGallery = lazy(() => import('../components/ProductImageGallery'))
@@ -211,13 +211,6 @@ export default function Product() {
   const [selectedVariant, setSelectedVariant] = useState<number | null>(null)
   const [selectedPrice, setSelectedPrice] = useState<number | null>(null) // Цена выбранного варианта
   // isAddingToCart из useCart используется для блокировки кнопки во время мутации
-  const [showCalculationForm, setShowCalculationForm] = useState(false)
-  const [calculationData, setCalculationData] = useState({
-    name: '',
-    phone: '',
-    city: '',
-  })
-  const [isSubmittingCalculation, setIsSubmittingCalculation] = useState(false)
   const stickyButtonRef = useRef<HTMLDivElement>(null)
   const { scrollYProgress } = useScroll()
   const opacity = useTransform(scrollYProgress, [0, 0.3], [0, 1])
@@ -721,168 +714,7 @@ export default function Product() {
             </StoneCard>
           </motion.div>
         )}
-
-        {/* Calculation Form Button */}
-        <motion.div
-          variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
-          initial="hidden"
-          animate="visible"
-        >
-          <motion.button
-            onClick={() => setShowCalculationForm(true)}
-            className="granite-button w-full py-4 rounded-lg font-body font-semibold flex items-center justify-center gap-2"
-            whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
-            whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
-            transition={getTransition(shouldReduceMotion, 'fast')}
-          >
-            <Calculator className="w-5 h-5" />
-            <span>Сделать расчет</span>
-          </motion.button>
-        </motion.div>
       </div>
-
-      {/* Calculation Form Modal */}
-      <AnimatePresence mode="wait" initial={false}>
-        {showCalculationForm && (
-          <>
-            <motion.div
-              variants={getAnimationVariants(shouldReduceMotion, 'fadeIn')}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              onClick={() => setShowCalculationForm(false)}
-              className="fixed inset-0 bg-black/50 z-50"
-            />
-            <motion.div
-              variants={getAnimationVariants(shouldReduceMotion, 'slideIn')}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              className="fixed bottom-0 left-0 right-0 z-50 bg-white rounded-t-3xl shadow-2xl safe-area-bottom"
-              style={{ maxHeight: '90vh' }}
-            >
-              <div className="p-6 overflow-y-auto" style={{ maxHeight: '90vh' }}>
-                {/* Header */}
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-inscription text-gray-900">Расчет стоимости</h2>
-                  <button
-                    onClick={() => setShowCalculationForm(false)}
-                    className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <X className="w-5 h-5 text-gray-600" />
-                  </button>
-                </div>
-
-                {/* Product Info */}
-                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                  <p className="font-body text-sm text-gray-600 mb-1">Товар</p>
-                  <p className="font-inscription text-lg text-gray-900">{product.name}</p>
-                  <p className="font-body text-base text-gray-700 mt-1">
-                    {currentPrice.toLocaleString('ru-RU')} ₽
-                  </p>
-                </div>
-
-                {/* Form */}
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault()
-                    setIsSubmittingCalculation(true)
-                    try {
-                      // Отправка данных расчета на сервер
-                      await axios.post(`${API_URL}/products/${product.slug}/calculation-request`, {
-                        name: calculationData.name,
-                        phone: calculationData.phone,
-                        city: calculationData.city,
-                        productId: product.id,
-                        variantId: selectedVariant,
-                        price: currentPrice,
-                      })
-                      // Очистка формы
-                      setCalculationData({ name: '', phone: '', city: '' })
-                      setShowCalculationForm(false)
-                      // Можно показать уведомление об успехе
-                    } catch (error) {
-                      console.error('Ошибка отправки расчета:', error)
-                      // Можно показать ошибку пользователю
-                    } finally {
-                      setIsSubmittingCalculation(false)
-                    }
-                  }}
-                  className="space-y-4"
-                >
-                  {/* Имя */}
-                  <div>
-                    <label className="block mb-2 font-body text-sm font-medium text-gray-900">
-                      <div className="flex items-center gap-2">
-                        <User className="w-4 h-4" />
-                        <span>Имя</span>
-                      </div>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={calculationData.name}
-                      onChange={(e) => setCalculationData({ ...calculationData, name: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-bronze-500/30 focus:border-bronze-500/50 transition-colors"
-                      placeholder="Введите ваше имя"
-                    />
-                  </div>
-
-                  {/* Телефон */}
-                  <div>
-                    <label className="block mb-2 font-body text-sm font-medium text-gray-900">
-                      <div className="flex items-center gap-2">
-                        <Phone className="w-4 h-4" />
-                        <span>Номер телефона</span>
-                      </div>
-                    </label>
-                    <input
-                      type="tel"
-                      required
-                      value={calculationData.phone}
-                      onChange={(e) => setCalculationData({ ...calculationData, phone: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-bronze-500/30 focus:border-bronze-500/50 transition-colors"
-                      placeholder="+7 (999) 123-45-67"
-                      style={{ color: '#000' }}
-                    />
-                  </div>
-
-                  {/* Город */}
-                  <div>
-                    <label className="block mb-2 font-body text-sm font-medium text-gray-900">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4" />
-                        <span>Город</span>
-                      </div>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={calculationData.city}
-                      onChange={(e) => setCalculationData({ ...calculationData, city: e.target.value })}
-                      className="w-full px-4 py-3 rounded-lg border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-bronze-500/30 focus:border-bronze-500/50 transition-colors"
-                      placeholder="Введите город"
-                    />
-                  </div>
-
-                  {/* Submit Button */}
-                  <motion.button
-                    type="submit"
-                    disabled={isSubmittingCalculation}
-                    className="granite-button w-full py-4 rounded-lg font-body font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    whileHover={shouldReduceMotion || isSubmittingCalculation ? undefined : { scale: 1.02 }}
-                    whileTap={shouldReduceMotion || isSubmittingCalculation ? undefined : { scale: 0.98 }}
-                    transition={getTransition(shouldReduceMotion, 'fast')}
-                  >
-                    <Calculator className="w-5 h-5" />
-                    <span>{isSubmittingCalculation ? 'Отправка...' : 'Отправить запрос'}</span>
-                  </motion.button>
-                </form>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
 
       {/* Sticky Cart Controls - дизайн как на скриншоте */}
       <motion.div
