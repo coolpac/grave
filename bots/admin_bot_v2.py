@@ -77,10 +77,14 @@ if ADMIN_WHITELIST:
 else:
     logger.warning('⚠️ ADMIN_WHITELIST not set or contains only default values')
 
-# Проверяем финальную конфигурацию
+# Проверяем финальную конфигурацию (после настройки логирования)
 final_admin_ids = get_admin_ids()
 if final_admin_ids:
     logger.info(f'✅ Final configuration: {len(final_admin_ids)} admin(s) will receive notifications: {final_admin_ids}')
+    logger.info(f'   Types: {[type(id).__name__ for id in final_admin_ids]}')
+    logger.info(f'   Values: {[repr(id) for id in final_admin_ids]}')
+    for idx, admin_id in enumerate(final_admin_ids, 1):
+        logger.info(f'   [{idx}] Admin ID: {admin_id} (type: {type(admin_id).__name__}, value: {repr(admin_id)})')
 else:
     logger.error('❌ CRITICAL: No valid admin IDs configured! Notifications will fail!')
     logger.error(f'   ADMIN_WHITELIST_RAW: "{ADMIN_WHITELIST_RAW}"')
