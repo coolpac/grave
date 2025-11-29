@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bug, X, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Bug, X, Trash2, ChevronDown, ChevronUp, ShoppingCart } from 'lucide-react'
+import axios from 'axios'
+import { API_URL } from '../config/api'
 
 interface LogEntry {
   id: number
@@ -157,6 +159,36 @@ export default function DebugPanel() {
                 <span className="text-xs text-gray-400">({logs.length} logs)</span>
               </div>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={async () => {
+                    try {
+                      debugLog.action('🗑️ Clearing ALL cart data...')
+                      // Всегда очищаем localStorage
+                      localStorage.removeItem('cart_items')
+                      localStorage.removeItem('cart_sync_timestamp')
+                      debugLog.info('Local cart cleared')
+                      
+                      const token = localStorage.getItem('token')
+                      if (token) {
+                        debugLog.info('Clearing server cart...')
+                        await axios.delete(`${API_URL}/cart/clear`, {
+                          headers: { Authorization: `Bearer ${token}` }
+                        })
+                        debugLog.info('Server cart cleared')
+                      }
+                      // Reload page to refresh cart state
+                      window.location.reload()
+                    } catch (err: any) {
+                      debugLog.error('Failed to clear cart', err.message)
+                      // Все равно перезагружаем страницу
+                      window.location.reload()
+                    }
+                  }}
+                  className="p-1 hover:bg-red-700 rounded bg-red-600"
+                  title="Clear cart (all)"
+                >
+                  <ShoppingCart className="w-4 h-4 text-white" />
+                </button>
                 <button
                   onClick={() => debugLogger.clear()}
                   className="p-1 hover:bg-gray-700 rounded"

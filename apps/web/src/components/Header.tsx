@@ -27,7 +27,7 @@ export default function Header() {
   }, [])
 
   return (
-    <div className="granite-header-wrapper">
+    <>
       <header
         ref={headerRef}
         className={`granite-header ${isDark ? 'granite-header-dark' : 'granite-header-light'}`}
@@ -39,7 +39,7 @@ export default function Header() {
       />
       {/* Spacer для контента под фиксированным хедером */}
       <div className="granite-header-spacer" />
-    </div>
+    </>
   )
 }
 

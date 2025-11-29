@@ -228,7 +228,7 @@ body {
   padding: 0;
   width: 100%;
   min-height: 100%;
-  background-color: #fff;
+  background-color: var(--tg-theme-bg-color, #fff);
   overflow-x: hidden;
   /* Оптимизация производительности */
   -webkit-font-smoothing: antialiased;
@@ -372,6 +372,10 @@ body.loading {
   flex-shrink: 0;
   /* Учитываем Telegram safe area - фон начинается строго под верхним баром Telegram */
   padding-top: max(var(--tg-top-safe, env(safe-area-inset-top, 0px)), 0px);
+  /* Высота с учетом safe area для полного покрытия */
+  min-height: calc(max(var(--tg-top-safe, env(safe-area-inset-top, 0px)), 0px) + 96px);
+  /* Убираем margin для точного позиционирования */
+  margin: 0;
   /* Базовые стили будут переопределены модификаторами темы (.granite-header-light/.granite-header-dark) */
 }
 
@@ -379,6 +383,16 @@ body.loading {
 .granite-header-spacer {
   height: calc(max(var(--tg-top-safe, env(safe-area-inset-top, 0px)), 0px) + 96px);
   flex-shrink: 0;
+  /* Убираем фон, чтобы не было белой полоски */
+  background: transparent;
+  /* Убираем margin и padding */
+  margin: 0;
+  padding: 0;
+  /* Убираем любые границы */
+  border: none;
+  /* Убираем все визуальные эффекты */
+  box-shadow: none;
+  outline: none;
 }
 
 /* 3D Stone Header для страницы категорий */

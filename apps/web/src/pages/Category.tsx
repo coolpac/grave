@@ -13,6 +13,7 @@ import FlyingElement from '../components/FlyingElement'
 import Header from '../components/Header'
 import toast from 'react-hot-toast'
 import axios from 'axios'
+import { debugLog } from '../components/DebugPanel'
 
 import { API_URL } from '../config/api'
 
@@ -242,12 +243,49 @@ export default function Category() {
     
     // Добавляем товар в корзину через хук
     if (product.id) {
+      // Определяем вариант и цену
+      let variantId: number | undefined
+      let variantPrice: number | undefined
+      let variantName: string | undefined
+      let priceToUse = product.price || product.basePrice || 0
+      
+      debugLog.action('📦 Category handleAddToCart', {
+        productId: product.id,
+        productName: product.name,
+        hasVariants: !!(product.variants && product.variants.length > 0),
+        variantsCount: product.variants?.length || 0,
+        productPrice: product.price,
+        basePrice: product.basePrice
+      })
+      
+      // Если у товара есть варианты, берём первый активный
+      if (product.variants && product.variants.length > 0) {
+        const firstActiveVariant = product.variants.find((v: any) => v.isActive !== false)
+        if (firstActiveVariant) {
+          variantId = firstActiveVariant.id
+          variantPrice = parseFloat(firstActiveVariant.price) || firstActiveVariant.price
+          variantName = firstActiveVariant.name
+          priceToUse = variantPrice || priceToUse
+          debugLog.info('Selected first variant', { variantId, variantPrice, variantName })
+        }
+      }
+      
+      debugLog.info('Calling addToCart from Category', {
+        productId: product.id,
+        variantId,
+        priceToUse,
+        quantity: 1
+      })
+      
       addToCart(product.id, {
         quantity: 1,
         productSlug: product.slug,
         productName: product.name,
-        productPrice: product.price,
-        imageUrl: product.image || product.images?.[0],
+        productPrice: priceToUse,
+        variantId,
+        variantPrice,
+        variantName,
+        imageUrl: product.image || product.images?.[0] || product.media?.[0]?.url,
       })
       // Уведомление показывается в хуке useCart, не нужно дублировать здесь
     }

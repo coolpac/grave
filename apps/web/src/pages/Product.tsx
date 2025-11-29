@@ -259,15 +259,31 @@ export default function Product() {
   const cartQuantity = useMemo(() => {
     if (!product) return 0
     
-    const cartItem = cartItems.find((item) => {
-      const matchesProduct = item.product.id === product.id || item.product.slug === product.slug
-      const matchesVariant = selectedVariant 
-        ? item.variantId === selectedVariant 
-        : !item.variantId
-      return matchesProduct && matchesVariant
+    // Находим все товары этого продукта в корзине
+    const matchingItems = cartItems.filter((item) => {
+      return item.product.id === product.id || item.product.slug === product.slug
     })
     
-    return cartItem?.quantity || 0
+    if (matchingItems.length === 0) return 0
+    
+    // Если выбран конкретный вариант, ищем его
+    if (selectedVariant) {
+      const variantItem = matchingItems.find(item => item.variantId === selectedVariant)
+      return variantItem?.quantity || 0
+    }
+    
+    // Если вариант не выбран, суммируем все варианты этого товара
+    // или берём первый найденный (для товаров с вариантами по умолчанию)
+    const totalQuantity = matchingItems.reduce((sum, item) => sum + item.quantity, 0)
+    
+    debugLog.info('cartQuantity calculated', {
+      productId: product.id,
+      selectedVariant,
+      matchingItems: matchingItems.map(i => ({ variantId: i.variantId, qty: i.quantity })),
+      totalQuantity
+    })
+    
+    return totalQuantity
   }, [cartItems, product, selectedVariant])
 
   // Track product view
