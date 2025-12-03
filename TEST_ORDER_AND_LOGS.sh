@@ -120,3 +120,5 @@ echo "  5. Добавьте в .env: ADMIN_WHITELIST=ваш_id,другой_id"
 echo ""
 echo "✅ Проверка завершена!"
 
+
+

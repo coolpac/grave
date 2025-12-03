@@ -7,6 +7,7 @@ import Layout from './components/Layout'
 import LoadingScreen from './components/LoadingScreen'
 import ScrollManager from './components/ScrollManager'
 import DebugPanel from './components/DebugPanel'
+import { debugLog } from './components/DebugPanel'
 import { useTelegram } from './hooks/useTelegram'
 import { queryClient } from './config/queryClient'
 
@@ -71,6 +72,19 @@ const PageLoadingFallback = () => (
 function AppContent() {
   const [isLoading, setIsLoading] = useState(true)
   const { isReady, sendDataToServer } = useTelegram()
+
+  // Логируем начальную загрузку
+  useEffect(() => {
+    debugLog.info('🚀 App started', {
+      isReady,
+      userAgent: navigator.userAgent,
+      platform: (window as any).Telegram?.WebApp?.platform,
+      viewport: {
+        width: window.innerWidth,
+        height: window.innerHeight,
+      },
+    })
+  }, [])
 
   useEffect(() => {
     // Минимальное время показа экрана загрузки - 1.5 секунды для красоты (уменьшено для мобильных)

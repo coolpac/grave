@@ -45,3 +45,5 @@ docker-compose -f docker-compose.production.yml ps
 2. Проверьте консоль браузера на ошибки
 3. Убедитесь, что `clearCart()` вызывается в `Checkout.tsx` после успешного создания заказа
 
+
+

@@ -30,3 +30,5 @@ docker-compose -f docker-compose.production.yml logs --tail=100 api | grep -E 'n
 echo ""
 echo "✅ Check complete!"
 
+
+

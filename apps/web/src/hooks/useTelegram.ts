@@ -145,6 +145,16 @@ export const useTelegram = (): UseTelegramReturn => {
 
       expandApp()
 
+      // Устанавливаем цвет верхнего бара Telegram в цвет header (темный гранит)
+      // Это устраняет белую полоску между верхним баром Telegram и нашим header
+      try {
+        // Цвет темного гранита - соответствует .granite-header-dark
+        // hsl(220 15% 18%) примерно = #2a2d32
+        WebApp.setHeaderColor('#2a2d32')
+      } catch (error) {
+        console.warn('Failed to set Telegram header color:', error)
+      }
+
       // Добавляем системные стили для Telegram WebApp
       const addSystemStyles = () => {
         const style = document.createElement('style')

@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bug, X, Trash2, ChevronDown, ChevronUp, ShoppingCart } from 'lucide-react'
+import { Bug, X, Trash2, ChevronDown, ChevronUp, ShoppingCart, Monitor, Smartphone, RefreshCw } from 'lucide-react'
 import axios from 'axios'
 import { API_URL } from '../config/api'
+import { useTgViewport } from '../hooks/useTgViewport'
+import { useTelegram } from '../hooks/useTelegram'
 
 interface LogEntry {
   id: number
@@ -39,6 +41,9 @@ class DebugLogger {
     if (this.logs.length > 100) {
       this.logs = this.logs.slice(-100)
     }
+    // Всегда логируем в консоль для отладки
+    const consoleMethod = type === 'error' ? console.error : type === 'warn' ? console.warn : console.log
+    consoleMethod(`[DebugPanel ${type.toUpperCase()}]`, message, data || '')
     this.notifyListeners()
   }
 
@@ -76,12 +81,135 @@ export default function DebugPanel() {
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
   const [logs, setLogs] = useState<LogEntry[]>([])
+  const [viewportInfo, setViewportInfo] = useState<any>(null)
+  const [headerInfo, setHeaderInfo] = useState<any>(null)
+  const [scrollInfo, setScrollInfo] = useState<any>(null)
+  const [forceUpdate, setForceUpdate] = useState(0)
   const logsEndRef = useRef<HTMLDivElement>(null)
+  const updateInfoRef = useRef<(() => void) | null>(null)
+  const { safeAreaInsetTop, viewportHeight, viewport } = useTgViewport()
+  const { isReady, themeParams } = useTelegram()
+  const viewportStableHeight = viewport?.stableHeight
+
+  // Собираем информацию о viewport и header (всегда, даже когда панель закрыта)
+  useEffect(() => {
+    const updateInfo = () => {
+      const header = document.querySelector('.granite-header') as HTMLElement
+      const headerSpacer = document.querySelector('.granite-header-spacer') as HTMLElement
+      
+      const viewportData = {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        tgHeight: viewportHeight,
+        tgStableHeight: viewportStableHeight,
+        safeAreaTop: safeAreaInsetTop,
+        safeAreaTopEnv: getComputedStyle(document.documentElement).getPropertyValue('--tg-top-safe'),
+      }
+      
+      const headerData = header ? {
+        exists: true,
+        top: header.getBoundingClientRect().top,
+        height: header.offsetHeight,
+        paddingTop: getComputedStyle(header).paddingTop,
+        position: getComputedStyle(header).position,
+        zIndex: getComputedStyle(header).zIndex,
+        backgroundColor: getComputedStyle(header).backgroundColor,
+      } : { exists: false }
+      
+      const scrollData = {
+        windowScrollY: window.scrollY,
+        documentElementScrollTop: document.documentElement.scrollTop,
+        bodyScrollTop: document.body.scrollTop,
+      }
+      
+      setViewportInfo(viewportData)
+      setHeaderInfo(headerData)
+      setScrollInfo(scrollData)
+      
+      // Логируем только при значительных изменениях
+      if (header && headerData.exists && isOpen) {
+        debugLog.info('📊 Viewport/Header update', {
+          viewport: viewportData,
+          header: headerData,
+          scroll: scrollData,
+        })
+      }
+    }
+
+    // Сохраняем ссылку на функцию обновления
+    updateInfoRef.current = updateInfo
+
+    // Немедленное обновление
+    updateInfo()
+    
+    // Обновление каждую секунду
+    const interval = setInterval(updateInfo, 1000)
+    
+    // Обновление при скролле
+    const handleScroll = () => {
+      updateInfo()
+    }
+    
+    // Обновление при изменении размера
+    const handleResize = () => {
+      updateInfo()
+    }
+    
+    // Обновление при изменении viewport (Telegram)
+    const handleViewportChange = () => {
+      updateInfo()
+    }
+    
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('resize', handleResize)
+    
+    // Слушаем изменения viewport от Telegram
+    if ((window as any).Telegram?.WebApp) {
+      (window as any).Telegram.WebApp.onEvent('viewportChanged', handleViewportChange)
+    }
+    
+    return () => {
+      clearInterval(interval)
+      window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', handleResize)
+      if ((window as any).Telegram?.WebApp) {
+        (window as any).Telegram.WebApp.offEvent('viewportChanged', handleViewportChange)
+      }
+    }
+  }, [safeAreaInsetTop, viewportHeight, viewport, isReady, isOpen, forceUpdate])
 
   useEffect(() => {
     const unsubscribe = debugLogger.subscribe(setLogs)
-    setLogs(debugLogger.getLogs())
+    const currentLogs = debugLogger.getLogs()
+    setLogs(currentLogs)
+    
+    // Логируем при открытии панели
+    if (isOpen) {
+      debugLog.info('🔍 Debug Panel opened', {
+        logsCount: currentLogs.length,
+        timestamp: new Date().toISOString(),
+        viewport: viewportInfo,
+        header: headerInfo,
+        scroll: scrollInfo,
+      })
+      
+      // Принудительно обновляем информацию при открытии
+      if (updateInfoRef.current) {
+        setTimeout(() => {
+          updateInfoRef.current?.()
+        }, 100)
+      }
+    }
+    
     return () => { unsubscribe() }
+  }, [isOpen, viewportInfo, headerInfo, scrollInfo])
+
+  // Начальное логирование при монтировании DebugPanel
+  useEffect(() => {
+    debugLog.info('🐛 DebugPanel component mounted', {
+      timestamp: new Date().toISOString(),
+      initialLogsCount: debugLogger.getLogs().length,
+    })
   }, [])
 
   useEffect(() => {
@@ -157,6 +285,11 @@ export default function DebugPanel() {
                 <Bug className="w-5 h-5 text-purple-400" />
                 <span className="font-semibold text-sm">Debug Panel</span>
                 <span className="text-xs text-gray-400">({logs.length} logs)</span>
+                {viewportInfo && (
+                  <span className="text-xs text-gray-500">
+                    {viewportInfo.width}x{viewportInfo.height}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -190,6 +323,19 @@ export default function DebugPanel() {
                   <ShoppingCart className="w-4 h-4 text-white" />
                 </button>
                 <button
+                  onClick={() => {
+                    if (updateInfoRef.current) {
+                      updateInfoRef.current()
+                      setForceUpdate(prev => prev + 1)
+                      debugLog.info('🔄 Info refreshed manually')
+                    }
+                  }}
+                  className="p-1 hover:bg-gray-700 rounded"
+                  title="Refresh info"
+                >
+                  <RefreshCw className="w-4 h-4 text-gray-400" />
+                </button>
+                <button
                   onClick={() => debugLogger.clear()}
                   className="p-1 hover:bg-gray-700 rounded"
                   title="Clear logs"
@@ -218,6 +364,64 @@ export default function DebugPanel() {
             {/* Logs */}
             {!isMinimized && (
               <div className="overflow-auto h-[calc(100%-48px)] p-2 font-mono text-xs">
+                {/* Viewport & Header Info */}
+                <div className="mb-4 p-3 bg-gray-800 rounded border border-gray-700">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Monitor className="w-4 h-4 text-blue-400" />
+                    <span className="font-semibold text-white">System Info</span>
+                    {(!viewportInfo && !headerInfo && !scrollInfo) && (
+                      <span className="text-xs text-yellow-400 ml-2">(Click refresh to load)</span>
+                    )}
+                  </div>
+                  
+                  {viewportInfo ? (
+                    <div className="mb-2">
+                      <div className="text-yellow-400 font-semibold mb-1">Viewport:</div>
+                      <div className="text-gray-300 pl-2 text-xs">
+                        <div>Size: {viewportInfo.width} × {viewportInfo.height}px</div>
+                        {viewportInfo.tgHeight && <div>TG Height: {viewportInfo.tgHeight}px</div>}
+                        {viewportInfo.tgStableHeight && <div>TG Stable: {viewportInfo.tgStableHeight}px</div>}
+                        <div>Safe Area Top: {viewportInfo.safeAreaTop}px</div>
+                        {viewportInfo.safeAreaTopEnv && <div>Safe Area (env): {viewportInfo.safeAreaTopEnv}</div>}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mb-2 text-gray-500 text-xs">Viewport: Not loaded</div>
+                  )}
+                  
+                  {headerInfo ? (
+                    <div className="mb-2">
+                      <div className="text-green-400 font-semibold mb-1">Header:</div>
+                      {headerInfo.exists ? (
+                        <div className="text-gray-300 pl-2 text-xs">
+                          <div>Position: top={Math.round(headerInfo.top)}px, height={Math.round(headerInfo.height)}px</div>
+                          <div>CSS Position: {headerInfo.position}</div>
+                          <div>Padding Top: {headerInfo.paddingTop}</div>
+                          <div>Z-Index: {headerInfo.zIndex}</div>
+                          <div className="truncate">BG: {headerInfo.backgroundColor}</div>
+                        </div>
+                      ) : (
+                        <div className="text-red-400 pl-2 text-xs">❌ Header not found!</div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mb-2 text-gray-500 text-xs">Header: Not loaded</div>
+                  )}
+                  
+                  {scrollInfo ? (
+                    <div className="mb-2">
+                      <div className="text-purple-400 font-semibold mb-1">Scroll:</div>
+                      <div className="text-gray-300 pl-2 text-xs">
+                        <div>window.scrollY: {Math.round(scrollInfo.windowScrollY)}px</div>
+                        <div>documentElement.scrollTop: {Math.round(scrollInfo.documentElementScrollTop)}px</div>
+                        <div>body.scrollTop: {Math.round(scrollInfo.bodyScrollTop)}px</div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mb-2 text-gray-500 text-xs">Scroll: Not loaded</div>
+                  )}
+                </div>
+                
                 {logs.length === 0 ? (
                   <div className="text-gray-500 text-center py-8">
                     No logs yet. Perform actions to see debug info.

@@ -170,3 +170,5 @@ ADMIN_WHITELIST=83146995
 - Срок действия: обычно 7 дней (настраивается в `JWT_EXPIRES_IN`)
 - Формат: `Bearer <token>` в заголовке `Authorization`
 
+
+

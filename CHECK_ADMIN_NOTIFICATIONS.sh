@@ -63,3 +63,5 @@ echo "1. Check ADMIN_CHAT_ID is set correctly in .env"
 echo "2. Make sure you've sent /start to the admin bot"
 echo "3. Check admin bot logs: docker-compose -f docker-compose.production.yml logs -f admin-bot"
 
+
+

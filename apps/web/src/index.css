@@ -222,22 +222,43 @@
 }
 
 /* Fullscreen mobile styles with safe-area support */
-html,
-body {
+html {
   margin: 0;
   padding: 0;
   width: 100%;
   min-height: 100%;
+  /* Фон в цвет header для устранения белой полоски */
+  background-color: hsl(220 15% 18%);
+  overflow-x: hidden;
+  /* Плавный скролл */
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  height: 100%;
   background-color: var(--tg-theme-bg-color, #fff);
   overflow-x: hidden;
+  position: relative;
   /* Оптимизация производительности */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-}
-
-body {
-  min-height: 100vh;
+  /* Плавный скролл */
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+  overscroll-behavior-y: none;
+  touch-action: pan-x pan-y;
+  /* Отключаем трансформации для корректной работы position: fixed на iOS */
+  transform: none !important;
+  filter: none !important;
+  perspective: none !important;
 }
 
 body.loading {
@@ -245,31 +266,7 @@ body.loading {
   overflow: hidden;
 }
 
-#root {
-  width: 100%;
-  min-height: 100vh;
-  position: relative;
-}
-
-/* Safe area insets */
-.safe-area-top {
-  padding-top: env(safe-area-inset-top);
-}
-
-.safe-area-bottom {
-  padding-bottom: env(safe-area-inset-bottom);
-}
-
-.safe-area-left {
-  padding-left: env(safe-area-inset-left);
-}
-
-.safe-area-right {
-  padding-right: env(safe-area-inset-right);
-}
-
-.safe-area-insets {
-  padding-top: env(safe-area-inset-top);
+/* Safe area insets - объединено с дубликатами ниже */
   padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
@@ -365,7 +362,7 @@ body.loading {
   min-height: 72px;
   height: 96px;
   position: fixed !important;
-  top: 0;
+  top: 0 !important;
   left: 0;
   right: 0;
   z-index: 50;
@@ -375,7 +372,9 @@ body.loading {
   /* Высота с учетом safe area для полного покрытия */
   min-height: calc(max(var(--tg-top-safe, env(safe-area-inset-top, 0px)), 0px) + 96px);
   /* Убираем margin для точного позиционирования */
-  margin: 0;
+  margin: 0 !important;
+  /* Убираем любые трансформации, которые могут сдвигать header */
+  transform: none !important;
   /* Базовые стили будут переопределены модификаторами темы (.granite-header-light/.granite-header-dark) */
 }
 
@@ -1201,25 +1200,7 @@ a.granite-button:hover {
    TELEGRAM MINI APP OPTIMIZATIONS
    ============================================ */
 
-/* Полноэкранный режим для Telegram Mini App */
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
-  overflow-x: hidden;
-  position: relative;
-  overscroll-behavior: none;
-  overscroll-behavior-y: none;
-  -webkit-overflow-scrolling: touch;
-  touch-action: pan-x pan-y;
-  /* Отключаем трансформации для корректной работы position: fixed на iOS */
-  transform: none !important;
-  filter: none !important;
-  perspective: none !important;
-}
+/* Дубликаты стилей для html и body удалены - уже определены выше */
 
 /* Отключаем выделение текста для интерактивных элементов */
 button, a, .touch-manipulation {
@@ -1242,6 +1223,27 @@ button, a, .touch-manipulation {
 .safe-area-bottom {
   padding-bottom: env(safe-area-inset-bottom, 0);
   padding-bottom: var(--tg-safe-area-inset-bottom, env(safe-area-inset-bottom, 0));
+}
+
+.safe-area-left {
+  padding-left: env(safe-area-inset-left, 0);
+  padding-left: var(--tg-safe-area-inset-left, env(safe-area-inset-left, 0));
+}
+
+.safe-area-right {
+  padding-right: env(safe-area-inset-right, 0);
+  padding-right: var(--tg-safe-area-inset-right, env(safe-area-inset-right, 0));
+}
+
+.safe-area-insets {
+  padding-top: env(safe-area-inset-top, 0);
+  padding-top: var(--tg-safe-area-inset-top, env(safe-area-inset-top, 0));
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  padding-bottom: var(--tg-safe-area-inset-bottom, env(safe-area-inset-bottom, 0));
+  padding-left: env(safe-area-inset-left, 0);
+  padding-left: var(--tg-safe-area-inset-left, env(safe-area-inset-left, 0));
+  padding-right: env(safe-area-inset-right, 0);
+  padding-right: var(--tg-safe-area-inset-right, env(safe-area-inset-right, 0));
 }
 
 /* Content safe area для Telegram */
@@ -1268,6 +1270,12 @@ button, a, .touch-manipulation {
   filter: none !important;
   perspective: none !important;
   overscroll-behavior: none;
+}
+
+/* Wrapper для header - обеспечивает правильный рендеринг spacer */
+.granite-header-wrapper {
+  position: relative;
+  width: 100%;
 }
 
 /* ============================================

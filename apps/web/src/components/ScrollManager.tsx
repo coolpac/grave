@@ -15,20 +15,37 @@
  */
 import { useEffect, useLayoutEffect } from 'react'
 import { useLocation } from 'react-router-dom'
+import { debugLog } from './DebugPanel'
 
 export default function ScrollManager() {
   const { pathname } = useLocation()
+
+  // Начальное логирование при монтировании
+  useEffect(() => {
+    debugLog.info('🔄 ScrollManager component mounted', {
+      timestamp: new Date().toISOString(),
+      pathname,
+      scrollY: window.scrollY,
+    })
+  }, [])
 
   // Отключаем автоматическое восстановление скролла
   useEffect(() => {
     if ('scrollRestoration' in window.history) {
       window.history.scrollRestoration = 'manual'
+      debugLog.info('🔧 Scroll restoration disabled')
     }
   }, [])
 
   // 1. НЕМЕДЛЕННЫЙ сброс ДО paint
   useLayoutEffect(() => {
-    const resetScroll = () => {
+    const resetScroll = (phase: string) => {
+      const beforeScroll = {
+        window: window.scrollY,
+        documentElement: document.documentElement.scrollTop,
+        body: document.body.scrollTop,
+      }
+      
       // Сбрасываем window
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
       
@@ -40,18 +57,44 @@ export default function ScrollManager() {
       const scrollableElements = document.querySelectorAll(
         '.layout__content, .page-scroll, .content-scroll, .scroll-area, .products-grid, [data-scrollable]'
       )
+      const containerScrolls: any[] = []
       scrollableElements.forEach(el => {
+        containerScrolls.push({
+          selector: el.className || el.tagName,
+          before: el.scrollTop,
+        })
         el.scrollTop = 0
         el.scrollLeft = 0
       })
+      
+      const afterScroll = {
+        window: window.scrollY,
+        documentElement: document.documentElement.scrollTop,
+        body: document.body.scrollTop,
+      }
+      
+      if (phase === 'layout' || beforeScroll.window > 0 || beforeScroll.documentElement > 0 || containerScrolls.some(c => c.before > 0)) {
+        debugLog.action(`🔄 Scroll reset [${phase}]`, {
+          pathname,
+          before: beforeScroll,
+          after: afterScroll,
+          containers: containerScrolls.filter(c => c.before > 0),
+        })
+      }
     }
     
-    resetScroll()
+    resetScroll('layout')
   }, [pathname])
 
   // 2. Дополнительные сбросы ПОСЛЕ рендера
   useEffect(() => {
-    const resetScroll = () => {
+    const resetScroll = (phase: string) => {
+      const beforeScroll = {
+        window: window.scrollY,
+        documentElement: document.documentElement.scrollTop,
+        body: document.body.scrollTop,
+      }
+      
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
       document.documentElement.scrollTop = 0
       document.body.scrollTop = 0
@@ -63,27 +106,42 @@ export default function ScrollManager() {
         el.scrollTop = 0
         el.scrollLeft = 0
       })
+      
+      const afterScroll = {
+        window: window.scrollY,
+        documentElement: document.documentElement.scrollTop,
+        body: document.body.scrollTop,
+      }
+      
+      // Логируем только если был скролл
+      if (beforeScroll.window > 0 || beforeScroll.documentElement > 0) {
+        debugLog.action(`🔄 Scroll reset [${phase}]`, {
+          pathname,
+          before: beforeScroll,
+          after: afterScroll,
+        })
+      }
     }
     
     // Немедленно
-    resetScroll()
+    resetScroll('effect-immediate')
     
     // В следующем фрейме
     requestAnimationFrame(() => {
-      resetScroll()
+      resetScroll('raf-1')
       
       // Ещё раз в следующем фрейме (для надёжности)
-      requestAnimationFrame(resetScroll)
+      requestAnimationFrame(() => resetScroll('raf-2'))
     })
     
     // После всех синхронных операций
-    const timeout0 = setTimeout(resetScroll, 0)
+    const timeout0 = setTimeout(() => resetScroll('timeout-0'), 0)
     
     // Дополнительная страховка для iOS/Telegram
-    const timeout50 = setTimeout(resetScroll, 50)
+    const timeout50 = setTimeout(() => resetScroll('timeout-50'), 50)
     
     // Финальная проверка
-    const timeout100 = setTimeout(resetScroll, 100)
+    const timeout100 = setTimeout(() => resetScroll('timeout-100'), 100)
     
     return () => {
       clearTimeout(timeout0)
@@ -94,4 +152,6 @@ export default function ScrollManager() {
 
   return null
 }
+
+
 

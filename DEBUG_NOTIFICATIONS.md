@@ -110,3 +110,5 @@ docker-compose -f docker-compose.production.yml exec postgres psql -U postgres -
    docker-compose -f docker-compose.production.yml exec redis redis-cli -a $REDIS_PASSWORD KEYS "*notification*"
    ```
 
+
+

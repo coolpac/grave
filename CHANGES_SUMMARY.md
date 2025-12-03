@@ -121,3 +121,5 @@ curl "https://optmramor.ru/api/auth/admin-token?telegramId=83146995"
 - `HOW_TO_GET_ADMIN_TOKEN_UPDATED.md` - подробная инструкция по получению токена
 - `ENV_VARIABLES_USAGE.md` - использование переменных окружения
 
+
+

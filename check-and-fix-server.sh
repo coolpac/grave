@@ -69,3 +69,5 @@ echo "curl 'https://optmramor.ru/api/auth/admin-token?telegramId=ВАШ_TELEGRAM
 echo ""
 echo "ВАШ_TELEGRAM_ID должен быть в ADMIN_WHITELIST в .env файле!"
 
+
+

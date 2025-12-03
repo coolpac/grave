@@ -59,3 +59,5 @@ ENDSSH
 echo ""
 echo "✅ Готово! Проверьте https://optmramor.ru/api/health/live"
 
+
+

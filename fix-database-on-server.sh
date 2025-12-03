@@ -40,3 +40,5 @@ echo ""
 echo "Проверка таблиц:"
 docker-compose -f docker-compose.production.yml exec -T postgres psql -U postgres -d ritual_db -c "\dt" || true
 
+
+

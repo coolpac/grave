@@ -280,3 +280,5 @@ curl -H "Authorization: Bearer YOUR_TOKEN" https://optmramor.ru/api/products
 - [DEPLOYMENT_QUICK_START.md](./DEPLOYMENT_QUICK_START.md) - Руководство по деплою
 - [PRODUCTION_SETUP.md](./PRODUCTION_SETUP.md) - Настройка продакшена
 
+
+
