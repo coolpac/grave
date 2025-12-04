@@ -7,7 +7,7 @@ import Layout from './components/Layout'
 import LoadingScreen from './components/LoadingScreen'
 import ScrollManager from './components/ScrollManager'
 import DebugPanel from './components/DebugPanel'
-import { debugLog } from './components/DebugPanel'
+import { debugLog, debugLogger } from './components/DebugPanel'
 import { useTelegram } from './hooks/useTelegram'
 import { queryClient } from './config/queryClient'
 
@@ -73,9 +73,11 @@ function AppContent() {
   const [isLoading, setIsLoading] = useState(true)
   const { isReady, sendDataToServer } = useTelegram()
 
-  // Логируем начальную загрузку
+  // Логируем начальную загрузку - НЕМЕДЛЕННО при монтировании
   useEffect(() => {
-    debugLog.info('🚀 App started', {
+    console.log('🚀 [App] Starting...', new Date().toISOString())
+    // Используем прямо debugLogger чтобы гарантировать добавление
+    debugLogger.log('info', '🚀 App started', {
       isReady,
       userAgent: navigator.userAgent,
       platform: (window as any).Telegram?.WebApp?.platform,
@@ -84,6 +86,12 @@ function AppContent() {
         height: window.innerHeight,
       },
     })
+    // Также через debugLog для совместимости
+    debugLog.info('🚀 App started (via debugLog)', {
+      isReady,
+      timestamp: new Date().toISOString(),
+    })
+    console.log('🚀 [App] Started, logs count:', debugLogger.getLogs().length)
   }, [])
 
   useEffect(() => {

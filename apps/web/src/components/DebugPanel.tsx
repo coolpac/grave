@@ -36,14 +36,25 @@ class DebugLogger {
       message,
       data,
     }
-    this.logs.push(entry)
-    // Ограничиваем количество логов
+    // Добавляем новый лог в начало, чтобы последние события были сверху
+    this.logs.unshift(entry)
+    // Ограничиваем количество логов, сохраняя самые свежие
     if (this.logs.length > 100) {
-      this.logs = this.logs.slice(-100)
+      this.logs = this.logs.slice(0, 100)
     }
-    // Всегда логируем в консоль для отладки
-    const consoleMethod = type === 'error' ? console.error : type === 'warn' ? console.warn : console.log
-    consoleMethod(`[DebugPanel ${type.toUpperCase()}]`, message, data || '')
+    // Всегда логируем в консоль для отладки - ЯВНО и ВСЕГДА
+    try {
+      const consoleMethod = type === 'error' ? console.error : type === 'warn' ? console.warn : console.log
+      const prefix = `🐛 [DebugPanel ${type.toUpperCase()}]`
+      if (data) {
+        consoleMethod(prefix, message, data)
+      } else {
+        consoleMethod(prefix, message)
+      }
+    } catch (e) {
+      // Fallback если console недоступен
+      console.log('[DebugPanel] Log error:', e)
+    }
     this.notifyListeners()
   }
 
@@ -74,6 +85,21 @@ export const debugLog = {
   warn: (message: string, data?: any) => debugLogger.log('warn', message, data),
   error: (message: string, data?: any) => debugLogger.log('error', message, data),
   action: (message: string, data?: any) => debugLogger.log('action', message, data),
+}
+
+// Начальное тестовое логирование при загрузке модуля - ЯВНО И НЕМЕДЛЕННО
+if (typeof window !== 'undefined') {
+  // Сразу логируем в консоль напрямую
+  console.log('🐛 [DebugPanel] Module loading...', new Date().toISOString())
+  
+  // НЕМЕДЛЕННО добавляем лог в debugLogger (до монтирования компонентов)
+  debugLogger.log('info', '📦 DebugPanel module loaded', {
+    timestamp: new Date().toISOString(),
+    userAgent: navigator.userAgent,
+    location: window.location.href,
+  })
+  
+  console.log('🐛 [DebugPanel] Module loaded, initial log added')
 }
 
 // Компонент дебаг панели
@@ -204,17 +230,35 @@ export default function DebugPanel() {
     return () => { unsubscribe() }
   }, [isOpen, viewportInfo, headerInfo, scrollInfo])
 
-  // Начальное логирование при монтировании DebugPanel
+  // Начальное логирование при монтировании DebugPanel - ЯВНО
   useEffect(() => {
+    console.log('🐛 [DebugPanel] Component mounting...', new Date().toISOString())
+    
+    const initialLogs = debugLogger.getLogs()
+    console.log('🐛 [DebugPanel] Initial logs count:', initialLogs.length)
+    if (initialLogs.length > 0) {
+      console.log('🐛 [DebugPanel] Last 5 logs:', initialLogs.slice(-5).map(l => l.message))
+    }
+    
     debugLog.info('🐛 DebugPanel component mounted', {
       timestamp: new Date().toISOString(),
-      initialLogsCount: debugLogger.getLogs().length,
+      initialLogsCount: initialLogs.length,
+      initialLogs: initialLogs.slice(-5).map(l => l.message), // Последние 5 логов
     })
+    
+    // Принудительно обновляем состояние
+    setLogs([...initialLogs])
+    
+    console.log('🐛 [DebugPanel] Component mounted, total logs:', initialLogs.length)
   }, [])
 
   useEffect(() => {
     if (isOpen && !isMinimized) {
-      logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+      // Скроллим к началу (новые логи сверху)
+      const logsContainer = logsEndRef.current?.parentElement
+      if (logsContainer) {
+        logsContainer.scrollTop = 0
+      }
     }
   }, [logs, isOpen, isMinimized])
 
@@ -252,7 +296,14 @@ export default function DebugPanel() {
     <>
       {/* Кнопка открытия дебаг панели */}
       <motion.button
-        onClick={() => setIsOpen(true)}
+        onClick={() => {
+          setIsOpen(true)
+          // Тестовое логирование при открытии
+          debugLog.info('🔍 Debug Panel opened by button click', {
+            timestamp: new Date().toISOString(),
+            totalLogs: debugLogger.getLogs().length,
+          })
+        }}
         className="fixed bottom-20 right-4 z-[9999] w-12 h-12 rounded-full bg-purple-600 text-white shadow-lg flex items-center justify-center"
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}
@@ -262,6 +313,11 @@ export default function DebugPanel() {
         {logs.filter(l => l.type === 'error').length > 0 && (
           <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-xs flex items-center justify-center">
             {logs.filter(l => l.type === 'error').length}
+          </span>
+        )}
+        {logs.length > 0 && (
+          <span className="absolute -top-1 -left-1 w-5 h-5 bg-blue-500 rounded-full text-xs flex items-center justify-center">
+            {logs.length}
           </span>
         )}
       </motion.button>
@@ -427,22 +483,23 @@ export default function DebugPanel() {
                     No logs yet. Perform actions to see debug info.
                   </div>
                 ) : (
-                  logs.map((log) => (
+                  // Показываем логи в обратном порядке (новые сверху)
+                  [...logs].reverse().map((log) => (
                     <div 
                       key={log.id} 
                       className="py-1 border-b border-gray-800 last:border-b-0"
                     >
                       <div className="flex items-start gap-2">
-                        <span className="text-gray-500 shrink-0">
+                        <span className="text-gray-500 shrink-0 text-xs">
                           {formatTime(log.timestamp)}
                         </span>
                         <span className="shrink-0">{getTypeIcon(log.type)}</span>
-                        <span className={`${getTypeColor(log.type)} break-all`}>
+                        <span className={`${getTypeColor(log.type)} break-all flex-1`}>
                           {log.message}
                         </span>
                       </div>
                       {log.data !== undefined && (
-                        <pre className="mt-1 ml-20 text-gray-400 overflow-x-auto whitespace-pre-wrap break-all bg-gray-800 p-1 rounded">
+                        <pre className="mt-1 ml-20 text-gray-400 overflow-x-auto whitespace-pre-wrap break-all bg-gray-800 p-1 rounded text-xs">
                           {typeof log.data === 'object' 
                             ? JSON.stringify(log.data, null, 2)
                             : String(log.data)
@@ -452,7 +509,6 @@ export default function DebugPanel() {
                     </div>
                   ))
                 )}
-                <div ref={logsEndRef} />
               </div>
             )}
           </motion.div>

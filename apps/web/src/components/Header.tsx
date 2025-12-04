@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useTgViewport } from '../hooks/useTgViewport'
 import { useTelegram } from '../hooks/useTelegram'
-import { debugLog } from './DebugPanel'
+import { debugLog, debugLogger } from './DebugPanel'
 
 /**
  * Header - фиксированный хедер с эффектом "влажного гранита"
@@ -14,13 +14,20 @@ export default function Header() {
   const headerRef = useRef<HTMLElement>(null)
   const [isDark, setIsDark] = useState(false)
 
-  // Начальное логирование при монтировании
+  // Начальное логирование при монтировании - НЕМЕДЛЕННО
   useEffect(() => {
-    debugLog.info('🔵 Header component mounted', {
+    console.log('🔵 [Header] Component mounting...', new Date().toISOString())
+    // Используем прямо debugLogger чтобы гарантировать добавление
+    debugLogger.log('info', '🔵 Header component mounted', {
       timestamp: new Date().toISOString(),
       safeAreaInsetTop,
       isReady,
     })
+    // Также через debugLog
+    debugLog.info('🔵 Header component mounted (via debugLog)', {
+      timestamp: new Date().toISOString(),
+    })
+    console.log('🔵 [Header] Component mounted, logs count:', debugLogger.getLogs().length)
   }, [])
 
   useEffect(() => {

@@ -15,18 +15,25 @@
  */
 import { useEffect, useLayoutEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { debugLog } from './DebugPanel'
+import { debugLog, debugLogger } from './DebugPanel'
 
 export default function ScrollManager() {
   const { pathname } = useLocation()
 
-  // Начальное логирование при монтировании
+  // Начальное логирование при монтировании - НЕМЕДЛЕННО
   useEffect(() => {
-    debugLog.info('🔄 ScrollManager component mounted', {
+    console.log('🔄 [ScrollManager] Component mounting...', new Date().toISOString())
+    // Используем прямо debugLogger чтобы гарантировать добавление
+    debugLogger.log('info', '🔄 ScrollManager component mounted', {
       timestamp: new Date().toISOString(),
       pathname,
       scrollY: window.scrollY,
     })
+    // Также через debugLog
+    debugLog.info('🔄 ScrollManager component mounted (via debugLog)', {
+      timestamp: new Date().toISOString(),
+    })
+    console.log('🔄 [ScrollManager] Component mounted, logs count:', debugLogger.getLogs().length)
   }, [])
 
   // Отключаем автоматическое восстановление скролла

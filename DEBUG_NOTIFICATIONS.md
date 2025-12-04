@@ -112,3 +112,5 @@ docker-compose -f docker-compose.production.yml exec postgres psql -U postgres -
 
 
 
+
+
