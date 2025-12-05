@@ -14,52 +14,53 @@ export default function Header() {
   const headerRef = useRef<HTMLElement>(null)
   const [isDark, setIsDark] = useState(false)
 
-  // Начальное логирование при монтировании - НЕМЕДЛЕННО
+  // Минимизируем шум: логируем один раз после применения safeArea
+  const hasLoggedRef = useRef(false)
   useEffect(() => {
-    console.log('🔵 [Header] Component mounting...', new Date().toISOString())
-    // Используем прямо debugLogger чтобы гарантировать добавление
-    debugLogger.log('info', '🔵 Header component mounted', {
+    if (hasLoggedRef.current) return
+    hasLoggedRef.current = true
+    debugLogger.log('info', '🔵 Header mounted', {
       timestamp: new Date().toISOString(),
       safeAreaInsetTop,
       isReady,
     })
-    // Также через debugLog
-    debugLog.info('🔵 Header component mounted (via debugLog)', {
-      timestamp: new Date().toISOString(),
-    })
-    console.log('🔵 [Header] Component mounted, logs count:', debugLogger.getLogs().length)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const lastPaddingRef = useRef<number | null>(null)
   useEffect(() => {
     // Применяем safe area top padding
     if (headerRef.current) {
       const topPadding = Math.max(safeAreaInsetTop, 0)
       headerRef.current.style.paddingTop = `${topPadding}px`
       
-      // Небольшая задержка для получения актуальных размеров после применения стилей
-      setTimeout(() => {
-        if (headerRef.current) {
-          const rect = headerRef.current.getBoundingClientRect()
-          const styles = getComputedStyle(headerRef.current)
-          
-          debugLog.info('🔵 Header mounted/updated', {
-            safeAreaInsetTop,
-            topPadding,
-            position: {
-              top: rect.top,
-              left: rect.left,
-              width: rect.width,
-              height: rect.height,
-            },
-            styles: {
-              position: styles.position,
-              paddingTop: styles.paddingTop,
-              backgroundColor: styles.backgroundColor,
-              zIndex: styles.zIndex,
-            },
-          })
-        }
-      }, 100)
+      // Логируем только если реально изменился padding > 0.5px
+      if (lastPaddingRef.current === null || Math.abs((lastPaddingRef.current ?? 0) - topPadding) > 0.5) {
+        lastPaddingRef.current = topPadding
+        setTimeout(() => {
+          if (headerRef.current) {
+            const rect = headerRef.current.getBoundingClientRect()
+            const styles = getComputedStyle(headerRef.current)
+            
+            debugLog.info('🔵 Header updated', {
+              safeAreaInsetTop,
+              topPadding,
+              position: {
+                top: rect.top,
+                left: rect.left,
+                width: rect.width,
+                height: rect.height,
+              },
+              styles: {
+                position: styles.position,
+                paddingTop: styles.paddingTop,
+                backgroundColor: styles.backgroundColor,
+                zIndex: styles.zIndex,
+              },
+            })
+          }
+        }, 80)
+      }
     } else {
       debugLog.warn('⚠️ Header ref is null')
     }
@@ -93,7 +94,7 @@ export default function Header() {
         ref={headerRef}
         className={`granite-header ${isDark ? 'granite-header-dark' : 'granite-header-light'}`}
         style={{
-          paddingTop: `max(${safeAreaInsetTop}px, env(safe-area-inset-top, 0px))`,
+          paddingTop: 'var(--header-safe-top)',
           marginTop: 0,
         }}
         aria-hidden="true"

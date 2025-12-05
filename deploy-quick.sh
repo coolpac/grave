@@ -52,7 +52,7 @@ case $SERVICE in
         ssh ${DEPLOY_USER}@${SERVER_IP} "cd ${PROJECT_DIR} && docker-compose -f docker-compose.production.yml build web && docker-compose -f docker-compose.production.yml up -d web"
         ;;
     api|backend)
-        ssh ${DEPLOY_USER}@${SERVER_IP} "cd ${PROJECT_DIR} && docker-compose -f docker-compose.production.yml build api && docker-compose -f docker-compose.production.yml up -d api"
+        ssh ${DEPLOY_USER}@${SERVER_IP} \"cd ${PROJECT_DIR} && docker-compose -f docker-compose.production.yml build api && docker-compose -f docker-compose.production.yml up -d api && docker-compose -f docker-compose.production.yml exec api npx prisma migrate deploy\"
         ;;
     bots|bot)
         ssh ${DEPLOY_USER}@${SERVER_IP} "cd ${PROJECT_DIR} && docker-compose -f docker-compose.production.yml build customer-bot && docker-compose -f docker-compose.production.yml up -d customer-bot abandoned-cart-bot"
@@ -95,6 +95,8 @@ echo "🤖 Сборка ботов..."
 docker-compose -f docker-compose.production.yml build customer-bot || true
 echo "🚀 Запуск сервисов..."
 docker-compose -f docker-compose.production.yml up -d
+echo "🗄️ Миграции prisma..."
+docker-compose -f docker-compose.production.yml exec api npx prisma migrate deploy
 echo "⏳ Ожидание запуска..."
 sleep 5
 docker-compose -f docker-compose.production.yml ps

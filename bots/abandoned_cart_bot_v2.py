@@ -33,7 +33,8 @@ CUSTOMER_BOT_URL = os.getenv('CUSTOMER_BOT_API_URL', 'http://localhost:8001')
 CHECK_INTERVAL_MINUTES = int(os.getenv('CART_CHECK_INTERVAL_MINUTES', '60'))
 REMINDER_DELAY_HOURS = int(os.getenv('REMINDER_DELAY_HOURS', '2'))
 MAX_REMINDERS = int(os.getenv('MAX_REMINDERS', '3'))
-REMINDER_INTERVALS = [2, 24, 72]  # часы между напоминаниями
+# Default intervals if API settings отсутствуют: 2h, 24h, 72h
+REMINDER_INTERVALS = [2, 24, 72]
 PORT = int(os.getenv('ABANDONED_CART_BOT_PORT', '8003'))
 
 # Scheduler
@@ -86,10 +87,13 @@ async def get_abandoned_carts() -> List[Dict]:
 async def get_settings() -> Dict:
     """Получить настройки напоминаний"""
     result = await api_get('/admin/abandoned-carts/settings')
-    return result or {
-        'autoRemindersEnabled': True,
-        'reminderIntervalHours': 24,
-        'maxReminders': MAX_REMINDERS
+    settings = result or {}
+    return {
+        'autoRemindersEnabled': settings.get('autoRemindersEnabled', True),
+        'reminderIntervalHours': settings.get('reminderIntervalHours', 24),
+        'maxReminders': settings.get('maxReminders', MAX_REMINDERS),
+        'initialDelayHours': settings.get('initialDelayHours', REMINDER_DELAY_HOURS),
+        'reminderIntervals': settings.get('reminderIntervals', REMINDER_INTERVALS) or REMINDER_INTERVALS,
     }
 
 async def send_reminder(telegram_id: str, cart: Dict) -> bool:
@@ -127,7 +131,8 @@ async def check_and_send_reminders():
             return
         
         max_reminders = settings.get('maxReminders', MAX_REMINDERS)
-        reminder_interval = settings.get('reminderIntervalHours', 24)
+        reminder_intervals = settings.get('reminderIntervals') or REMINDER_INTERVALS
+        initial_delay = settings.get('initialDelayHours', REMINDER_DELAY_HOURS)
         
         # Получаем корзины
         carts = await get_abandoned_carts()
@@ -147,21 +152,48 @@ async def check_and_send_reminders():
                 if not telegram_id:
                     continue
                 
-                # Проверяем лимит напоминаний
                 reminder_sent = cart.get('reminderSent', 0)
+
+                # Не превышаем общее число напоминаний
                 if reminder_sent >= max_reminders:
                     continue
-                
-                # Проверяем интервал
+
+                # Проверяем интервалы:
+                #  - первое напоминание — через initial_delay часов с момента abandon
+                #  - последующие — по reminder_intervals[reminder_sent] (если есть)
                 last_reminder = cart.get('lastReminderAt')
-                if last_reminder:
-                    try:
-                        last_dt = datetime.fromisoformat(last_reminder.replace('Z', '+00:00'))
-                        hours_since = (datetime.now(last_dt.tzinfo) - last_dt).total_seconds() / 3600
-                        if hours_since < reminder_interval:
+                abandoned_at = cart.get('abandonedAt') or cart.get('createdAt')
+
+                # Если нет даты брошенной корзины — пропускаем
+                if not abandoned_at:
+                    continue
+
+                try:
+                    abandoned_dt = datetime.fromisoformat(abandoned_at.replace('Z', '+00:00'))
+                    now_dt = datetime.now(abandoned_dt.tzinfo)
+                except Exception:
+                    continue
+
+                # Определяем требуемый интервал для текущего напоминания
+                if reminder_sent == 0:
+                    required_hours = initial_delay
+                    reference_dt = abandoned_dt
+                else:
+                    # Если интервала нет в списке — прекращаем
+                    if reminder_sent - 1 >= len(reminder_intervals):
+                        continue
+                    required_hours = reminder_intervals[reminder_sent - 1]
+                    if last_reminder:
+                        try:
+                            reference_dt = datetime.fromisoformat(last_reminder.replace('Z', '+00:00'))
+                        except Exception:
                             continue
-                    except:
-                        pass
+                    else:
+                        reference_dt = abandoned_dt
+
+                hours_since = (now_dt - reference_dt).total_seconds() / 3600
+                if hours_since < required_hours:
+                    continue
                 
                 # Отправляем напоминание
                 if await send_reminder(telegram_id, cart):

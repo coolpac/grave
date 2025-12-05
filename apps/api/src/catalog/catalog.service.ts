@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, BadRequestException, LoggerService, Inject, OnModuleInit } from '@nestjs/common';
+import { CACHE_MANAGER, Cache } from '@nestjs/cache-manager';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -14,6 +15,8 @@ export class CatalogService implements OnModuleInit {
     private prisma: PrismaService,
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
     private readonly logger: LoggerService,
+    @Inject(CACHE_MANAGER)
+    private cacheManager: Cache,
   ) {}
 
   async onModuleInit() {
@@ -55,9 +58,18 @@ export class CatalogService implements OnModuleInit {
 
   // Categories CRUD
   async createCategory(createDto: CreateCategoryDto) {
-    return this.prisma.category.create({
-      data: createDto,
-    });
+    try {
+      const category = await this.prisma.category.create({
+        data: createDto,
+      });
+      await this.clearCategoriesCache();
+      return category;
+    } catch (error: any) {
+      if (error?.code === 'P2002' && error?.meta?.target?.includes('slug')) {
+        throw new BadRequestException('Категория с таким slug уже существует');
+      }
+      throw error;
+    }
   }
 
   async findAllCategories(activeOnly = false, material?: string) {
@@ -177,10 +189,19 @@ export class CatalogService implements OnModuleInit {
   }
 
   async updateCategory(id: number, updateDto: UpdateCategoryDto) {
-    return this.prisma.category.update({
-      where: { id },
-      data: updateDto,
-    });
+    try {
+      const category = await this.prisma.category.update({
+        where: { id },
+        data: updateDto,
+      });
+      await this.clearCategoriesCache();
+      return category;
+    } catch (error: any) {
+      if (error?.code === 'P2002' && error?.meta?.target?.includes('slug')) {
+        throw new BadRequestException('Категория с таким slug уже существует');
+      }
+      throw error;
+    }
   }
 
   async deleteCategory(id: number) {
@@ -198,9 +219,20 @@ export class CatalogService implements OnModuleInit {
       throw new BadRequestException('Cannot delete category with products');
     }
 
-    return this.prisma.category.delete({
+    const result = await this.prisma.category.delete({
       where: { id },
     });
+    await this.clearCategoriesCache();
+    return result;
+  }
+
+  private async clearCategoriesCache() {
+    try {
+      await this.cacheManager.del('categories');
+    } catch (e) {
+      // не блокируем основной поток
+      this.logger.warn?.({ message: 'Failed to clear categories cache', error: e instanceof Error ? e.message : String(e) });
+    }
   }
 
   // Products CRUD

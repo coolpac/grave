@@ -90,10 +90,14 @@ export default function ScrollManager() {
       }
     }
     
-    resetScroll('layout')
+    // Логируем только если реально был скролл
+    const beforeWindow = window.scrollY || document.documentElement.scrollTop || document.body.scrollTop
+    if (beforeWindow > 0) {
+      resetScroll('layout')
+    }
   }, [pathname])
 
-  // 2. Дополнительные сбросы ПОСЛЕ рендера
+  // 2. Дополнительные сбросы ПОСЛЕ рендера (упрощённо)
   useEffect(() => {
     const resetScroll = (phase: string) => {
       const beforeScroll = {
@@ -102,6 +106,10 @@ export default function ScrollManager() {
         body: document.body.scrollTop,
       }
       
+      if (beforeScroll.window === 0 && beforeScroll.documentElement === 0 && beforeScroll.body === 0) {
+        return
+      }
+
       window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
       document.documentElement.scrollTop = 0
       document.body.scrollTop = 0
@@ -134,26 +142,13 @@ export default function ScrollManager() {
     resetScroll('effect-immediate')
     
     // В следующем фрейме
-    requestAnimationFrame(() => {
-      resetScroll('raf-1')
-      
-      // Ещё раз в следующем фрейме (для надёжности)
-      requestAnimationFrame(() => resetScroll('raf-2'))
-    })
-    
-    // После всех синхронных операций
-    const timeout0 = setTimeout(() => resetScroll('timeout-0'), 0)
+    requestAnimationFrame(() => resetScroll('raf-1'))
     
     // Дополнительная страховка для iOS/Telegram
     const timeout50 = setTimeout(() => resetScroll('timeout-50'), 50)
     
-    // Финальная проверка
-    const timeout100 = setTimeout(() => resetScroll('timeout-100'), 100)
-    
     return () => {
-      clearTimeout(timeout0)
       clearTimeout(timeout50)
-      clearTimeout(timeout100)
     }
   }, [pathname])
 

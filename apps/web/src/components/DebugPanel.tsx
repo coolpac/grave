@@ -15,6 +15,7 @@ interface LogEntry {
 }
 
 // Глобальный логгер для дебага
+const isProd = typeof import.meta !== 'undefined' && (import.meta as any).env?.PROD
 class DebugLogger {
   private static instance: DebugLogger
   private logs: LogEntry[] = []
@@ -29,6 +30,9 @@ class DebugLogger {
   }
 
   log(type: LogEntry['type'], message: string, data?: any) {
+    // В проде скрываем шумные info, оставляем warn/error/action
+    if (isProd && type === 'info') return
+
     const entry: LogEntry = {
       id: this.idCounter++,
       timestamp: new Date(),
@@ -39,8 +43,9 @@ class DebugLogger {
     // Добавляем новый лог в начало, чтобы последние события были сверху
     this.logs.unshift(entry)
     // Ограничиваем количество логов, сохраняя самые свежие
-    if (this.logs.length > 100) {
-      this.logs = this.logs.slice(0, 100)
+    const LIMIT = isProd ? 50 : 100
+    if (this.logs.length > LIMIT) {
+      this.logs = this.logs.slice(0, LIMIT)
     }
     // Всегда логируем в консоль для отладки - ЯВНО и ВСЕГДА
     try {
@@ -152,14 +157,6 @@ export default function DebugPanel() {
       setHeaderInfo(headerData)
       setScrollInfo(scrollData)
       
-      // Логируем только при значительных изменениях
-      if (header && headerData.exists && isOpen) {
-        debugLog.info('📊 Viewport/Header update', {
-          viewport: viewportData,
-          header: headerData,
-          scroll: scrollData,
-        })
-      }
     }
 
     // Сохраняем ссылку на функцию обновления
@@ -209,22 +206,11 @@ export default function DebugPanel() {
     const currentLogs = debugLogger.getLogs()
     setLogs(currentLogs)
     
-    // Логируем при открытии панели
-    if (isOpen) {
-      debugLog.info('🔍 Debug Panel opened', {
-        logsCount: currentLogs.length,
-        timestamp: new Date().toISOString(),
-        viewport: viewportInfo,
-        header: headerInfo,
-        scroll: scrollInfo,
-      })
-      
-      // Принудительно обновляем информацию при открытии
-      if (updateInfoRef.current) {
-        setTimeout(() => {
-          updateInfoRef.current?.()
-        }, 100)
-      }
+    // При открытии просто обновляем информацию без лишних логов
+    if (isOpen && updateInfoRef.current) {
+      setTimeout(() => {
+        updateInfoRef.current?.()
+      }, 100)
     }
     
     return () => { unsubscribe() }
@@ -296,14 +282,7 @@ export default function DebugPanel() {
     <>
       {/* Кнопка открытия дебаг панели */}
       <motion.button
-        onClick={() => {
-          setIsOpen(true)
-          // Тестовое логирование при открытии
-          debugLog.info('🔍 Debug Panel opened by button click', {
-            timestamp: new Date().toISOString(),
-            totalLogs: debugLogger.getLogs().length,
-          })
-        }}
+        onClick={() => setIsOpen(true)}
         className="fixed bottom-20 right-4 z-[9999] w-12 h-12 rounded-full bg-purple-600 text-white shadow-lg flex items-center justify-center"
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.9 }}

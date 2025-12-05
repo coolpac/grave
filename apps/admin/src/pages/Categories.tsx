@@ -128,6 +128,9 @@ export default function Categories() {
       .replace(/^-|-$/g, '');
   };
 
+  const slugExists = (slug: string, excludeId?: number | null) =>
+    categories.some((cat: any) => cat.slug === slug && cat.id !== excludeId);
+
   // Filter categories by search
   const filteredCategories = Array.isArray(categories)
     ? categories.filter((cat) =>
@@ -242,6 +245,9 @@ export default function Categories() {
                   className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 transition-all font-mono text-sm"
                   placeholder="slug-kategorii"
                 />
+                {formData.slug && slugExists(formData.slug, editingId) && (
+                  <p className="text-xs text-red-400 mt-1">Такой slug уже используется</p>
+                )}
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-white/70 mb-2">Описание</label>
@@ -282,7 +288,12 @@ export default function Categories() {
             <div className="flex gap-3 mt-6 pt-4 border-t border-white/10">
               <Button
                 onClick={handleSave}
-                disabled={createMutation.isPending || !formData.name || !formData.slug}
+                disabled={
+                  createMutation.isPending ||
+                  !formData.name ||
+                  !formData.slug ||
+                  slugExists(formData.slug, editingId)
+                }
                 className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
               >
                 <Save className="w-4 h-4 mr-2" />

@@ -275,6 +275,8 @@ model Newsletter {
   status      String   @default("draft")
   scheduledAt DateTime?
   sentAt      DateTime?
+  targetSegment String?
+  recipientIds  String?   // JSON массив telegramId
   recipientCount Int   @default(0)
   openedCount Int      @default(0)
   clickedCount Int     @default(0)
@@ -294,6 +296,7 @@ model AbandonedCart {
   totalAmount Float     // Decimal заменен на Float
   reminderSent Int      @default(0)
   lastReminderAt DateTime?
+  abandonedAt DateTime  @default(now())
   recovered   Boolean   @default(false)
   recoveredAt DateTime?
   createdAt   DateTime  @default(now())
@@ -312,7 +315,9 @@ model AbandonedCart {
 model AbandonedCartSettings {
   id                    Int      @id @default(autoincrement())
   autoRemindersEnabled  Boolean  @default(false)
-  reminderIntervalHours Int      @default(24) // Интервал между напоминаниями
+  reminderIntervalHours Int      @default(24) // Интервал между напоминаниями (fallback)
+  initialDelayHours     Int      @default(2)  // Задержка перед первым напоминанием
+  reminderIntervals     String   @default("[2,24,72]") // JSON массив часов между напоминаниями
   maxReminders          Int      @default(3)  // Максимальное количество напоминаний
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt

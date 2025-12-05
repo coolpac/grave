@@ -426,20 +426,30 @@ export class AdminService {
     if (!abandonedCart || abandonedCart.recovered) {
       throw new Error('Abandoned cart not found or already recovered');
     }
+    if (!abandonedCart.user?.telegramId) {
+      throw new Error('User does not have Telegram ID');
+    }
+    if (!abandonedCart.itemsCount || abandonedCart.itemsCount <= 0) {
+      throw new Error('Cart is empty, reminder skipped');
+    }
 
-    // Отправка напоминания через Python Customer Bot (если есть telegramId)
-    if (abandonedCart.user.telegramId) {
-      try {
-        const customerBotUrl = process.env.CUSTOMER_BOT_API_URL || 'http://localhost:8001';
-        const itemsText = abandonedCart.cart.items
-          .map((item) => {
-            const price = item.variant?.price || 0;
-            return `  • ${item.product.name}${item.variant?.name ? ` (${item.variant.name})` : ''} - ${item.quantity} шт. × ${price.toLocaleString('ru-RU')} ₽`;
-          })
-          .join('\n');
+    try {
+      const customerBotUrl =
+        process.env.CUSTOMER_BOT_URL ||
+        process.env.CUSTOMER_BOT_API_URL ||
+        'http://localhost:8001';
 
-        const axios = await import('axios');
-        await axios.default.post(`${customerBotUrl}/notify/abandoned-cart`, {
+      const itemsText = abandonedCart.cart.items
+        .map((item) => {
+          const price = item.variant?.price || 0;
+          return `  • ${item.product.name}${item.variant?.name ? ` (${item.variant.name})` : ''} - ${item.quantity} шт. × ${price.toLocaleString('ru-RU')} ₽`;
+        })
+        .join('\n');
+
+      const axios = await import('axios');
+      const resp = await axios.default.post(
+        `${customerBotUrl}/notify/abandoned-cart`,
+        {
           telegramId: abandonedCart.user.telegramId.toString(),
           cartId: abandonedCart.cartId,
           items: itemsText,
@@ -447,19 +457,25 @@ export class AdminService {
           daysSinceAbandoned: Math.floor(
             (Date.now() - abandonedCart.createdAt.getTime()) / (1000 * 60 * 60 * 24),
           ),
-        }, {
-          timeout: 5000,
-        });
-      } catch (error) {
-        // Логируем ошибку, но не блокируем обновление счетчика
-        this.logger.error({
-          message: 'Failed to send abandoned cart reminder via Python bot',
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          cartId: abandonedCart.id,
-          userId: abandonedCart.userId,
-        });
+        },
+        {
+          timeout: 7000,
+        },
+      );
+
+      if (resp.status >= 300) {
+        throw new Error(`Customer-bot responded with status ${resp.status}`);
       }
+    } catch (error) {
+      // Логируем и пробрасываем, чтобы в UI было видно
+      this.logger.error({
+        message: 'Failed to send abandoned cart reminder via Python bot',
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        cartId: abandonedCart.id,
+        userId: abandonedCart.userId,
+      });
+      throw error;
     }
 
     return this.prisma.abandonedCart.update({
@@ -480,15 +496,21 @@ export class AdminService {
         data: {
           autoRemindersEnabled: false,
           reminderIntervalHours: 24,
+          initialDelayHours: 2,
+          reminderIntervals: JSON.stringify([2, 24, 72]),
           maxReminders: 3,
-        },
+        } as any,
       });
     }
+
+    const reminderIntervals = this.parseIntervals((settings as any).reminderIntervals, [2, 24, 72]);
 
     return {
       id: settings.id,
       autoRemindersEnabled: settings.autoRemindersEnabled,
       reminderIntervalHours: settings.reminderIntervalHours,
+      initialDelayHours: (settings as any).initialDelayHours,
+      reminderIntervals,
       maxReminders: settings.maxReminders,
       updatedAt: settings.updatedAt,
     };
@@ -498,6 +520,8 @@ export class AdminService {
     autoRemindersEnabled?: boolean;
     reminderIntervalHours?: number;
     maxReminders?: number;
+    initialDelayHours?: number;
+    reminderIntervals?: number[];
   }) {
     let settings = await this.prisma.abandonedCartSettings.findFirst();
 
@@ -506,8 +530,10 @@ export class AdminService {
         data: {
           autoRemindersEnabled: updateDto.autoRemindersEnabled ?? false,
           reminderIntervalHours: updateDto.reminderIntervalHours ?? 24,
+          initialDelayHours: updateDto.initialDelayHours ?? 2,
+          reminderIntervals: JSON.stringify(updateDto.reminderIntervals ?? [2, 24, 72]),
           maxReminders: updateDto.maxReminders ?? 3,
-        },
+        } as any,
       });
     } else {
       settings = await this.prisma.abandonedCartSettings.update({
@@ -519,10 +545,16 @@ export class AdminService {
           ...(updateDto.reminderIntervalHours !== undefined && {
             reminderIntervalHours: updateDto.reminderIntervalHours,
           }),
+          ...(updateDto.initialDelayHours !== undefined && {
+            initialDelayHours: updateDto.initialDelayHours,
+          }),
+          ...(updateDto.reminderIntervals !== undefined && {
+            reminderIntervals: JSON.stringify(updateDto.reminderIntervals),
+          }),
           ...(updateDto.maxReminders !== undefined && {
             maxReminders: updateDto.maxReminders,
           }),
-        },
+        } as any,
       });
     }
 
@@ -530,9 +562,21 @@ export class AdminService {
       id: settings.id,
       autoRemindersEnabled: settings.autoRemindersEnabled,
       reminderIntervalHours: settings.reminderIntervalHours,
+      initialDelayHours: (settings as any).initialDelayHours,
+      reminderIntervals: this.parseIntervals((settings as any).reminderIntervals, [2, 24, 72]),
       maxReminders: settings.maxReminders,
       updatedAt: settings.updatedAt,
     };
+  }
+
+  private parseIntervals(value: string | null, fallback: number[]): number[] {
+    if (!value) return fallback;
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed.map((n) => Number(n)).filter((n) => !Number.isNaN(n)) : fallback;
+    } catch {
+      return fallback;
+    }
   }
 
   async getAbandonedCartDetails(id: number) {

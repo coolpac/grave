@@ -8,10 +8,12 @@ export class NewslettersService {
   constructor(private prisma: PrismaService) {}
 
   async create(createDto: CreateNewsletterDto) {
+    const recipientsJson = createDto.recipientIds ? JSON.stringify(createDto.recipientIds) : null;
     return this.prisma.newsletter.create({
       data: {
         ...createDto,
         scheduledAt: createDto.scheduledAt ? new Date(createDto.scheduledAt) : null,
+        recipientIds: recipientsJson,
       },
     });
   }
@@ -21,12 +23,44 @@ export class NewslettersService {
       orderBy: {
         createdAt: 'desc',
       },
+      select: {
+        id: true,
+        subject: true,
+        content: true,
+        htmlContent: true,
+        status: true,
+        scheduledAt: true,
+        sentAt: true,
+        recipientCount: true,
+        openedCount: true,
+        clickedCount: true,
+        createdAt: true,
+        updatedAt: true,
+        targetSegment: true,
+        recipientIds: true,
+      },
     });
   }
 
   async findOne(id: number) {
     const newsletter = await this.prisma.newsletter.findUnique({
       where: { id },
+      select: {
+        id: true,
+        subject: true,
+        content: true,
+        htmlContent: true,
+        status: true,
+        scheduledAt: true,
+        sentAt: true,
+        recipientCount: true,
+        openedCount: true,
+        clickedCount: true,
+        createdAt: true,
+        updatedAt: true,
+        targetSegment: true,
+        recipientIds: true,
+      },
     });
 
     if (!newsletter) {
@@ -41,11 +75,16 @@ export class NewslettersService {
 
     // PartialType делает все поля опциональными
     const dto = updateDto as any;
+    const recipientsJson =
+      dto.recipientIds !== undefined
+        ? (dto.recipientIds ? JSON.stringify(dto.recipientIds) : null)
+        : undefined;
     return this.prisma.newsletter.update({
       where: { id },
       data: {
         ...dto,
         scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : undefined,
+        recipientIds: recipientsJson,
       },
     });
   }

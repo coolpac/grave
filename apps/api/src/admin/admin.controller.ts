@@ -106,6 +106,8 @@ export class AdminController {
     autoRemindersEnabled?: boolean;
     reminderIntervalHours?: number;
     maxReminders?: number;
+    initialDelayHours?: number;
+    reminderIntervals?: number[];
   }) {
     return this.adminService.updateAbandonedCartSettings(updateDto);
   }

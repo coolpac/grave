@@ -310,7 +310,7 @@ export default function Category() {
       <div 
         className="fixed left-0 right-0 z-20 bg-gradient-to-b from-gray-100/50 via-gray-50 to-white border-b border-gray-200/50"
         style={{
-          top: 'calc(max(var(--tg-top-safe, env(safe-area-inset-top, 0px)), 0px) + 96px)',
+          top: 'var(--header-search-offset)',
         }}
       >
         <div className="px-4 py-3">
@@ -347,7 +347,7 @@ export default function Category() {
       </div>
 
       {/* Spacer для фиксированного поискового хедера */}
-      <div style={{ height: 'calc(max(var(--tg-top-safe, env(safe-area-inset-top, 0px)), 0px) + 96px + 60px)' }} />
+      <div style={{ height: 'var(--header-search-spacer)' }} />
 
       {/* Category Name */}
       <div className="px-4 py-4">
