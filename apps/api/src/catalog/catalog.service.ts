@@ -75,36 +75,9 @@ export class CatalogService implements OnModuleInit {
   async findAllCategories(activeOnly = false, material?: string) {
     const where: any = activeOnly ? { isActive: true } : {};
     
-    // Если указан материал, сначала находим категории, которые содержат товары с этим материалом
-    let categoryIds: number[] | undefined;
-    if (material) {
-      const materialUpper = material.toUpperCase();
-      const productsWithMaterial = await this.prisma.product.findMany({
-        where: {
-          material: materialUpper,
-          isActive: activeOnly ? true : undefined,
-        },
-        select: {
-          categoryId: true,
-        },
-        distinct: ['categoryId'],
-      });
-      categoryIds = productsWithMaterial.map(p => p.categoryId);
-      
-      // Если нет товаров с таким материалом, возвращаем пустой массив
-      if (categoryIds.length === 0) {
-        return [];
-      }
-    }
-    
-    // Получаем категории с учетом фильтров
-    const categoryWhere: any = {
-      ...where,
-      ...(categoryIds && { id: { in: categoryIds } }),
-    };
-    
+    // Получаем категории (материал не хранится в категориях, поэтому не фильтруем по нему)
     const categories = await this.prisma.category.findMany({
-      where: categoryWhere,
+      where,
       orderBy: { order: 'asc' },
     });
 
@@ -120,8 +93,7 @@ export class CatalogService implements OnModuleInit {
         }
         
         if (material) {
-          // Преобразуем 'marble' -> 'MARBLE', 'granite' -> 'GRANITE'
-          productWhere.material = material.toUpperCase();
+          productWhere.material = { equals: material, mode: 'insensitive' };
         }
 
         const productCount = await this.prisma.product.count({

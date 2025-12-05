@@ -5,8 +5,6 @@ import api from '../lib/api';
 import { Button } from '@ui/components/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@ui/components/card';
 import { useState } from 'react';
-import { Textarea } from '@ui/components/textarea';
-import { Input } from '@ui/components/input';
 
 export default function Newsletters() {
   const queryClient = useQueryClient();
@@ -112,11 +110,11 @@ export default function Newsletters() {
             Новая рассылка
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
+            <input
               placeholder="Тема"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              className="bg-white/5 border-white/10 text-white placeholder:text-white/40"
+              className="bg-white/5 border border-white/10 text-white placeholder:text-white/40 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
             />
             <div className="flex flex-col gap-2">
               <label className="text-xs text-white/60">Сегмент</label>
@@ -133,22 +131,22 @@ export default function Newsletters() {
               </select>
             </div>
           </div>
-          <Textarea
+          <textarea
             placeholder="Текст сообщения"
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="min-h-[120px] bg-white/5 border-white/10 text-white placeholder:text-white/40"
+            className="min-h-[120px] bg-white/5 border border-white/10 text-white placeholder:text-white/40 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
           />
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-white/70 text-sm">
               <Users className="h-4 w-4" />
               Telegram ID (через запятую/пробел/строку) — опционально
             </div>
-            <Textarea
+            <textarea
               placeholder="12345678, 23456789"
               value={recipientIds}
               onChange={(e) => setRecipientIds(e.target.value)}
-              className="min-h-[80px] bg-white/5 border-white/10 text-white placeholder:text-white/40"
+              className="min-h-[80px] bg-white/5 border border-white/10 text-white placeholder:text-white/40 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
             />
           </div>
           <div className="flex justify-end">

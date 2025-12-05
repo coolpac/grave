@@ -352,12 +352,12 @@ body.loading {
 
 /* Header sizing variables */
 :root {
-  --header-height: 96px;
+  --header-height: 64px;
   --header-safe-top: max(var(--tg-top-safe, env(safe-area-inset-top, 0px)), 0px);
   --header-total: calc(var(--header-safe-top) + var(--header-height));
   --header-search-offset: var(--header-total);
   /* Высота блока поиска (фиксированный контейнер в Category) */
-  --search-block-height: 92px;
+  --search-block-height: 56px;
   /* Спейсер под фиксированный поиск = высота хедера + высота поиска */
   --header-search-spacer: calc(var(--header-total) + var(--search-block-height));
 }

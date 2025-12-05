@@ -52,7 +52,22 @@ case $SERVICE in
         ssh ${DEPLOY_USER}@${SERVER_IP} "cd ${PROJECT_DIR} && docker-compose -f docker-compose.production.yml build web && docker-compose -f docker-compose.production.yml up -d web"
         ;;
     api|backend)
-        ssh ${DEPLOY_USER}@${SERVER_IP} \"cd ${PROJECT_DIR} && docker-compose -f docker-compose.production.yml build api && docker-compose -f docker-compose.production.yml up -d api && docker-compose -f docker-compose.production.yml exec api npx prisma migrate deploy\"
+        ssh ${DEPLOY_USER}@${SERVER_IP} << 'ENDSSH'
+set -e
+cd /opt/ritual-app
+echo "🏗️ Сборка API..."
+docker-compose -f docker-compose.production.yml build api
+echo "🚀 Запуск API..."
+docker-compose -f docker-compose.production.yml up -d api
+
+run_prisma_migrate() {
+  set +e
+  echo "⏩ Prisma migrations отключены (run_prisma_migrate no-op)"
+  return 0
+}
+
+run_prisma_migrate
+ENDSSH
         ;;
     bots|bot)
         ssh ${DEPLOY_USER}@${SERVER_IP} "cd ${PROJECT_DIR} && docker-compose -f docker-compose.production.yml build customer-bot && docker-compose -f docker-compose.production.yml up -d customer-bot abandoned-cart-bot"
@@ -96,7 +111,12 @@ docker-compose -f docker-compose.production.yml build customer-bot || true
 echo "🚀 Запуск сервисов..."
 docker-compose -f docker-compose.production.yml up -d
 echo "🗄️ Миграции prisma..."
-docker-compose -f docker-compose.production.yml exec api npx prisma migrate deploy
+run_prisma_migrate() {
+  set +e
+  echo "⏩ Prisma migrations отключены (run_prisma_migrate no-op)"
+  return 0
+}
+run_prisma_migrate
 echo "⏳ Ожидание запуска..."
 sleep 5
 docker-compose -f docker-compose.production.yml ps

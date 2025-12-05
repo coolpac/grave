@@ -317,6 +317,8 @@ model Newsletter {
   status         String    @default("draft")
   scheduledAt    DateTime?
   sentAt         DateTime?
+  targetSegment  String?
+  recipientIds   Json?
   recipientCount Int       @default(0)
   openedCount    Int       @default(0)
   clickedCount   Int       @default(0)
@@ -337,6 +339,7 @@ model AbandonedCart {
   totalAmount   Decimal   @db.Decimal(10, 2)
   reminderSent  Int       @default(0)
   lastReminderAt DateTime?
+  abandonedAt   DateTime  @default(now())
   recovered     Boolean   @default(false)
   recoveredAt   DateTime?
   createdAt     DateTime  @default(now())
@@ -359,6 +362,8 @@ model AbandonedCartSettings {
   id                   Int      @id @default(autoincrement())
   autoRemindersEnabled Boolean  @default(false)
   reminderIntervalHours Int     @default(24)
+  initialDelayHours    Int      @default(2)
+  reminderIntervals    Json     @default("[2,24,72]")
   maxReminders         Int      @default(3)
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt

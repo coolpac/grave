@@ -346,8 +346,8 @@ export default function Category() {
         </div>
       </div>
 
-      {/* Spacer для фиксированного поискового хедера */}
-      <div style={{ height: 'var(--header-search-spacer)' }} />
+      {/* Spacer: только под поиск (хедер уже даёт свой spacer) */}
+      <div style={{ height: 'var(--search-block-height)' }} />
 
       {/* Category Name */}
       <div className="px-4 py-4">
